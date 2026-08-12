@@ -72,3 +72,20 @@ class PedagogicalResponse(BaseModel):
     explanation_level: str = "adapted"
 
     sources: list[str] = Field(default_factory=list)
+
+class KnowledgeChunk(BaseModel):
+    chunk_id: str
+
+    content: str
+
+    student_class: StudentClass
+
+    subject: Subject
+
+    chapter: str
+
+    title: str
+
+    source: str
+
+    source_version: Optional[str] = None
