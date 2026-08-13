@@ -10,4 +10,10 @@ httpx
 pytest
 pytest-asyncio
 
-numpy
+numpy<2
+setuptools
+torch==2.2.2
+transformers==4.36.2
+sentence-transformers==2.2.2
+huggingface-hub<0.17.0
+llama-cpp-python
