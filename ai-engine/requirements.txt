@@ -1,19 +1,27 @@
-python-dotenv
-pydantic
-pydantic-settings
+# ==============================================================================
+# ALTERNIA AI-ENGINE — Dépendances Moteur IA
+# ==============================================================================
 
-fastapi
-uvicorn[standard]
+python-dotenv>=1.0.0
+pydantic>=2.7.0
+pydantic-settings>=2.0.0
 
-httpx
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+httpx>=0.27.0
 
-pytest
-pytest-asyncio
-
-numpy<2
-setuptools
+numpy<2.0.0
+scipy<1.14.0
 torch==2.2.2
-transformers==4.36.2
-sentence-transformers==2.2.2
-huggingface-hub<0.17.0
-llama-cpp-python
+transformers==4.46.3
+sentence-transformers==3.4.1
+huggingface-hub>=0.20.0
+
+llama-cpp-python>=0.3.0
+edge-tts>=7.0.0
+pymupdf>=1.24.0
+pypdf>=5.0.0
+qdrant-client>=1.11.0
+
+pytest>=8.0.0
+pytest-asyncio>=0.24.0

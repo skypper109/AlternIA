@@ -1,0 +1,242 @@
+<mxfile host="app.diagrams.net" modified="2026-08-15T18:00:00.000Z" agent="AlternIA" version="21.0.0" type="device">
+  <diagram id="vulgarise" name="1. Fonctionnement Grand Public">
+    <mxGraphModel dx="1422" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        
+        <!-- Titre -->
+        <mxCell id="title" value="AlternIA : Comment fonctionne le tuteur intelligent ? (Vue Simplifiée)" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=20;fontStyle=1;fontColor=#1E293B;" vertex="1" parent="1">
+          <mxGeometry x="180" y="30" width="800" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="subtitle" value="Un professeur particulier vocal, adapté au programme scolaire du Mali, fonctionnant même sans connexion internet" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=12;fontStyle=2;fontColor=#64748B;" vertex="1" parent="1">
+          <mxGeometry x="180" y="65" width="800" height="25" as="geometry" />
+        </mxCell>
+
+        <!-- 1. ELEVE -->
+        <mxCell id="box_eleve" value="&lt;b&gt;1. L'Élève Malien&lt;/b&gt;&lt;br&gt;&lt;br&gt;• Choisit sa classe (10ème, 11ème, Terminale)&lt;br&gt;• Choisit sa matière (Maths, Physique, etc.)&lt;br&gt;• Pose sa question à l'écrit ou à l'oral" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EFF6FF;strokeColor=#3B82F6;strokeWidth=2;fontSize=13;fontColor=#1E3A8A;align=left;spacingLeft=15;" vertex="1" parent="1">
+          <mxGeometry x="50" y="140" width="220" height="130" as="geometry" />
+        </mxCell>
+
+        <!-- 2. DISPOSITIF -->
+        <mxCell id="box_device" value="&lt;b&gt;2. Le Dispositif AlternIA&lt;/b&gt;&lt;br&gt;&lt;br&gt;Boîtier physique ou App Mobile&lt;br&gt;reçoit la question et active&lt;br&gt;l'intelligence pédagogique locale" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8FAFC;strokeColor=#64748B;strokeWidth=2;fontSize=13;fontColor=#0F172A;align=center;" vertex="1" parent="1">
+          <mxGeometry x="320" y="140" width="210" height="130" as="geometry" />
+        </mxCell>
+
+        <!-- FLECHE 1 -> 2 -->
+        <mxCell id="edge1" value="Question élève" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#3B82F6;strokeWidth=2;fontSize=11;fontColor=#1E3A8A;" edge="1" parent="1" source="box_eleve" target="box_device">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- 3. CERVEAU PEDAGOGIQUE -->
+        <mxCell id="box_pedago" value="&lt;b&gt;3. Le Cerveau Pédagogique&lt;/b&gt;&lt;br&gt;&lt;br&gt;• Analyse le niveau de l'élève&lt;br&gt;• Identifie s'il s'agit d'un cours ou d'un exercice&lt;br&gt;• Prépare une explication progressive" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF3C7;strokeColor=#F59E0B;strokeWidth=2;fontSize=13;fontColor=#78350F;align=left;spacingLeft=15;" vertex="1" parent="1">
+          <mxGeometry x="580" y="140" width="240" height="130" as="geometry" />
+        </mxCell>
+
+        <!-- FLECHE 2 -> 3 -->
+        <mxCell id="edge2" value="Analyse du besoin" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#F59E0B;strokeWidth=2;fontSize=11;fontColor=#78350F;" edge="1" parent="1" source="box_device" target="box_pedago">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- 4. BIBLIOTHEQUE NATIONALE -->
+        <mxCell id="box_biblio" value="&lt;b&gt;4. La Bibliothèque Officielle&lt;/b&gt;&lt;br&gt;&lt;br&gt;Tous les manuels et cours du Mali&lt;br&gt;sont enregistrés dans le boîtier.&lt;br&gt;&lt;i&gt;AlternIA retrouve en 0.1s les pages exactes du programme.&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DCFCE7;strokeColor=#10B981;strokeWidth=2;fontSize=13;fontColor=#064E3B;align=center;" vertex="1" parent="1">
+          <mxGeometry x="870" y="140" width="240" height="130" as="geometry" />
+        </mxCell>
+
+        <!-- FLECHE 3 -> 4 -->
+        <mxCell id="edge3" value="Recherche dans le manuel" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#10B981;strokeWidth=2;fontSize=11;fontColor=#064E3B;" edge="1" parent="1" source="box_pedago" target="box_biblio">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- 5. PROFESSEUR IA -->
+        <mxCell id="box_ia" value="&lt;b&gt;5. L'Intelligence Artificielle Locale&lt;/b&gt;&lt;br&gt;&lt;br&gt;Formule une explication simple, étape par étape,&lt;br&gt;en se basant &lt;b&gt;uniquement&lt;/b&gt; sur le programme officiel du Mali.&lt;br&gt;&lt;i&gt;(Aucune hallucination, 100% conforme au programme)&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F3E8FF;strokeColor=#A855F7;strokeWidth=2;fontSize=13;fontColor=#581C87;align=center;" vertex="1" parent="1">
+          <mxGeometry x="580" y="340" width="530" height="110" as="geometry" />
+        </mxCell>
+
+        <!-- FLECHE 4 -> 5 -->
+        <mxCell id="edge4" value="Extraits officiels trouvés" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#A855F7;strokeWidth=2;fontSize=11;fontColor=#581C87;" edge="1" parent="1" source="box_biblio" target="box_ia">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- 6. REPONSE TEXTE -->
+        <mxCell id="box_text" value="&lt;b&gt;6. Affichage Instantané&lt;/b&gt;&lt;br&gt;&lt;br&gt;Le texte s'affiche immédiatement mot à mot à l'écran." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F1F5F9;strokeColor=#64748B;strokeWidth=1.5;fontSize=12;fontColor=#334155;align=center;" vertex="1" parent="1">
+          <mxGeometry x="320" y="340" width="210" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- 7. VOIX HUMAINE -->
+        <mxCell id="box_voice" value="&lt;b&gt;7. Voix Humaine HD&lt;/b&gt;&lt;br&gt;&lt;br&gt;Une voix claire et chaleureuse (style ChatGPT) lit l'explication et prononce les formules mathématiques en français naturel." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE4E6;strokeColor=#F43F5E;strokeWidth=2;fontSize=12;fontColor=#881337;align=center;" vertex="1" parent="1">
+          <mxGeometry x="320" y="430" width="210" height="90" as="geometry" />
+        </mxCell>
+
+        <!-- FLECHES 5 -> 6 et 5 -> 7 -->
+        <mxCell id="edge5" value="Texte" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748B;strokeWidth=1.5;" edge="1" parent="1" source="box_ia" target="box_text">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge6" value="Audio" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#F43F5E;strokeWidth=2;" edge="1" parent="1" source="box_ia" target="box_voice">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- RETOUR A L'ELEVE -->
+        <mxCell id="edge7" value="L'élève écoute et lit" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#10B981;strokeWidth=2;dashed=1;" edge="1" parent="1" source="box_voice" target="box_eleve">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="160" y="475" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 8. CARNET DE REUSSITE -->
+        <mxCell id="box_carnet" value="&lt;b&gt;8. Le Carnet de Réussite de l'Élève&lt;/b&gt;&lt;br&gt;&lt;br&gt;AlternIA retient ce que l'élève a compris et les notions qu'il doit réviser pour ses examens." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ECFEFF;strokeColor=#06B6D4;strokeWidth=2;fontSize=13;fontColor=#164E63;align=center;" vertex="1" parent="1">
+          <mxGeometry x="50" y="340" width="220" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="edge8" value="Mémorisation" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#06B6D4;strokeWidth=1.5;" edge="1" parent="1" source="box_ia" target="box_carnet">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="550" y="390" />
+              <mxPoint x="550" y="390" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+
+  <diagram id="technique" name="2. Architecture Technique (Data Science & Devs)">
+    <mxGraphModel dx="1600" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- TITRE -->
+        <mxCell id="t_title" value="AlternIA : Architecture Technique Détaillée (Edge AI / RAG / Offline-First)" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=22;fontStyle=1;fontColor=#0F172A;" vertex="1" parent="1">
+          <mxGeometry x="300" y="20" width="1050" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- CONTAINER CLIENTS -->
+        <mxCell id="group_client" value="INTERFACE &amp; ACCESSIBILITE" style="swimlane;whiteSpace=wrap;html=1;fillColor=#F8FAFC;strokeColor=#94A3B8;strokeWidth=1.5;fontSize=13;fontStyle=1;fontColor=#334155;" vertex="1" parent="1">
+          <mxGeometry x="40" y="90" width="240" height="540" as="geometry" />
+        </mxCell>
+        <mxCell id="c_cli" value="&lt;b&gt;CLI Terminal Chat&lt;/b&gt;&lt;br&gt;src/alternia/cli/chat.py&lt;br&gt;&lt;i&gt;Commandes /classe, /matiere, /voix, /profil&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#64748B;fontSize=11;" vertex="1" parent="group_client">
+          <mxGeometry x="20" y="50" width="200" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="c_mobile" value="&lt;b&gt;Application Mobile Flutter&lt;/b&gt;&lt;br&gt;AlternIA App (iOS / Android / Web)&lt;br&gt;&lt;i&gt;Connexion LAN / Wi-Fi local au boîtier&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#64748B;fontSize=11;" vertex="1" parent="group_client">
+          <mxGeometry x="20" y="140" width="200" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="c_device" value="&lt;b&gt;Dispositif Embarqué (Box)&lt;/b&gt;&lt;br&gt;Hardware Edge (RPi 4/5 / Mac Edge)&lt;br&gt;&lt;i&gt;Écran tactile + Haut-parleur&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#64748B;fontSize=11;" vertex="1" parent="group_client">
+          <mxGeometry x="20" y="230" width="200" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- CONTAINER BACKEND FASTAPI -->
+        <mxCell id="group_api" value="BACKEND GATEWAY (FASTAPI)" style="swimlane;whiteSpace=wrap;html=1;fillColor=#F0FDF4;strokeColor=#22C55E;strokeWidth=1.5;fontSize=13;fontStyle=1;fontColor=#166534;" vertex="1" parent="1">
+          <mxGeometry x="320" y="90" width="280" height="540" as="geometry" />
+        </mxCell>
+        <mxCell id="api_rest" value="&lt;b&gt;REST Endpoints&lt;/b&gt;&lt;br&gt;• GET /health, /api/curriculum&lt;br&gt;• GET /api/learner/{id}&lt;br&gt;• POST /api/learner/{id}/interaction&lt;br&gt;• GET /api/device/info" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#16A34A;fontSize=11;align=left;spacingLeft=10;" vertex="1" parent="group_api">
+          <mxGeometry x="20" y="50" width="240" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="api_stream" value="&lt;b&gt;Streaming SSE Endpoint&lt;/b&gt;&lt;br&gt;POST /api/chat/stream&lt;br&gt;&lt;i&gt;Server-Sent Events token par token&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DCFCE7;strokeColor=#16A34A;fontSize=11;" vertex="1" parent="group_api">
+          <mxGeometry x="20" y="160" width="240" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="api_cors" value="&lt;b&gt;Middleware &amp; Sérialisation&lt;/b&gt;&lt;br&gt;• CORS Middleware (Origins: *)&lt;br&gt;• Pydantic V2 Models&lt;br&gt;• Async Lifespan Orchestrator init" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#16A34A;fontSize=11;align=left;spacingLeft=10;" vertex="1" parent="group_api">
+          <mxGeometry x="20" y="240" width="240" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- FLECHES CLIENT -> API -->
+        <mxCell id="t_edge1" value="HTTP REST / SSE" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#22C55E;strokeWidth=1.5;" edge="1" parent="1" source="c_mobile" target="api_stream">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- CONTAINER ORCHESTRATEUR -->
+        <mxCell id="group_orch" value="ORCHESTRATION &amp; DECISION PEDAGOGIQUE" style="swimlane;whiteSpace=wrap;html=1;fillColor=#EFF6FF;strokeColor=#3B82F6;strokeWidth=1.5;fontSize=13;fontStyle=1;fontColor=#1E40AF;" vertex="1" parent="1">
+          <mxGeometry x="640" y="90" width="340" height="540" as="geometry" />
+        </mxCell>
+        <mxCell id="orch_main" value="&lt;b&gt;AlterniaOrchestrator&lt;/b&gt;&lt;br&gt;src/alternia/orchestration/orchestrator.py&lt;br&gt;&lt;i&gt;Coordination RAG + Intent + Prompt + LLM&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#2563EB;fontSize=11;" vertex="1" parent="group_orch">
+          <mxGeometry x="20" y="50" width="300" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="orch_pedago" value="&lt;b&gt;PedagogicalEngine &amp; Intent Detection&lt;/b&gt;&lt;br&gt;• Analyse d'intention (Explication / Exo / Méthode)&lt;br&gt;• Strategies: ExplanationStrategy / ExerciseStrategy&lt;br&gt;• PedagogicalPromptBuilder (Règles didactiques)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#2563EB;fontSize=11;align=left;spacingLeft=10;" vertex="1" parent="group_orch">
+          <mxGeometry x="20" y="130" width="300" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="orch_learner" value="&lt;b&gt;LearnerManager &amp; Profile Memory&lt;/b&gt;&lt;br&gt;• LearningProfile (mastered_topics, to_review)&lt;br&gt;• LearningStatistics (taux de réussite, historique)&lt;br&gt;• Adaptation proactive de difficulté" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#2563EB;fontSize=11;align=left;spacingLeft=10;" vertex="1" parent="group_orch">
+          <mxGeometry x="20" y="240" width="300" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="orch_conv" value="&lt;b&gt;ConversationManager&lt;/b&gt;&lt;br&gt;• ConversationSession (fenêtre glissante)&lt;br&gt;• Contexte multi-tours élève / tuteur" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#2563EB;fontSize=11;" vertex="1" parent="group_orch">
+          <mxGeometry x="20" y="340" width="300" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- CONTAINER RAG & BASE VECTORIELLE -->
+        <mxCell id="group_rag" value="PIPELINE RAG &amp; BASE DOCUMENTAIRE MALI" style="swimlane;whiteSpace=wrap;html=1;fillColor=#FFFBEB;strokeColor=#F59E0B;strokeWidth=1.5;fontSize=13;fontStyle=1;fontColor=#92400E;" vertex="1" parent="1">
+          <mxGeometry x="1020" y="90" width="300" height="540" as="geometry" />
+        </mxCell>
+        <mxCell id="rag_data" value="&lt;b&gt;Base de Connaissances Scolaire&lt;/b&gt;&lt;br&gt;knowledge-base/ [10e, 11e, 12e/Terminale]&lt;br&gt;&lt;i&gt;Manuels officiels PDF (Maths, PC, etc.)&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF3C7;strokeColor=#D97706;fontSize=11;" vertex="1" parent="group_rag">
+          <mxGeometry x="20" y="50" width="260" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="rag_chunk" value="&lt;b&gt;PedagogicalChunker &amp; Parser&lt;/b&gt;&lt;br&gt;PyMuPDF / PyPDF Parser&lt;br&gt;&lt;i&gt;Découpe sémantique par notion / leçon&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#D97706;fontSize=11;" vertex="1" parent="group_rag">
+          <mxGeometry x="20" y="130" width="260" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="rag_embed" value="&lt;b&gt;EmbeddingService&lt;/b&gt;&lt;br&gt;Sentence-Transformers (BGE-small / Dense)&lt;br&gt;&lt;i&gt;Vecteurs denses normalisés 384d / 768d&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#D97706;fontSize=11;" vertex="1" parent="group_rag">
+          <mxGeometry x="20" y="210" width="260" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="rag_store" value="&lt;b&gt;Vector Store (Hybride)&lt;/b&gt;&lt;br&gt;• LocalVectorStore (Index Pickle/Numpy)&lt;br&gt;• QdrantVectorStore (Collections SQLite)&lt;br&gt;&lt;i&gt;Filtrage strict sur classe + matière + score&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#D97706;fontSize=11;" vertex="1" parent="group_rag">
+          <mxGeometry x="20" y="290" width="260" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="rag_service" value="&lt;b&gt;SemanticRetriever &amp; RAGService&lt;/b&gt;&lt;br&gt;Recherche cosinus top-k (k=4) + seuil min&lt;br&gt;&lt;i&gt;Génération de RAGContext structuré&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF3C7;strokeColor=#D97706;fontSize=11;" vertex="1" parent="group_rag">
+          <mxGeometry x="20" y="385" width="260" height="65" as="geometry" />
+        </mxCell>
+
+        <!-- CONTAINER INFERENCE LOCALE & AUDIO -->
+        <mxCell id="group_infer" value="INFERENCE LOCALE &amp; SYNTHESE VOCALE" style="swimlane;whiteSpace=wrap;html=1;fillColor=#FAF5FF;strokeColor=#A855F7;strokeWidth=1.5;fontSize=13;fontStyle=1;fontColor=#6B21A8;" vertex="1" parent="1">
+          <mxGeometry x="1360" y="90" width="260" height="540" as="geometry" />
+        </mxCell>
+        <mxCell id="llm_box" value="&lt;b&gt;LocalLLMClient (Llama.cpp)&lt;/b&gt;&lt;br&gt;Modèle: Qwen 2.5 3B Instruct&lt;br&gt;Quantification: Q4_K_M (2.1 Go)&lt;br&gt;Accélération: Metal / CUDA / CPU&lt;br&gt;&lt;i&gt;Génération de tokens en streaming&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F3E8FF;strokeColor=#9333EA;fontSize=11;" vertex="1" parent="group_infer">
+          <mxGeometry x="20" y="50" width="220" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="tts_box" value="&lt;b&gt;TTSEngine (Neural Voice)&lt;/b&gt;&lt;br&gt;• Edge Neural TTS (Voix Vivienne / Remy)&lt;br&gt;• Traduction phonétique des maths&lt;br&gt;• Worker Thread asynchrone non-bloquant&lt;br&gt;• Fallback offline: say / espeak-ng" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FDF2F8;strokeColor=#DB2777;fontSize=11;align=left;spacingLeft=10;" vertex="1" parent="group_infer">
+          <mxGeometry x="20" y="170" width="220" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="audio_play" value="&lt;b&gt;Lecteur Audio Natif&lt;/b&gt;&lt;br&gt;macOS: afplay&lt;br&gt;Linux: mpv / ffplay / aplay&lt;br&gt;&lt;i&gt;Interruption instantanée à la frappe&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#DB2777;fontSize=11;" vertex="1" parent="group_infer">
+          <mxGeometry x="20" y="300" width="220" height="65" as="geometry" />
+        </mxCell>
+
+        <!-- LIENS ET FLUX INTERNES -->
+        <mxCell id="f1" value="Question" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#3B82F6;strokeWidth=1.5;" edge="1" parent="1" source="api_stream" target="orch_main">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f2" value="Retrieve(k=4)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#F59E0B;strokeWidth=1.5;" edge="1" parent="1" source="orch_main" target="rag_service">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f3" value="RAGContext" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#F59E0B;strokeWidth=1.5;dashed=1;" edge="1" parent="1" source="rag_service" target="orch_main">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1000" y="440" />
+              <mxPoint x="1000" y="120" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f4" value="Prompt Didactique" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#9333EA;strokeWidth=2;" edge="1" parent="1" source="orch_main" target="llm_box">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1000" y="95" />
+              <mxPoint x="1340" y="95" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f5" value="Token Stream" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#22C55E;strokeWidth=2;" edge="1" parent="1" source="llm_box" target="api_stream">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1470" y="50" />
+              <mxPoint x="460" y="50" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f6" value="Texte Complet" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#DB2777;strokeWidth=1.5;" edge="1" parent="1" source="llm_box" target="tts_box">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f7" value="Audio MP3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#DB2777;strokeWidth=1.5;" edge="1" parent="1" source="tts_box" target="audio_play">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

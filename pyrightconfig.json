@@ -1,0 +1,14 @@
+{
+  "venvPath": ".",
+  "venv": ".venv",
+  "extraPaths": [
+    "backend/src",
+    "ai-engine/src"
+  ],
+  "exclude": [
+    "models",
+    "**/__pycache__",
+    ".venv"
+  ]
+}
+

@@ -1,14 +1,17 @@
 # Python
 __pycache__/
 *.py[cod]
+*$py.class
 *.so
 
 # Virtual environment
 .venv/
 venv/
+ENV/
 
-# Environment
+# Environment variables
 .env
+.env.local
 
 # IDE
 .vscode/
@@ -16,6 +19,7 @@ venv/
 
 # OS
 .DS_Store
+**/.DS_Store
 
 # Tests
 .pytest_cache/
@@ -25,10 +29,35 @@ htmlcov/
 # Logs
 *.log
 
-# Generated data
+# Generated data and vector stores
 data/embeddings/
 data/processed/
+data/qdrant/
+data/qdrant-*/
+data/index/
+ai-engine/data/qdrant/
+ai-engine/data/qdrant-*/
+ai-engine/data/index/*.json
+*.lock
+*.sqlite
 
-# Temporary
+# Heavy binary models & embeddings
+*.gguf
+*.safetensors
+*.bin
+*.onnx
+models/
+ai-engine/models/
+
+# PDFs and heavy raw documents (preserve directory structure with .gitkeep)
+*.pdf
+*.docx
+*.doc
+*.pptx
+*.ppt
+*.xlsx
+*.xls
+
+# Temporary files
 tmp/
 temp/
