@@ -1,0 +1,488 @@
+/* ==========================================================================
+   AlternIA Device UI - Design System & Animations
+   Optimisé pour écran tactile embarqué (Raspberry Pi 4/5 - 60 FPS)
+   Couleurs officielles : 
+   - Orange Solaire      : #F26522
+   - Cyan / Turquoise    : #26B7CD
+   - Bleu Royal Profond  : #214392
+   ========================================================================== */
+
+:root {
+  --color-orange: #F26522;
+  --color-orange-glow: rgba(242, 101, 34, 0.4);
+  --color-cyan: #26B7CD;
+  --color-cyan-glow: rgba(38, 183, 205, 0.4);
+  --color-blue: #214392;
+  --color-blue-glow: rgba(33, 67, 146, 0.4);
+
+  --bg-deep: #070D1E;
+  --bg-surface: #0E1835;
+  --bg-surface-elevated: #15224A;
+  --bg-glass: rgba(14, 24, 53, 0.75);
+  --border-glass: rgba(38, 183, 205, 0.18);
+  --text-primary: #F8FAFC;
+  --text-secondary: #94A3B8;
+  --text-muted: #64748B;
+
+  --radius-lg: 1.25rem;
+  --radius-xl: 1.75rem;
+  --radius-full: 9999px;
+}
+
+/* Reset & Scrollbar */
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background-color: var(--bg-deep);
+  color: var(--text-primary);
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+}
+
+/* Texte sélectionnable dans les cartes de réponses */
+.selectable-text {
+  user-select: text;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(7, 13, 30, 0.5);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(38, 183, 205, 0.25);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-cyan);
+}
+
+/* ==========================================================================
+   ANIMATIONS DU VORTEX ALTERNIA CORE (4 ÉTATS CLÉS)
+   ========================================================================== */
+
+/* Conteneur Vortex */
+.vortex-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 220px;
+  height: 220px;
+  transform: translateZ(0);
+  will-change: transform, filter;
+}
+
+#vortex-blades-group {
+  transform-origin: 100px 100px;
+  will-change: transform;
+}
+
+/* ÉTAT 1 : IDLE (Veille douce / Respiration) */
+.state-idle .vortex-container {
+  animation: floatBreathing 4s ease-in-out infinite;
+}
+.state-idle #vortex-blades-group {
+  animation: slowDriftSpin 24s linear infinite;
+}
+.state-idle .vortex-aura-pulse {
+  animation: auraBreathe 4s ease-in-out infinite;
+}
+.state-idle .wave-ring {
+  opacity: 0.15;
+  animation: wavePulseSlow 6s ease-in-out infinite;
+}
+
+/* ÉTAT 2 : LISTENING (Écoute active de l'élève) */
+.state-listening .vortex-container {
+  animation: listeningTremble 1.2s ease-in-out infinite alternate;
+  filter: drop-shadow(0 0 25px var(--color-cyan-glow)) drop-shadow(0 0 10px var(--color-orange-glow));
+}
+.state-listening #vortex-blades-group {
+  animation: listeningVibration 2.5s ease-in-out infinite;
+}
+.state-listening .wave-ring {
+  opacity: 0.9;
+  animation: waveExpandListening 1.4s cubic-bezier(0, 0.2, 0.8, 1) infinite;
+}
+.state-listening .wave-2 {
+  animation-delay: 0.4s;
+}
+.state-listening .wave-3 {
+  animation-delay: 0.8s;
+}
+
+/* ÉTAT 3 : THINKING (Réflexion RAG & LLM) */
+.state-thinking .vortex-container {
+  filter: drop-shadow(0 0 35px var(--color-orange-glow)) drop-shadow(0 0 20px var(--color-blue-glow));
+}
+.state-thinking #vortex-blades-group {
+  animation: highSpeedVortex 1.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+.state-thinking .vortex-aura-pulse {
+  animation: thinkingCorePulse 0.9s ease-in-out infinite alternate;
+}
+
+/* ÉTAT 4 : SPEAKING (Voix TTS AlternIA en cours) */
+.state-speaking .vortex-container {
+  animation: speakingBounce 0.8s ease-in-out infinite alternate;
+  filter: drop-shadow(0 0 30px var(--color-cyan-glow)) drop-shadow(0 0 15px var(--color-orange-glow));
+}
+.state-speaking #vortex-blades-group {
+  animation: speakingHarmonics 3s ease-in-out infinite;
+}
+.state-speaking .vortex-nucleus {
+  animation: nucleusGlow 0.4s ease-in-out infinite alternate;
+}
+
+/* KEYFRAMES */
+@keyframes slowDriftSpin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes floatBreathing {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-6px) scale(1.02); }
+}
+
+@keyframes auraBreathe {
+  0%, 100% { transform: scale(0.95); opacity: 0.3; }
+  50% { transform: scale(1.1); opacity: 0.6; }
+}
+
+@keyframes wavePulseSlow {
+  0%, 100% { transform: scale(1); opacity: 0.15; }
+  50% { transform: scale(1.06); opacity: 0.4; }
+}
+
+@keyframes highSpeedVortex {
+  0% { transform: rotate(0deg) scale(0.98); }
+  50% { transform: rotate(180deg) scale(1.05); }
+  100% { transform: rotate(360deg) scale(0.98); }
+}
+
+@keyframes thinkingCorePulse {
+  0% { opacity: 0.4; transform: scale(0.9); }
+  100% { opacity: 0.9; transform: scale(1.25); }
+}
+
+@keyframes waveExpandListening {
+  0% { transform: scale(0.7); opacity: 0.9; stroke-width: 3; }
+  100% { transform: scale(1.35); opacity: 0; stroke-width: 0.5; }
+}
+
+@keyframes listeningVibration {
+  0%, 100% { transform: rotate(0deg) scale(1); }
+  25% { transform: rotate(4deg) scale(1.04); }
+  75% { transform: rotate(-4deg) scale(1.02); }
+}
+
+@keyframes listeningTremble {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-4px); }
+}
+
+@keyframes speakingBounce {
+  0% { transform: scale(0.98); }
+  100% { transform: scale(1.05); }
+}
+
+@keyframes speakingHarmonics {
+  0% { transform: rotate(0deg); }
+  33% { transform: rotate(120deg); }
+  66% { transform: rotate(240deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes nucleusGlow {
+  0% { fill: #FFFFFF; filter: drop-shadow(0 0 2px #FFF); }
+  100% { fill: #26B7CD; filter: drop-shadow(0 0 8px #26B7CD); }
+}
+
+/* Visualiseur Audio Spectrum en bas de l'avatar */
+.audio-visualizer-bars {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 28px;
+}
+.audio-bar {
+  width: 4px;
+  background: linear-gradient(180deg, var(--color-cyan), var(--color-blue));
+  border-radius: 4px;
+  height: 6px;
+  transition: height 0.1s ease;
+}
+.state-speaking .audio-bar {
+  animation: equalize 0.6s ease-in-out infinite alternate;
+}
+.state-speaking .audio-bar:nth-child(1) { animation-delay: 0.1s; height: 18px; }
+.state-speaking .audio-bar:nth-child(2) { animation-delay: 0.3s; height: 26px; }
+.state-speaking .audio-bar:nth-child(3) { animation-delay: 0.05s; height: 22px; }
+.state-speaking .audio-bar:nth-child(4) { animation-delay: 0.4s; height: 28px; }
+.state-speaking .audio-bar:nth-child(5) { animation-delay: 0.2s; height: 16px; }
+.state-speaking .audio-bar:nth-child(6) { animation-delay: 0.35s; height: 24px; }
+.state-speaking .audio-bar:nth-child(7) { animation-delay: 0.15s; height: 14px; }
+
+@keyframes equalize {
+  0% { height: 6px; }
+  100% { height: 26px; }
+}
+
+/* ==========================================================================
+   CARTE DE FORMULE SCIENTIFIQUE DÉDIÉE (KaTeX Spotlight)
+   ========================================================================== */
+
+.formula-spotlight-card {
+  position: relative;
+  background: linear-gradient(135deg, rgba(21, 34, 74, 0.95), rgba(11, 20, 48, 0.98));
+  border: 1.5px solid var(--color-cyan);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(38, 183, 205, 0.2);
+  padding: 1.25rem 1.5rem;
+  margin: 1rem 0;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.formula-spotlight-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: linear-gradient(180deg, var(--color-orange), var(--color-cyan));
+}
+
+.formula-spotlight-card .formula-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: rgba(38, 183, 205, 0.15);
+  color: var(--color-cyan);
+  border: 1px solid rgba(38, 183, 205, 0.3);
+  padding: 0.25rem 0.65rem;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.formula-math-display {
+  padding: 1rem 0;
+  font-size: 1.4rem;
+  color: #FFFFFF;
+  text-shadow: 0 0 12px rgba(38, 183, 205, 0.35);
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.formula-variables-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.variable-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0.2rem 0.6rem;
+  border-radius: 0.5rem;
+  font-size: 0.8rem;
+  color: #E2E8F0;
+}
+.variable-chip strong {
+  color: var(--color-orange);
+}
+
+/* Mode Plein Écran Formule (Touch Zoom) */
+.formula-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(7, 13, 30, 0.92);
+  backdrop-filter: blur(16px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  animation: fadeIn 0.2s ease;
+}
+
+.formula-modal-content {
+  background: var(--bg-surface-elevated);
+  border: 2px solid var(--color-cyan);
+  border-radius: var(--radius-xl);
+  padding: 2.5rem;
+  max-width: 800px;
+  width: 100%;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 40px var(--color-cyan-glow);
+}
+
+/* ==========================================================================
+   COMPOSANTS TACTILES DU KIOSK
+   ========================================================================== */
+
+.touch-btn {
+  min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-lg);
+  font-weight: 600;
+  transition: all 0.15s ease;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.touch-btn:active {
+  transform: scale(0.96);
+}
+
+.mic-btn-main {
+  width: 72px;
+  height: 72px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(135deg, var(--color-orange), #D9480F);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 25px var(--color-orange-glow);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border: none;
+  cursor: pointer;
+}
+.mic-btn-main:active {
+  transform: scale(0.92);
+}
+.mic-btn-main.is-recording {
+  background: linear-gradient(135deg, #EF4444, #B91C1C);
+  box-shadow: 0 0 35px rgba(239, 68, 68, 0.6);
+  animation: micPulse 1.2s infinite;
+}
+
+@keyframes micPulse {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+  70% { transform: scale(1.08); box-shadow: 0 0 0 16px rgba(239, 68, 68, 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+/* Badge Statut en Direct */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(14, 24, 53, 0.85);
+  border: 1px solid var(--border-glass);
+  padding: 0.35rem 0.85rem;
+  border-radius: var(--radius-full);
+  font-size: 0.825rem;
+  font-weight: 500;
+}
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10B981;
+  box-shadow: 0 0 8px #10B981;
+}
+.status-dot.listening {
+  background: var(--color-cyan);
+  box-shadow: 0 0 10px var(--color-cyan);
+}
+.status-dot.thinking {
+  background: var(--color-orange);
+  box-shadow: 0 0 10px var(--color-orange);
+}
+.status-dot.speaking {
+  background: #A855F7;
+  box-shadow: 0 0 10px #A855F7;
+}
+
+/* Bulles de conversation */
+.chat-bubble-user {
+  background: linear-gradient(135deg, #214392, #183372);
+  border: 1px solid rgba(38, 183, 205, 0.25);
+  border-radius: 1.25rem 1.25rem 0.25rem 1.25rem;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+.chat-bubble-ai {
+  background: var(--bg-surface);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1.25rem 1.25rem 1.25rem 0.25rem;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.4);
+}
+
+/* Sélecteur de Matières & Classes */
+.pill-tab {
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-full);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.pill-tab:hover, .pill-tab:active {
+  background: rgba(38, 183, 205, 0.12);
+  color: #FFFFFF;
+}
+.pill-tab.active {
+  background: linear-gradient(135deg, var(--color-orange), #D9480F);
+  color: #FFFFFF;
+  border-color: transparent;
+  box-shadow: 0 4px 14px var(--color-orange-glow);
+}
+
+/* Animations génériques */
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Curseur clignotant en mode streaming */
+.typing-cursor {
+  display: inline-block;
+  width: 7px;
+  height: 15px;
+  background-color: var(--color-cyan);
+  margin-left: 4px;
+  vertical-align: middle;
+  border-radius: 2px;
+  box-shadow: 0 0 8px var(--color-cyan-glow);
+  animation: blinkCursor 0.75s infinite ease-in-out;
+}
+
+@keyframes blinkCursor {
+  0%, 100% { opacity: 1; transform: scaleY(1); }
+  50% { opacity: 0.15; transform: scaleY(0.8); }
+}
+

@@ -183,8 +183,23 @@ def test_unknown_session():
         "unknown"
     )
 
+    assert manager.get("unknown") is None
+    assert manager.get("unknown", "default_val") == "default_val"
+
     try:
         manager.get_session("unknown")
         assert False
     except KeyError:
         pass
+
+
+def test_conversation_manager_get():
+    manager = ConversationManager()
+    session = manager.create_session(
+        session_id="session-001",
+        student_id="student-001",
+        student_class="10eme",
+        subject="mathematiques",
+    )
+    assert manager.get("session-001") == session
+    assert manager.get("non-existent") is None

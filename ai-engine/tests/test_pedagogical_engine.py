@@ -1,130 +1,154 @@
-from dataclasses import dataclass
-
-from alternia.pedagogy.pedagogical_engine import (
-    PedagogicalEngine,
-)
-
-from alternia.pedagogy.intent import (
-    PedagogicalIntent,
+from alternia.pedagogical.engine import PedagogicalEngine
+from alternia.pedagogical.models import (
+    PedagogicalRequest,
+    QuestionAnalysis,
+    StudentProfile,
 )
 
 
-@dataclass
-class FakeSource:
-    chunk_id: str
+def make_request(
+    *,
+    intent="explanation",
+    context="",
+):
+    profile = StudentProfile(
+        student_id="student-test",
+        student_class="10eme",
+    )
+
+    analysis = QuestionAnalysis(
+        original_question="Qu'est-ce qu'une équation ?",
+        intent=intent,
+        student_class="10eme",
+        subject="mathematiques",
+        chapter="algebre",
+        lesson="equations",
+    )
+
+    return PedagogicalRequest(
+        question="Qu'est-ce qu'une équation ?",
+        profile=profile,
+        analysis=analysis,
+        context=context,
+    )
 
 
-@dataclass
-class FakeContext:
-    context_text: str
-    sources: list
-
-
-def test_engine_detects_concept_explanation():
+def test_engine_selects_explanation_strategy():
 
     engine = PedagogicalEngine()
 
-    context = FakeContext(
-        context_text=(
-            "Une équation est une égalité "
-            "contenant une inconnue."
+    request = make_request(
+        intent="explanation",
+        context=(
+            "Une équation du premier degré "
+            "est une égalité contenant une inconnue."
         ),
-        sources=[
-            FakeSource("equation-001"),
-        ],
     )
 
-    response = engine.generate(
-        question="Qu'est-ce qu'une équation ?",
-        context=context,
-        student_class="10eme",
-        subject="mathematiques",
+    response = engine.process(request)
+
+    assert response.intent == "explanation"
+
+    assert (
+        "EXPLICATION PÉDAGOGIQUE"
+        in response.answer
     )
 
     assert (
-        response.intent
-        == PedagogicalIntent.CONCEPT_EXPLANATION.value
+        "équation du premier degré"
+        in response.answer
     )
-
-    assert "équation" in response.answer.lower()
 
     assert response.student_class == "10eme"
 
     assert response.subject == "mathematiques"
 
-    assert len(response.sources) == 1
 
-
-def test_engine_handles_problem_solving():
+def test_engine_selects_exercise_strategy():
 
     engine = PedagogicalEngine()
 
-    context = FakeContext(
-        context_text=(
-            "Pour résoudre une équation, "
-            "on cherche la valeur de l'inconnue."
+    request = make_request(
+        intent="exercise",
+        context=(
+            "Résolution des équations "
+            "du premier degré."
         ),
-        sources=[],
     )
 
-    response = engine.generate(
-        question="Comment résoudre une équation ?",
-        context=context,
-        student_class="10eme",
-        subject="mathematiques",
-    )
+    response = engine.process(request)
+
+    assert response.intent == "exercise"
 
     assert (
-        response.intent
-        == PedagogicalIntent.PROBLEM_SOLVING.value
+        "EXERCICE D'ENTRAÎNEMENT"
+        in response.answer
     )
 
-    assert "étape" in response.answer.lower()
+    assert "10eme" in response.answer
+
+    assert (
+        "Résolution des équations"
+        in response.answer
+    )
 
 
-def test_engine_handles_unknown_question():
+def test_engine_defaults_to_explanation():
 
     engine = PedagogicalEngine()
 
-    context = FakeContext(
-        context_text="",
-        sources=[],
+    request = make_request(
+        intent="unknown_intent",
     )
 
-    response = engine.generate(
-        question="Bonjour",
-        context=context,
-        student_class="10eme",
-        subject="mathematiques",
-    )
+    response = engine.process(request)
 
-    assert (
-        response.intent
-        == PedagogicalIntent.UNKNOWN.value
-    )
-
-    assert response.answer
+    assert response.intent == "explanation"
 
 
-def test_engine_tracks_context_usage():
+def test_engine_rejects_empty_question():
 
     engine = PedagogicalEngine()
 
-    context = FakeContext(
-        context_text="Contenu pédagogique.",
-        sources=[
-            FakeSource("chunk-001"),
-            FakeSource("chunk-002"),
-        ],
+    request = make_request()
+
+    request.question = "   "
+
+    try:
+        engine.process(request)
+        assert False
+    except ValueError as exc:
+        assert (
+            "question"
+            in str(exc).lower()
+        )
+
+
+def test_engine_follow_up_for_explanation():
+
+    engine = PedagogicalEngine()
+
+    request = make_request(
+        intent="explanation",
     )
 
-    response = engine.generate(
-        question="Qu'est-ce qu'un triangle ?",
-        context=context,
-        student_class="10eme",
-        subject="mathematiques",
+    response = engine.process(request)
+
+    assert response.needs_follow_up is True
+
+    assert response.follow_up_question
+
+
+def test_engine_no_follow_up_for_exercise():
+
+    engine = PedagogicalEngine()
+
+    request = make_request(
+        intent="exercise",
     )
 
-    assert response.metadata["context_used"] is True
+    response = engine.process(request)
 
-    assert response.metadata["source_count"] == 2
+    assert response.needs_follow_up is False
+
+    assert response.follow_up_question is None

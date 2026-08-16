@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="100%" height="100%" fill="none" id="alternia-vortex-svg">
+  <defs>
+    <!-- Gradients officiels AlternIA -->
+    <linearGradient id="vortexOrange" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF8238"/>
+      <stop offset="100%" stop-color="#E2530F"/>
+    </linearGradient>
+    <linearGradient id="vortexCyan" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3CE0F8"/>
+      <stop offset="100%" stop-color="#19A7BA"/>
+    </linearGradient>
+    <linearGradient id="vortexBlue" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2E5DE0"/>
+      <stop offset="100%" stop-color="#18367F"/>
+    </linearGradient>
+
+    <!-- Filtre lueur dynamique (Bloom) -->
+    <filter id="vortexGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur1"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="15" result="blur2"/>
+      <feMerge>
+        <feMergeNode in="blur2"/>
+        <feMergeNode in="blur1"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <radialGradient id="coreAura" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#26B7CD" stop-opacity="0.35"/>
+      <stop offset="50%" stop-color="#214392" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#F26522" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Aura lumineuse d'arrière-plan -->
+  <circle cx="100" cy="100" r="92" fill="url(#coreAura)" class="vortex-aura-pulse" />
+
+  <!-- Anneau d'ondes acoustiques / Résonance (Actif en état LISTENING / SPEAKING) -->
+  <g class="vortex-soundwaves" opacity="0.6">
+    <circle cx="100" cy="100" r="78" stroke="#26B7CD" stroke-width="1.5" stroke-dasharray="4 8" class="wave-ring wave-1" />
+    <circle cx="100" cy="100" r="88" stroke="#F26522" stroke-width="1.5" stroke-dasharray="6 12" class="wave-ring wave-2" />
+    <circle cx="100" cy="100" r="98" stroke="#214392" stroke-width="1.5" stroke-dasharray="8 16" class="wave-ring wave-3" />
+  </g>
+
+  <!-- Groupe principal rotatif du Tri-Vortex -->
+  <g id="vortex-blades-group" transform-origin="100 100">
+    
+    <!-- Pétale Orange (Sommet / Droite) -->
+    <path id="blade-orange" class="vortex-blade blade-orange"
+          d="M 100 12 C 146 28 186 74 192 114 C 165 96 131 87 97 87 C 76 87 58 94 42 108 C 49 67 70 30 100 12 Z" 
+          fill="url(#vortexOrange)" />
+
+    <!-- Pétale Cyan (Bas / Droite) -->
+    <path id="blade-cyan" class="vortex-blade blade-cyan"
+          d="M 192 114 C 185 155 144 186 103 189 C 117 162 117 128 103 101 C 93 83 80 70 62 60 C 103 56 158 74 192 114 Z" 
+          fill="url(#vortexCyan)" />
+
+    <!-- Pétale Bleu Royal (Bas / Gauche) -->
+    <path id="blade-blue" class="vortex-blade blade-blue"
+          d="M 15 121 C 12 74 49 30 97 11 C 80 38 80 75 94 102 C 103 120 117 133 135 143 C 94 150 35 146 15 121 Z" 
+          fill="url(#vortexBlue)" />
+
+    <!-- Noyau intérieur négatif (White Core avec lueur douce) -->
+    <circle cx="100" cy="102" r="18" fill="#FFFFFF" opacity="0.96" class="vortex-nucleus" />
+    <circle cx="100" cy="102" r="8" fill="#214392" opacity="0.15" class="vortex-nucleus-inner" />
+  </g>
+</svg>
