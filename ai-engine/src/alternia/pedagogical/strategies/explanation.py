@@ -3,8 +3,14 @@ from alternia.pedagogical.models import PedagogicalRequest
 
 class ExplanationStrategy:
     """
-    Stratégie utilisée lorsqu'un élève demande
-    une explication ou cherche à comprendre une notion.
+    Stratégie pédagogique utilisée lorsqu'un élève
+    demande une explication ou cherche à comprendre
+    une notion.
+
+    La stratégie produit l'instruction pédagogique
+    ainsi que le contexte disponible afin de conserver
+    la compatibilité avec l'ancien moteur pendant
+    la migration vers le PromptBuilder.
     """
 
     name = "explanation"
@@ -16,39 +22,24 @@ class ExplanationStrategy:
 
         context = request.context.strip()
 
-        if not context:
-            return self._without_context(request)
-
-        return self._with_context(
-            request,
-            context,
+        instruction = (
+            "EXPLICATION PÉDAGOGIQUE DIRECTE\n\n"
+            "- Réponds directement et avec clarté à la question posée par l'élève.\n"
+            "- Si c'est une question générale de découverte, donne une explication claire et structurée.\n"
+            "- S'il s'agit d'une suite, précision ou application ('en quoi c'est utilisé en...', 'pourquoi...', 'donne un exemple'), réponds DIRECTEMENT sur cet aspect sans répéter les définitions déjà données dans les échanges précédents.\n"
+            "- Synthèse en 3 à 5 phrases pertinentes + formules si approprié."
         )
 
-    @staticmethod
-    def _with_context(
-        request: PedagogicalRequest,
-        context: str,
-    ) -> str:
+        if context:
+            return (
+                instruction
+                + "\n\nContexte pédagogique :\n"
+                + context
+                + "\n\n(Utilise ces extraits uniquement s'ils répondent précisément à la question de l'élève)."
+            )
 
         return (
-            "EXPLICATION PÉDAGOGIQUE\n\n"
-            f"Question : {request.question}\n\n"
-            "Voici les éléments du programme "
-            "correspondant à ta question :\n\n"
-            f"{context}\n\n"
-            "L'explication détaillée sera construite "
-            "à partir de ces éléments."
-        )
-
-    @staticmethod
-    def _without_context(
-        request: PedagogicalRequest,
-    ) -> str:
-
-        return (
-            "EXPLICATION PÉDAGOGIQUE\n\n"
-            f"Question : {request.question}\n\n"
-            "Je ne dispose pas encore d'un contexte "
-            "pédagogique suffisant pour répondre "
-            "précisément à cette question."
+            instruction
+            + "\n\nContexte pédagogique :\n"
+            + "Aucun contexte pédagogique suffisant n'est disponible pour cette question spécifique."
         )

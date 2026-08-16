@@ -1,9 +1,12 @@
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Literal
 
-
 MessageRole = Literal["student", "assistant", "system"]
+
+
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 @dataclass
@@ -15,7 +18,7 @@ class ConversationMessage:
     role: MessageRole
     content: str
     timestamp: datetime = field(
-        default_factory=datetime.utcnow
+        default_factory=_utcnow
     )
     metadata: dict[str, Any] = field(
         default_factory=dict
@@ -45,11 +48,11 @@ class ConversationSession:
     )
 
     created_at: datetime = field(
-        default_factory=datetime.utcnow
+        default_factory=_utcnow
     )
 
     updated_at: datetime = field(
-        default_factory=datetime.utcnow
+        default_factory=_utcnow
     )
 
     def add_message(
@@ -69,9 +72,10 @@ class ConversationSession:
         )
 
         self.messages.append(message)
-        self.updated_at = datetime.utcnow()
+        self.updated_at = _utcnow()
 
         return message
+
 
     def last_messages(
         self,

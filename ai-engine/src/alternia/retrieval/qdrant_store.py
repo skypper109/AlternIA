@@ -41,22 +41,29 @@ class QdrantVectorStore:
 
     def __init__(
         self,
-        path: str = "data/qdrant",
+        path: str | Path | None = None,
+        location: str | None = None,
+        url: str | None = None,
         dimension: int = 384,
     ):
-
-        self.path = Path(path)
-
-        self.path.mkdir(
-            parents=True,
-            exist_ok=True,
-        )
-
-        self.client = QdrantClient(
-            path=str(self.path)
-        )
-
         self.dimension = dimension
+
+        if location == ":memory:":
+            self.client = QdrantClient(location=":memory:")
+            self.path = None
+        elif url is not None:
+            self.client = QdrantClient(url=url)
+            self.path = None
+        else:
+            storage_path = Path(path or "data/qdrant")
+            storage_path.mkdir(
+                parents=True,
+                exist_ok=True,
+            )
+            self.path = storage_path
+            self.client = QdrantClient(
+                path=str(self.path)
+            )
 
         self._ensure_collection()
 

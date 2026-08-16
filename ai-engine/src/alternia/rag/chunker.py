@@ -9,7 +9,26 @@ class TextChunker:
     utilisables par le système RAG.
     """
 
-    def __init__(self, chunk_size: int = 1000, overlap: int = 150):
+    def __init__(
+        self,
+        chunk_size: int = 1000,
+        overlap: int = 150,
+    ):
+        if chunk_size <= 0:
+            raise ValueError(
+                "chunk_size doit être supérieur à 0."
+            )
+
+        if overlap < 0:
+            raise ValueError(
+                "overlap ne peut pas être négatif."
+            )
+
+        if overlap >= chunk_size:
+            raise ValueError(
+                "overlap doit être inférieur à chunk_size."
+            )
+
         self.chunk_size = chunk_size
         self.overlap = overlap
 
@@ -42,7 +61,9 @@ class TextChunker:
             if chunk_content:
 
                 chunk = KnowledgeChunk(
-                    chunk_id=f"{source}-{chunk_number}",
+                    chunk_id=(
+                        f"{source}-{chunk_number}"
+                    ),
                     content=chunk_content,
                     student_class=student_class,
                     subject=subject,
@@ -56,6 +77,18 @@ class TextChunker:
 
             chunk_number += 1
 
-            start = end - self.overlap
+            next_start = end - self.overlap
+
+            if next_start <= start:
+                break
+
+            start = next_start
 
         return chunks
+
+
+# Alias de compatibilité.
+#
+# Certains modules utilisent encore le nom Chunker.
+# On conserve donc les deux noms.
+Chunker = TextChunker

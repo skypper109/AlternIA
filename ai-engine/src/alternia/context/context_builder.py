@@ -8,17 +8,39 @@ from alternia.context.models import (
 
 class ContextBuilder:
     """
-    Transforme les résultats du SemanticRetriever
-    en contexte pédagogique exploitable par le moteur IA.
+    Transforme les résultats du retrieval en contexte
+    pédagogique exploitable par AlternIA.
+
+    Pipeline :
+
+        retrieval
+            ↓
+        validation metadata
+            ↓
+        score filtering
+            ↓
+        nettoyage
+            ↓
+        déduplication
+            ↓
+        Top-K
+            ↓
+        contexte pédagogique
     """
 
     def __init__(
         self,
-        max_sources: int = 5,
-        min_score: float = 0.0,
+        max_sources: int = 2,
+        min_score: float = 0.30,
+        max_content_length: int = 450,
     ):
         self.max_sources = max_sources
         self.min_score = min_score
+        self.max_content_length = max_content_length
+
+    # =========================================================
+    # BUILD
+    # =========================================================
 
     def build(
         self,
@@ -28,29 +50,29 @@ class ContextBuilder:
         subject: str | None = None,
     ) -> PedagogicalContext:
 
-        sources = []
+        sources: list[ContextSource] = []
 
         for result in results:
 
-            payload = self._extract_payload(result)
+            payload = self._extract_payload(
+                result
+            )
 
             if not payload:
                 continue
-
-            # -----------------------------------------
-            # Vérification classe
-            # -----------------------------------------
 
             result_class = payload.get(
                 "student_class"
             )
 
-            if result_class != student_class:
-                continue
+            allowed_classes = {
+                "10eme": ["10eme"],
+                "11eme": ["10eme", "11eme"],
+                "12eme": ["10eme", "11eme", "12eme"],
+            }.get(student_class, [student_class])
 
-            # -----------------------------------------
-            # Vérification matière
-            # -----------------------------------------
+            if result_class not in allowed_classes:
+                continue
 
             result_subject = payload.get(
                 "subject"
@@ -62,32 +84,38 @@ class ContextBuilder:
             ):
                 continue
 
-            # -----------------------------------------
-            # Score
-            # -----------------------------------------
-
             score = float(
-                getattr(result, "score", 0.0)
+                getattr(
+                    result,
+                    "score",
+                    0.0,
+                )
             )
 
             if score < self.min_score:
                 continue
 
-            # -----------------------------------------
-            # Contenu
-            # -----------------------------------------
-
-            content = payload.get(
-                "content",
-                "",
+            content = self._clean_content(
+                payload.get(
+                    "content",
+                    "",
+                )
             )
 
-            if not content.strip():
+            if not content:
                 continue
 
-            # -----------------------------------------
-            # Création source
-            # -----------------------------------------
+            if (
+                self.max_content_length > 0
+                and len(content)
+                > self.max_content_length
+            ):
+                content = (
+                    content[
+                        : self.max_content_length
+                    ].rstrip()
+                    + "..."
+                )
 
             source = ContextSource(
                 chunk_id=str(
@@ -96,9 +124,9 @@ class ContextBuilder:
                         "",
                     )
                 ),
-                content=content.strip(),
+                content=content,
                 score=score,
-                student_class=result_class,
+                student_class=student_class,
                 subject=result_subject,
                 chapter=payload.get(
                     "chapter"
@@ -112,36 +140,38 @@ class ContextBuilder:
                 metadata=payload,
             )
 
-            sources.append(source)
+            sources.append(
+                source
+            )
 
-        # ---------------------------------------------
-        # Tri par pertinence
-        # ---------------------------------------------
+        # =====================================================
+        # TRI
+        # =====================================================
 
         sources.sort(
             key=lambda source: source.score,
             reverse=True,
         )
 
-        # ---------------------------------------------
-        # Suppression des doublons
-        # ---------------------------------------------
+        # =====================================================
+        # DÉDUPLICATION
+        # =====================================================
 
         sources = self._remove_duplicates(
             sources
         )
 
-        # ---------------------------------------------
-        # Top-K
-        # ---------------------------------------------
+        # =====================================================
+        # TOP-K
+        # =====================================================
 
         sources = sources[
             : self.max_sources
         ]
 
-        # ---------------------------------------------
-        # Construction du texte
-        # ---------------------------------------------
+        # =====================================================
+        # TEXTE
+        # =====================================================
 
         context_text = self._build_text(
             sources
@@ -155,6 +185,10 @@ class ContextBuilder:
             context_text=context_text,
             max_sources=self.max_sources,
         )
+
+    # =========================================================
+    # PAYLOAD
+    # =========================================================
 
     @staticmethod
     def _extract_payload(
@@ -178,23 +212,73 @@ class ContextBuilder:
 
         return payload
 
+    # =========================================================
+    # NETTOYAGE
+    # =========================================================
+
+    @staticmethod
+    def _clean_content(
+        content: Any,
+    ) -> str:
+
+        if not isinstance(
+            content,
+            str,
+        ):
+            return ""
+
+        lines = []
+
+        for line in content.splitlines():
+
+            cleaned = " ".join(
+                line.split()
+            )
+
+            if cleaned:
+                lines.append(
+                    cleaned
+                )
+
+        return "\n".join(
+            lines
+        ).strip()
+
+    # =========================================================
+    # DÉDUPLICATION
+    # =========================================================
+
     @staticmethod
     def _remove_duplicates(
         sources: list[ContextSource],
     ) -> list[ContextSource]:
 
-        seen = set()
+        seen_chunk_ids: set[str] = set()
+        seen_content: set[str] = set()
 
         unique_sources = []
 
         for source in sources:
 
-            key = source.chunk_id
-
-            if key in seen:
+            if source.chunk_id in seen_chunk_ids:
                 continue
 
-            seen.add(key)
+            normalized_content = (
+                " ".join(
+                    source.content.lower().split()
+                )
+            )
+
+            if normalized_content in seen_content:
+                continue
+
+            seen_chunk_ids.add(
+                source.chunk_id
+            )
+
+            seen_content.add(
+                normalized_content
+            )
 
             unique_sources.append(
                 source
@@ -202,47 +286,32 @@ class ContextBuilder:
 
         return unique_sources
 
+    # =========================================================
+    # CONTEXTE TEXTE
+    # =========================================================
+
     @staticmethod
     def _build_text(
         sources: list[ContextSource],
     ) -> str:
-
         if not sources:
             return ""
 
         sections = []
-
         for index, source in enumerate(
             sources,
             start=1,
         ):
-
-            header = (
-                f"SOURCE {index}\n"
-                f"Classe : {source.student_class}\n"
-                f"Matière : {source.subject}\n"
-            )
-
+            header = f"[Source {index}"
+            if source.subject:
+                header += f" - {source.subject}"
             if source.chapter:
-                header += (
-                    f"Chapitre : "
-                    f"{source.chapter}\n"
-                )
-
-            if source.lesson:
-                header += (
-                    f"Leçon : "
-                    f"{source.lesson}\n"
-                )
-
-            sections.append(
-                header
-                + "\n"
-                + source.content
-            )
+                header += f" | {source.chapter}"
+            header += "]"
+            sections.append(f"{header} : {source.content}")
 
         return (
             "CONTEXTE PÉDAGOGIQUE ALTERNIA\n\n"
-            + "\n\n".join(sections)
+            + "\n".join(sections)
             + "\n\nFIN DU CONTEXTE"
         )

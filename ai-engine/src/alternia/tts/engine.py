@@ -1,0 +1,374 @@
+import asyncio
+import os
+import platform
+import queue
+import re
+import shutil
+import subprocess
+import tempfile
+import threading
+from typing import Optional
+import edge_tts
+
+# Désactiver le warning de parallélisme HuggingFace lors des forks de processus
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+# Voix Neurales Haute Définition (Expressivité humaine type ChatGPT)
+NEURAL_VOICES = {
+    "vivienne": "fr-FR-VivienneMultilingualNeural",  # Féminine ultra-naturelle, chaleureuse et fluide (Défaut AlternIA)
+    "denise": "fr-FR-DeniseNeural",                  # Féminine claire et posée
+    "eloise": "fr-FR-EloiseNeural",                  # Féminine jeune, vivante et dynamique
+    "remy": "fr-FR-RemyMultilingualNeural",          # Masculine naturelle et conversationnelle
+    "henri": "fr-FR-HenriNeural",                    # Masculine posée et académique
+}
+
+
+class TTSEngine:
+    """
+    Moteur Text-To-Speech haute fidélité pour AlternIA avec pipeline de pré-synthèse.
+
+    Caractéristiques :
+    - Voix Neurale française ultra-naturelle et humaine (Vivienne par défaut).
+    - Pipeline audio à 2 étages (synthèse en parallèle pendant la lecture) : 0ms de pause entre phrases.
+    - File d'attente asynchrone non-bloquante pour lecture fluide au fil de la génération LLM.
+    - Traduction phonétique des symboles et formules mathématiques pour une diction pédagogique parfaite.
+    """
+
+    def __init__(
+        self,
+        voice: Optional[str] = None,
+        rate: Optional[int] = None,
+        use_neural: bool = True,
+    ):
+        self.system = platform.system()
+        self.use_neural = use_neural
+        self.neural_voice = self._resolve_neural_voice(voice or "vivienne")
+        self.system_voice = self._detect_best_system_voice()
+        self.rate = rate or 190
+
+        # Pipeline à double étage : textes à synthétiser -> audios prêts à jouer
+        self._text_queue: queue.Queue = queue.Queue()
+        self._audio_queue: queue.Queue = queue.Queue()
+
+        self._stop_event = threading.Event()
+        self._synthesis_thread: Optional[threading.Thread] = None
+        self._playback_thread: Optional[threading.Thread] = None
+        self._current_process: Optional[subprocess.Popen] = None
+        self._temp_files: list[str] = []
+
+        self._start_pipeline()
+
+    @property
+    def voice(self) -> str:
+        """Retourne le nom de la voix active."""
+        if self.use_neural and self.neural_voice:
+            for key, val in NEURAL_VOICES.items():
+                if val == self.neural_voice or key == self.neural_voice:
+                    return f"Neural {key.capitalize()}"
+            return self.neural_voice
+        return f"Système ({self.system_voice})"
+
+    def _resolve_neural_voice(self, voice_name: str) -> str:
+        """Résout un nom court de voix en identifiant officiel Azure Neural."""
+        cleaned = voice_name.strip().lower()
+        if cleaned in NEURAL_VOICES:
+            return NEURAL_VOICES[cleaned]
+        if "neural" in cleaned:
+            return voice_name
+        return NEURAL_VOICES["vivienne"]
+
+    def set_voice(self, voice_name: str) -> str:
+        """Change dynamiquement la voix utilisée."""
+        cleaned = voice_name.strip().lower()
+        if cleaned in {"system", "locale", "local", "systeme"}:
+            self.use_neural = False
+            return self.voice
+
+        self.use_neural = True
+        self.neural_voice = self._resolve_neural_voice(cleaned)
+        return self.voice
+
+    def _detect_best_system_voice(self) -> str:
+        """Détecte la meilleure voix système locale disponible."""
+        if self.system == "Darwin":
+            try:
+                result = subprocess.run(
+                    ["say", "-v", "?"],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                output = result.stdout.lower()
+                for candidate in ["audrey", "aurelie", "thomas", "amélie", "amelie", "flo"]:
+                    if candidate in output:
+                        for line in result.stdout.splitlines():
+                            if candidate in line.lower() and ("fr_" in line.lower() or "français" in line.lower() or "french" in line.lower()):
+                                return line.split()[0]
+                return "Thomas"
+            except Exception:
+                return "Thomas"
+
+        elif self.system == "Linux":
+            return "fr+f3"
+
+        return "default"
+
+    def _start_pipeline(self):
+        """Démarre les deux workers (synthèse en amont + lecture immédiate)."""
+        self._synthesis_thread = threading.Thread(
+            target=self._synthesis_worker,
+            daemon=True,
+            name="AlterniaTTSSynthesizer",
+        )
+        self._playback_thread = threading.Thread(
+            target=self._playback_worker,
+            daemon=True,
+            name="AlterniaTTSPlayer",
+        )
+        self._synthesis_thread.start()
+        self._playback_thread.start()
+
+    def _synthesis_worker(self):
+        """Pré-synthétise les phrases en parallèle pour qu'elles soient prêtes avant la fin de la lecture précédente."""
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        try:
+            while not self._stop_event.is_set():
+                try:
+                    item = self._text_queue.get(timeout=0.15)
+                except queue.Empty:
+                    continue
+
+                if item is None:
+                    break
+
+                text = item.strip()
+                clean_text = self._clean_for_speech(text)
+                if not clean_text:
+                    self._text_queue.task_done()
+                    continue
+
+                if self.use_neural:
+                    try:
+                        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f:
+                            temp_path = f.name
+
+                        communicate = edge_tts.Communicate(clean_text, self.neural_voice, rate="+5%")
+                        loop.run_until_complete(communicate.save(temp_path))
+
+                        if os.path.exists(temp_path) and os.path.getsize(temp_path) > 0:
+                            self._audio_queue.put(("file", temp_path))
+                        else:
+                            self._audio_queue.put(("system", clean_text))
+                    except Exception:
+                        self._audio_queue.put(("system", clean_text))
+                else:
+                    self._audio_queue.put(("system", clean_text))
+
+                self._text_queue.task_done()
+        finally:
+            try:
+                loop.close()
+            except Exception:
+                pass
+
+
+    def _playback_worker(self):
+        """Joue immédiatement les fichiers audio dès qu'ils arrivent, sans latence entre phrases."""
+        while not self._stop_event.is_set():
+            try:
+                item = self._audio_queue.get(timeout=0.15)
+            except queue.Empty:
+                continue
+
+            if item is None:
+                break
+
+            mode, payload = item
+
+            if mode == "file":
+                temp_path = payload
+                try:
+                    if self.system == "Darwin":
+                        self._current_process = subprocess.Popen(["afplay", temp_path])
+                        self._current_process.wait()
+                    elif self.system == "Linux":
+                        if shutil.which("mpv"):
+                            self._current_process = subprocess.Popen(["mpv", "--no-video", "--really-quiet", temp_path])
+                        elif shutil.which("ffplay"):
+                            self._current_process = subprocess.Popen(["ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet", temp_path])
+                        elif shutil.which("paplay"):
+                            self._current_process = subprocess.Popen(["paplay", temp_path])
+                        if self._current_process:
+                            self._current_process.wait()
+                finally:
+                    self._current_process = None
+                    if os.path.exists(temp_path):
+                        try:
+                            os.remove(temp_path)
+                        except Exception:
+                            pass
+            elif mode == "system":
+                self._play_system_speech(payload)
+
+            self._audio_queue.task_done()
+
+    def _play_system_speech(self, clean_text: str) -> None:
+        """Lecture de repli via le synthétiseur système local (say ou espeak)."""
+        system_clean_text = re.sub(r"<[^>]+>", " ", clean_text)
+        system_clean_text = re.sub(r"\s+", " ", system_clean_text).strip()
+        if not system_clean_text:
+            return
+
+        if self.system == "Darwin":
+            cmd = ["say", "-r", str(self.rate)]
+            if self.system_voice and self.system_voice != "default":
+                cmd.extend(["-v", self.system_voice])
+            cmd.append(system_clean_text)
+            try:
+                self._current_process = subprocess.Popen(cmd)
+                self._current_process.wait()
+            except Exception:
+                pass
+            finally:
+                self._current_process = None
+
+        elif self.system == "Linux":
+            executable = "espeak-ng" if shutil.which("espeak-ng") else "espeak"
+            if shutil.which(executable):
+                cmd = [executable, "-v", self.system_voice, "-s", str(self.rate), system_clean_text]
+                try:
+                    self._current_process = subprocess.Popen(cmd)
+                    self._current_process.wait()
+                except Exception:
+                    pass
+                finally:
+                    self._current_process = None
+
+
+    @staticmethod
+    def _clean_for_speech(text: str) -> str:
+        """
+        Nettoie et enrichit le texte avec une ponctuation humaine fluide et dynamique
+        sans temps de pause excessifs (style conversationnel ChatGPT / Denise).
+        """
+        t = text.strip()
+
+        # Supprimer le code markdown brut
+        t = re.sub(r"```[\s\S]*?```", " , comme montré dans cette démonstration, ", t)
+        t = re.sub(r"`([^`]+)`", r"\1", t)
+        t = re.sub(r"\*\*([^*]+)\*\*", r"\1", t)
+        t = re.sub(r"\*([^*]+)\*", r"\1", t)
+        t = re.sub(r"^#+\s*", "", t, flags=re.MULTILINE)
+
+        # Remplacement des fractions LaTeX simples : \frac{a}{b} -> a sur b
+        t = re.sub(r"\\frac\{([^}]+)\}\{([^}]+)\}", r"\1 sur \2", t)
+        t = re.sub(r"\\sqrt\{([^}]+)\}", r"racine carrée de \1", t)
+        t = re.sub(r"\\left|\\right", "", t)
+        t = re.sub(r"\\[a-zA-Z]+", " ", t)  # Nettoyer les commandes LaTeX restantes
+
+        # Remplacement phonétique des symboles mathématiques et scientifiques
+        t = t.replace("²", " au carré ")
+        t = t.replace("^2", " au carré ")
+        t = t.replace("³", " au cube ")
+        t = t.replace("^3", " au cube ")
+        t = t.replace("±", " plus ou moins ")
+        t = t.replace("≠", " différent de ")
+        t = t.replace("≤", " inférieur ou égal à ")
+        t = t.replace("≥", " supérieur ou égal à ")
+        t = t.replace("→", " donne ")
+        t = t.replace("⇒", " implique ")
+        t = t.replace("⇔", " équivaut à ")
+        t = t.replace("×", " fois ")
+        t = t.replace("√", "racine carrée de ")
+        t = t.replace("Δ", "delta ")
+        t = t.replace("π", "pi ")
+        t = t.replace("∈", " appartient à ")
+        t = t.replace("∉", " n'appartient pas à ")
+        t = t.replace("∞", " l'infini ")
+        t = t.replace("≈", " environ ")
+
+        # Unités scientifiques courantes en français
+        t = re.sub(r"(\d+)\s*m/s²", r"\1 mètres par seconde au carré", t)
+        t = re.sub(r"(\d+)\s*m/s\b", r"\1 mètres par seconde", t)
+        t = re.sub(r"(\d+)\s*km/h\b", r"\1 kilomètres par heure", t)
+        t = re.sub(r"(\d+)\s*rad/s\b", r"\1 radians par seconde", t)
+        t = re.sub(r"(\d+)\s*Hz\b", r"\1 Hertz", t)
+        t = re.sub(r"(\d+)\s*mol/L\b", r"\1 moles par litre", t)
+        t = re.sub(r"(\d+)\s*mol\b", r"\1 moles", t)
+
+        # Nettoyage des signes d'égalité avec espacement naturel
+        t = re.sub(r"(\w+)\s*=\s*", r"\1 égale ", t)
+
+        # Ponctuation fluide : Puces et énumérations
+        t = re.sub(r"^[-*•]\s+", ", ", t, flags=re.MULTILINE)
+        t = re.sub(r"^(\d+)\.\s+", r"Point \1, ", t, flags=re.MULTILINE)
+
+        # Enchaînement rapide et naturel des phrases et paragraphes (sans pauses longues)
+        t = re.sub(r"\n\s*\n+", ". ", t)
+        t = re.sub(r"\n+", ", ", t)
+        t = re.sub(r"\s*:\s*", ", ", t)
+        t = re.sub(r"\s*;\s*", ", ", t)
+        t = re.sub(r"\s*,\s*", ", ", t)
+        t = re.sub(r"\s*\.\s*", ". ", t)
+        t = re.sub(r"\s*\?\s*", "? ", t)
+        t = re.sub(r"\s*!\s*", "! ", t)
+
+        # Nettoyer les espaces multiples
+        t = re.sub(r"\s+", " ", t)
+
+        return t.strip()
+
+    async def synthesize_to_bytes(self, text: str) -> bytes:
+        """Génère directement les octets audio MP3 pour l'API web/dispositif."""
+        clean_text = self._clean_for_speech(text)
+        if not clean_text:
+            return b""
+        import edge_tts
+        communicate = edge_tts.Communicate(clean_text, self.neural_voice, rate="+5%")
+        audio_chunks = []
+        async for chunk in communicate.stream():
+            if chunk["type"] == "audio" and "data" in chunk:
+                audio_chunks.append(chunk["data"])
+        return b"".join(audio_chunks)
+
+    def speak(self, text: str, async_mode: bool = False) -> None:
+        """Lit un texte complet."""
+        if not text or not text.strip():
+            return
+        self._text_queue.put(text.strip())
+
+    def speak_sentence_async(self, sentence: str) -> None:
+        """Enfile une phrase pour lecture fluide en streaming au fil de la génération."""
+        if sentence and sentence.strip():
+            self._text_queue.put(sentence.strip())
+
+    def stop(self) -> None:
+        """Arrête immédiatement la parole en cours et vide toutes les files d'attente."""
+        if self._current_process and self._current_process.poll() is None:
+            try:
+                self._current_process.terminate()
+            except Exception:
+                pass
+
+        # Vider la file de texte
+        while not self._text_queue.empty():
+            try:
+                self._text_queue.get_nowait()
+                self._text_queue.task_done()
+            except Exception:
+                break
+
+        # Vider la file d'audio et supprimer les fichiers temporaires non joués
+        while not self._audio_queue.empty():
+            try:
+                item = self._audio_queue.get_nowait()
+                if item and item[0] == "file" and os.path.exists(item[1]):
+                    try:
+                        os.remove(item[1])
+                    except Exception:
+                        pass
+                self._audio_queue.task_done()
+            except Exception:
+                break

@@ -1,6 +1,8 @@
 import re
 import unicodedata
 
+from alternia.core.models import Subject
+
 
 class SubjectResolver:
     """
@@ -8,48 +10,61 @@ class SubjectResolver:
     disponibles dans un document.
 
     La résolution est insensible :
-    - aux majuscules/minuscules
-    - aux accents
-    - aux espaces multiples
+    - aux majuscules/minuscules ;
+    - aux accents ;
+    - aux espaces multiples.
+
+    Le résultat est toujours une valeur du modèle Subject
+    d'AlternIA.
     """
 
-    SUBJECT_ALIASES = {
-        "mathematiques": [
+    SUBJECT_ALIASES: dict[Subject, list[str]] = {
+        Subject.MATHEMATIQUES: [
             "mathématiques",
             "mathematique",
             "mathématiques générales",
             "sciences mathématiques",
+            "sciences mathematiques",
+            "math",
+            "maths",
         ],
-        "physique": [
+
+        Subject.PHYSIQUE: [
             "physique",
             "sciences physiques",
             "physique-chimie",
+            "physique chimie",
         ],
-        "chimie": [
+
+        Subject.CHIMIE: [
             "chimie",
         ],
-        "francais": [
+
+        Subject.FRANCAIS: [
             "français",
             "francais",
             "langue française",
+            "langue francaise",
         ],
-        "anglais": [
+
+        Subject.ANGLAIS: [
             "anglais",
             "english",
         ],
-        "histoire": [
+
+        Subject.HISTOIRE: [
             "histoire",
         ],
-        "geographie": [
+
+        Subject.GEOGRAPHIE: [
             "géographie",
             "geographie",
         ],
-        "philosophie": [
-            "philosophie",
-        ],
-        "svt": [
-            "svt",
+
+        Subject.SCIENCES: [
+            "sciences",
             "sciences de la vie et de la terre",
+            "svt",
         ],
     }
 
@@ -57,14 +72,28 @@ class SubjectResolver:
         self,
         text: str,
         filename: str | None = None,
-    ) -> str | None:
+    ) -> Subject | None:
+        """
+        Détecte la matière du document.
 
-        sources = []
+        Priorité :
+        1. nom du fichier ;
+        2. contenu du document.
+
+        Retourne :
+            Subject ou None
+        """
+
+        sources: list[str] = []
 
         if filename:
             sources.append(filename)
 
-        sources.append(text)
+        if text:
+            sources.append(text)
+
+        if not sources:
+            return None
 
         combined_text = "\n".join(sources)
 
@@ -72,25 +101,39 @@ class SubjectResolver:
             combined_text
         )
 
+        # Les alias les plus spécifiques sont recherchés
+        # en premier afin d'éviter les collisions.
+        candidates: list[
+            tuple[Subject, str]
+        ] = []
+
         for subject, aliases in self.SUBJECT_ALIASES.items():
-
             for alias in aliases:
-
-                normalized_alias = self._normalize(
-                    alias
+                candidates.append(
+                    (
+                        subject,
+                        self._normalize(alias),
+                    )
                 )
 
-                pattern = (
-                    r"(?<!\w)"
-                    + re.escape(normalized_alias)
-                    + r"(?!\w)"
-                )
+        candidates.sort(
+            key=lambda item: len(item[1]),
+            reverse=True,
+        )
 
-                if re.search(
-                    pattern,
-                    normalized,
-                ):
-                    return subject
+        for subject, normalized_alias in candidates:
+
+            pattern = (
+                r"(?<!\w)"
+                + re.escape(normalized_alias)
+                + r"(?!\w)"
+            )
+
+            if re.search(
+                pattern,
+                normalized,
+            ):
+                return subject
 
         return None
 
@@ -98,11 +141,12 @@ class SubjectResolver:
     def _normalize(
         text: str,
     ) -> str:
+        """
+        Normalise un texte avant comparaison.
+        """
 
-        # Minuscules
         text = text.lower()
 
-        # Suppression des accents
         text = unicodedata.normalize(
             "NFD",
             text,
@@ -114,7 +158,6 @@ class SubjectResolver:
             if unicodedata.category(char) != "Mn"
         )
 
-        # Normalisation des espaces
         text = re.sub(
             r"\s+",
             " ",

@@ -23,8 +23,9 @@ class FakeLLMClient(LLMClient):
 
     def generate(
         self,
-        prompt: str,
+        prompt: str | None = None,
         *,
+        messages: list[dict[str, str]] | None = None,
         system_prompt: str | None = None,
     ) -> str:
 
@@ -39,7 +40,13 @@ class FakeLLMClient(LLMClient):
         # Comportement automatique
         # -----------------------------------------
 
-        if "équation" in prompt.lower():
+        text_to_check = prompt or ""
+        if messages:
+            text_to_check += " " + " ".join(
+                m.get("content", "") for m in messages if isinstance(m, dict)
+            )
+
+        if "équation" in text_to_check.lower():
             return (
                 "Une équation est une égalité mathématique "
                 "dans laquelle on cherche la valeur d'une "

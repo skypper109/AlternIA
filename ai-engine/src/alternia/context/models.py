@@ -14,8 +14,8 @@ class ContextSource:
 
     score: float
 
-    student_class: str
-    subject: str
+    student_class: str = ""
+    subject: str | None = None
     chapter: str | None = None
     lesson: str | None = None
 

@@ -9,6 +9,7 @@ class PedagogicalMetadata:
     """
 
     student_class: Optional[str] = None
+    series: Optional[str] = None
     subject: Optional[str] = None
     chapter: Optional[str] = None
     lesson: Optional[str] = None
@@ -22,6 +23,7 @@ class PedagogicalMetadata:
 
         return PedagogicalMetadata(
             student_class=self.student_class,
+            series=self.series,
             subject=self.subject,
             chapter=self.chapter,
             lesson=self.lesson,

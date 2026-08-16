@@ -62,3 +62,5 @@ class SemanticRetriever:
             student_class=student_class,
             subject=subject,
         )
+
+    search = retrieve

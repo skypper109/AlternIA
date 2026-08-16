@@ -58,6 +58,19 @@ class ConversationManager:
 
         return session
 
+    def get(
+        self,
+        session_id: str,
+        default: Any = None,
+    ) -> ConversationSession | None:
+        """
+        Récupère une session existante ou retourne une valeur par défaut si non trouvée.
+        """
+        return self._sessions.get(
+            session_id,
+            default,
+        )
+
     def has_session(
         self,
         session_id: str,
@@ -75,6 +88,33 @@ class ConversationManager:
             None,
         )
 
+    def clear_session(
+        self,
+        session_id: str,
+    ) -> None:
+        """
+        Supprime ou réinitialise une session conversationnelle.
+        """
+        self.delete_session(session_id)
+
+
+    def get_or_create(
+        self,
+        session_id: str,
+        student_id: str | None = None,
+        student_class: str = "12eme",
+        subject: str | None = None,
+    ) -> ConversationSession:
+        """Récupère une session existante ou en initialise une nouvelle."""
+        if session_id not in self._sessions:
+            self._sessions[session_id] = ConversationSession(
+                session_id=session_id,
+                student_id=student_id,
+                student_class=student_class,
+                subject=subject,
+            )
+        return self._sessions[session_id]
+
     def add_student_message(
         self,
         session_id: str,
@@ -82,7 +122,7 @@ class ConversationManager:
         metadata: dict[str, Any] | None = None,
     ):
 
-        session = self.get_session(
+        session = self.get_or_create(
             session_id
         )
 
@@ -99,7 +139,7 @@ class ConversationManager:
         metadata: dict[str, Any] | None = None,
     ):
 
-        session = self.get_session(
+        session = self.get_or_create(
             session_id
         )
 
