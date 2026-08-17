@@ -219,3 +219,61 @@ def get_current_user_info(db: Session) -> Dict[str, Any]:
     if not user:
         raise HTTPException(status_code=404, detail="Aucun utilisateur trouvé")
     return serialize_user(user)
+
+
+def register_school(db: Session, req: InscriptionEtablissementRequest) -> Dict[str, Any]:
+    """Inscrit un nouvel établissement et crée le compte administrateur associé."""
+    existant = db.query(Utilisateur).filter(Utilisateur.email == req.email.strip()).first()
+    if existant:
+        raise HTTPException(status_code=400, detail="Un compte existe déjà avec cette adresse email.")
+
+    etab = Etablissement(
+        nom=req.nomEtablissement.strip(),
+        ville=req.ville.strip() if req.ville else "Bamako",
+        type_etablissement=req.typeEtablissement or "Lycée",
+    )
+    db.add(etab)
+    db.commit()
+    db.refresh(etab)
+
+    user = Utilisateur(
+        email=req.email.strip(),
+        nom_complet=req.nomResponsable.strip(),
+        role="admin_ecole",
+        mot_de_passe_hash=hash_password(req.motDePasse or "alternia2026"),
+        etablissement_id=etab.id,
+        actif=True,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    return {
+        "succes": True,
+        "message": f"Établissement {etab.nom} inscrit avec succès",
+        "utilisateur": serialize_user(user),
+    }
+
+
+def register_parent(db: Session, req: InscriptionParentRequest) -> Dict[str, Any]:
+    """Inscrit un nouveau parent et lie les élèves associés."""
+    existant = db.query(Utilisateur).filter(Utilisateur.email == req.email.strip()).first()
+    if existant:
+        raise HTTPException(status_code=400, detail="Un compte existe déjà avec cette adresse email.")
+
+    user = Utilisateur(
+        email=req.email.strip(),
+        nom_complet=req.nomParent.strip(),
+        role="parent",
+        mot_de_passe_hash=hash_password(req.motDePasse or "alternia2026"),
+        actif=True,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    return {
+        "succes": True,
+        "message": f"Compte parent créé pour {user.nom_complet}",
+        "utilisateur": serialize_user(user),
+    }
