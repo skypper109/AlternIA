@@ -165,26 +165,20 @@ CREATE TABLE IF NOT EXISTS statistiques_pedagogiques (
 -- -----------------------------------------------------------------------------
 -- Données initiales de démonstration
 -- -----------------------------------------------------------------------------
-INSERT INTO etablissements (id, nom, type_etablissement, code, ville, pays)
-VALUES ('etab-lbad-bamako', 'Lycée Ba Aminata Diallo (LBAD)', 'Lycée d\'Enseignement Général', 'ML-BKO-0042', 'Bamako', 'Mali')
-ON DUPLICATE KEY UPDATE nom=VALUES(nom);
 
 INSERT INTO utilisateurs (id, email, role, nom_complet, actif)
 VALUES 
-    ('usr-directeur', 'directeur@altern.ia', 'admin_ecole', 'Dr. Konaté Moussa', TRUE),
-    ('usr-parent', 'parent@altern.ia', 'parent', 'Aïssata Coulibaly', TRUE),
+    ('usr-directeur', 'directeur@altern.ia', 'admin_ecole', 'Directeur', TRUE),
+    ('usr-parent', 'parent@altern.ia', 'parent', 'Parent', TRUE),
     ('usr-admin', 'admin@altern.ia', 'admin_ecole', 'Administrateur AlternIA', TRUE)
 ON DUPLICATE KEY UPDATE nom_complet=VALUES(nom_complet);
 
 INSERT INTO boitiers (id, numero_serie, modele, statut, batterie, stockage_go, stockage_utilise_go, wifi_ssid, etablissement_id)
 VALUES 
-    ('box-alta-01', 'ALT-BOX-2026-001', 'AlternIA Box v2.0 (Raspberry Pi 5)', 'en_ligne', 98, 32.0, 8.6, 'AlternIA-Box-WiFi', 'etab-lbad-bamako'),
-    ('box-alta-02', 'ALT-BOX-2026-002', 'AlternIA Box v2.0 (Raspberry Pi 4)', 'en_ligne', 85, 32.0, 7.8, 'AlternIA-Box-WiFi-2', 'etab-lbad-bamako')
+    ('box-alta-01', 'ALT-BOX-2026-001', 'AlternIA Box v2.0 (Raspberry Pi 5)', 'en_ligne', 98, 32.0, 8.6, 'AlternIA-Box-WiFi', 'etab-test-bamako')
 ON DUPLICATE KEY UPDATE batterie=VALUES(batterie);
 
 INSERT INTO avatars_pedagogiques (id, nom, matiere, style_pedagogique, voix_tts, actif, par_defaut)
 VALUES 
-    ('avatar-vivienne', 'Professeure Vivienne', 'SVT & Sciences Naturelles', 'Chaleureuse, bienveillante et explicite avec exemples concrets', 'vivienne', TRUE, TRUE),
-    ('avatar-amadou', 'Dr. Koné Amadou', 'Mathématiques & Physique-Chimie', 'Méthodique, étape par étape avec rigueur scientifique', 'remy', TRUE, FALSE),
-    ('avatar-fatou', 'Mme Samaké Fatou', 'Français & Philosophie', 'Littéraire, interactive avec vocabulaire riche', 'denise', TRUE, FALSE)
+    ('avatar-vivienne', 'Professeure Vivienne', 'SVT & Sciences Naturelles', 'Chaleureuse, bienveillante et explicite avec exemples concrets', 'vivienne', TRUE, TRUE)
 ON DUPLICATE KEY UPDATE nom=VALUES(nom);

@@ -11,8 +11,9 @@ import { NotificationService } from '../../../core/services/notification.service
   imports: [CommonModule, ReactiveFormsModule, RouterLink],
   template: `
 <div class="auth-page">
-  <!-- Left: Branding (Identique Connexion) -->
-  <div class="auth-branding">
+  <div class="auth-card-glass animate-scale-in">
+    <!-- Left: Branding (Identique Connexion) -->
+    <div class="auth-branding">
     <div class="auth-branding__inner">
       <!-- Logo -->
       <div class="auth-logo">
@@ -324,6 +325,7 @@ import { NotificationService } from '../../../core/services/notification.service
         </div>
       }
     </div>
+  </div>
   </div>
 </div>
   `,

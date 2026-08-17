@@ -81,33 +81,20 @@ export class StatistiquesRepository {
   }
 
   obtenirRapports(etablissementId: string): Observable<RapportActivite[]> {
-    return this.http.get<any>(`${environment.apiUrl}/statistiques`).pipe(
-      map(data => [
-        {
-          id: 'rap-001',
-          etablissementId: etablissementId || 'etab-lbad-bamako',
-          titre: 'Bilan Hebdomadaire d\'Apprentissage ALTA',
-          periode: 'Semaine en cours',
-          dateDebut: new Date(Date.now() - 7 * 24 * 3600 * 1000),
-          dateFin: new Date(),
-          dateGeneration: new Date(),
-          type: 'pdf',
-          statut: 'genere',
-          tailleFichier: 1024 * 450,
-        },
-        {
-          id: 'rap-002',
-          etablissementId: etablissementId || 'etab-lbad-bamako',
-          titre: 'Rapport Mensuel des Notions Critiques (SVT & Maths)',
-          periode: 'Mois en cours',
-          dateDebut: new Date(Date.now() - 30 * 24 * 3600 * 1000),
-          dateFin: new Date(),
-          dateGeneration: new Date(),
-          type: 'pdf',
-          statut: 'genere',
-          tailleFichier: 1024 * 820,
-        },
-      ])
+    return this.http.get<any[]>(`${environment.apiUrl}/rapports`).pipe(
+      map(list => (list || []).map(r => ({
+        id: r.id,
+        etablissementId: r.etablissementId || etablissementId || 'etab-lbad-bamako',
+        titre: r.titre,
+        periode: r.periode,
+        dateDebut: r.dateDebut ? new Date(r.dateDebut) : new Date(Date.now() - 7 * 24 * 3600 * 1000),
+        dateFin: r.dateFin ? new Date(r.dateFin) : new Date(),
+        dateGeneration: r.dateGeneration ? new Date(r.dateGeneration) : new Date(),
+        type: r.type || 'pdf',
+        statut: r.statut || 'genere',
+        tailleFichier: Math.round((r.tailleFichier || 450000) / 1024),
+        urlTelechargement: r.urlTelechargement || '#',
+      })))
     );
   }
 }

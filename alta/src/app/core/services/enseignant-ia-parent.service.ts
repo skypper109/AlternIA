@@ -1,11 +1,16 @@
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable, signal, computed, inject } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { firstValueFrom } from 'rxjs';
 import { ProfilPedagogique, ConfigurationEnseignantParent } from '../../domain/entites/enseignant-ia.entite';
+import { environment } from '../../../environments/environment';
 
 @Injectable({
   providedIn: 'root',
 })
 export class EnseignantIaParentService {
-  // Liste des profils pédagogiques avec Vivienne par défaut
+  private readonly http = inject(HttpClient);
+
+  // Liste des profils pédagogiques connectée au backend alta_db
   readonly profils = signal<ProfilPedagogique[]>([
     {
       id: 'avatar-vivienne',
@@ -25,21 +30,40 @@ export class EnseignantIaParentService {
       audioFileName: 'extrait-maths-diarra.mp3',
       actif: false,
     },
-    {
-      id: 'prof-coulibaly',
-      nom: 'Professeure Samaké Fatou',
-      matiere: 'Français & Philosophie',
-      photoUrl: '',
-      audioUrl: '',
-      audioFileName: 'extrait-francais-coulibaly.mp3',
-      actif: false,
-    },
   ]);
 
   readonly configuration = signal<ConfigurationEnseignantParent>({
     profilActifId: 'avatar-vivienne',
     dateDerniereModification: new Date(),
   });
+
+  constructor() {
+    this.chargerAvatarsDepuisBackend();
+  }
+
+  async chargerAvatarsDepuisBackend(): Promise<void> {
+    try {
+      const data = await firstValueFrom(this.http.get<any[]>(`${environment.apiUrl}/avatars`));
+      if (data && data.length > 0) {
+        const mapped: ProfilPedagogique[] = data.map((a, idx) => ({
+          id: a.id,
+          nom: a.nom,
+          matiere: a.matiere || 'Enseignement Général',
+          photoUrl: a.photoUrl || '',
+          audioUrl: a.audioUrl || '',
+          audioFileName: a.audioFileName || `extrait-${a.nom.toLowerCase().replace(/\s+/g, '-')}.mp3`,
+          actif: a.actif ?? (idx === 0),
+        }));
+        this.profils.set(mapped);
+        const actif = mapped.find(p => p.actif) || mapped[0];
+        if (actif) {
+          this.configuration.set({ profilActifId: actif.id, dateDerniereModification: new Date() });
+        }
+      }
+    } catch {
+      // Conserver les profils de base si hors ligne
+    }
+  }
 
   // Profil actif sélectionné
   readonly profilActif = computed(() => {
@@ -66,15 +90,33 @@ export class EnseignantIaParentService {
     }));
   }
 
-  ajouterProfil(profil: Omit<ProfilPedagogique, 'id'>): void {
-    const newId = 'prof-' + Date.now();
-    const nouveauProfil: ProfilPedagogique = {
-      ...profil,
-      id: newId,
-      actif: this.profils().length === 0,
-    };
-    this.profils.update(list => [...list, nouveauProfil]);
-    if (nouveauProfil.actif) {
+  async ajouterProfil(profil: Omit<ProfilPedagogique, 'id'>): Promise<void> {
+    try {
+      const resp = await firstValueFrom(
+        this.http.post<any>(`${environment.apiUrl}/avatars`, {
+          nom: profil.nom,
+          matiere: profil.matiere,
+          style_pedagogique: 'Bienveillant et interactif',
+          voix_tts: 'vivienne',
+          actif: true,
+        })
+      );
+      const newId = resp?.id || 'prof-' + Date.now();
+      const nouveauProfil: ProfilPedagogique = {
+        ...profil,
+        id: newId,
+        actif: true,
+      };
+      this.profils.update(list => [...list.map(p => ({ ...p, actif: false })), nouveauProfil]);
+      this.choisirProfil(newId);
+    } catch {
+      const newId = 'prof-' + Date.now();
+      const nouveauProfil: ProfilPedagogique = {
+        ...profil,
+        id: newId,
+        actif: true,
+      };
+      this.profils.update(list => [...list, nouveauProfil]);
       this.choisirProfil(newId);
     }
   }
@@ -85,7 +127,12 @@ export class EnseignantIaParentService {
     );
   }
 
-  supprimerProfil(id: string): void {
+  async supprimerProfil(id: string): Promise<void> {
+    try {
+      await firstValueFrom(this.http.delete(`${environment.apiUrl}/avatars/${id}`));
+    } catch {
+      // Continuer en local
+    }
     this.profils.update(list => list.filter(p => p.id !== id));
     if (this.configuration().profilActifId === id) {
       const premierRestant = this.profils()[0];

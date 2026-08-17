@@ -8,9 +8,11 @@
   border-radius: var(--radius-lg);
   overflow: hidden;
   margin-bottom: var(--space-6);
-  background: var(--color-bg-surface);
-  border: 1px solid var(--color-border);
-  box-shadow: var(--shadow-xs);
+  background: var(--glass-bg-surface);
+  backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-card-shadow);
 }
 
 .parent-hero-top {

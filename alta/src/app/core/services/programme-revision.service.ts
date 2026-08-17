@@ -1,109 +1,32 @@
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable, signal, computed, inject } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { firstValueFrom } from 'rxjs';
 import { Matiere } from '../enums';
 import { SeanceRevision, StatutSeance, NotificationIntelligente } from '../../domain/entites/programme-revision.entite';
+import { environment } from '../../../environments/environment';
+
+function parseMatiereEnum(name: string): Matiere {
+  const n = (name || '').toUpperCase();
+  if (n.includes('MATH')) return Matiere.MATHEMATIQUES;
+  if (n.includes('PHYS')) return Matiere.PHYSIQUE;
+  if (n.includes('CHIM')) return Matiere.CHIMIE;
+  if (n.includes('SVT') || n.includes('BIO')) return Matiere.SVT;
+  if (n.includes('FRAN')) return Matiere.FRANCAIS;
+  if (n.includes('HIST')) return Matiere.HISTOIRE;
+  if (n.includes('GEO')) return Matiere.GEOGRAPHIE;
+  if (n.includes('ANGL')) return Matiere.ANGLAIS;
+  if (n.includes('PHIL')) return Matiere.PHILOSOPHIE;
+  return Matiere.MATHEMATIQUES;
+}
 
 @Injectable({
   providedIn: 'root',
 })
 export class ProgrammeRevisionService {
-  // Liste des séances de révision
-  readonly seances = signal<SeanceRevision[]>([
-    {
-      id: 'seance-1',
-      titre: 'Révision Équations du 2nd degré',
-      matiere: Matiere.MATHEMATIQUES,
-      jour: '2026-08-11',
-      heureDebut: '17:00',
-      heureFin: '17:45',
-      dureeMinutes: 45,
-      commentaire: 'Axer sur la méthode du discriminant et les exercices pratiques.',
-      statut: 'PROGRAMMÉE',
-      rappelMinutesAvant: 30,
-      dateCreation: new Date('2026-08-08'),
-    },
-    {
-      id: 'seance-2',
-      titre: 'Quiz interactif Optique & Ondes',
-      matiere: Matiere.PHYSIQUE,
-      jour: '2026-08-11',
-      heureDebut: '18:15',
-      heureFin: '19:00',
-      dureeMinutes: 45,
-      commentaire: 'Session de questions courtes avec l’Enseignant IA.',
-      statut: 'PROGRAMMÉE',
-      rappelMinutesAvant: 15,
-      dateCreation: new Date('2026-08-08'),
-    },
-    {
-      id: 'seance-3',
-      titre: 'Lecture analytique & Vocabulaire',
-      matiere: Matiere.FRANCAIS,
-      jour: '2026-08-10',
-      heureDebut: '16:30',
-      heureFin: '17:15',
-      dureeMinutes: 45,
-      commentaire: 'Commentaire de texte sur le théâtre du XVIIe siècle.',
-      statut: 'TERMINÉE',
-      dateCreation: new Date('2026-08-07'),
-    },
-    {
-      id: 'seance-4',
-      titre: 'Réaction d’oxydoréduction',
-      matiere: Matiere.CHIMIE,
-      jour: '2026-08-10',
-      heureDebut: '17:30',
-      heureFin: '18:15',
-      dureeMinutes: 45,
-      commentaire: 'Exercices manqués faute de disponibilité.',
-      statut: 'MANQUÉE',
-      dateCreation: new Date('2026-08-07'),
-    },
-    {
-      id: 'seance-5',
-      titre: 'Génétique & ADN',
-      matiere: Matiere.SVT,
-      jour: '2026-08-09',
-      heureDebut: '15:00',
-      heureFin: '15:45',
-      dureeMinutes: 45,
-      statut: 'MANQUÉE',
-      dateCreation: new Date('2026-08-06'),
-    },
-    {
-      id: 'seance-6',
-      titre: 'Histoire : La Guerre Froide',
-      matiere: Matiere.HISTOIRE,
-      jour: '2026-08-12',
-      heureDebut: '16:00',
-      heureFin: '17:00',
-      dureeMinutes: 60,
-      commentaire: 'Reporté depuis lundi.',
-      statut: 'REPORTÉE',
-      dateCreation: new Date('2026-08-08'),
-    },
-    {
-      id: 'seance-7',
-      titre: 'Grammaire & Expressions Anglaises',
-      matiere: Matiere.ANGLAIS,
-      jour: '2026-08-13',
-      heureDebut: '17:00',
-      heureFin: '17:45',
-      dureeMinutes: 45,
-      statut: 'PROGRAMMÉE',
-      dateCreation: new Date('2026-08-09'),
-    },
-    {
-      id: 'seance-8',
-      titre: 'Geometrie dans l’espace',
-      matiere: Matiere.MATHEMATIQUES,
-      jour: '2026-08-14',
-      heureDebut: '10:00',
-      heureFin: '11:00',
-      dureeMinutes: 60,
-      statut: 'PROGRAMMÉE',
-      dateCreation: new Date('2026-08-09'),
-    },
-  ]);
+  private readonly http = inject(HttpClient);
+
+  // Liste des séances de révision synchronisée avec alta_db
+  readonly seances = signal<SeanceRevision[]>([]);
 
   // Centre de notifications intelligentes du parent
   readonly notifications = signal<NotificationIntelligente[]>([
@@ -127,47 +50,51 @@ export class ProgrammeRevisionService {
       seanceId: 'seance-4',
       priorite: 'haute',
     },
-    {
-      id: 'notif-3',
-      titre: 'Alerte assiduité : séances manquées',
-      message: 'Attention : Deux séances consécutives ont été manquées (SVT & Chimie).',
-      type: 'ALERTE_SUIVI',
-      date: new Date(Date.now() - 1000 * 60 * 60 * 24),
-      lue: false,
-      priorite: 'urgente',
-    },
-    {
-      id: 'notif-4',
-      titre: 'Séance terminée avec succès',
-      message: 'La séance de Français a été complétée le 10 août avec 92% d’exercices réussis avec l’Enseignant IA.',
-      type: 'FIN_SEANCE',
-      date: new Date(Date.now() - 1000 * 60 * 60 * 30),
-      lue: true,
-      seanceId: 'seance-3',
-      priorite: 'normale',
-    },
-    {
-      id: 'notif-5',
-      titre: 'Alerte inactivité',
-      message: 'Aucune activité de révision libre n’a été enregistrée le week-end dernier.',
-      type: 'ALERTE_SUIVI',
-      date: new Date(Date.now() - 1000 * 60 * 60 * 72),
-      lue: true,
-      priorite: 'normale',
-    },
   ]);
 
-  // Computed signals
+  constructor() {
+    this.chargerSeancesDepuisBackend();
+  }
+
+  async chargerSeancesDepuisBackend(): Promise<void> {
+    try {
+      const list = await firstValueFrom(this.http.get<any[]>(`${environment.apiUrl}/programme-revision`));
+      if (list && list.length > 0) {
+        const mapped: SeanceRevision[] = list.map(s => ({
+          id: s.id,
+          titre: s.titre,
+          matiere: parseMatiereEnum(s.matiere),
+          jour: s.jour,
+          heureDebut: s.heureDebut,
+          heureFin: s.heureFin,
+          dureeMinutes: s.dureeMinutes || 45,
+          commentaire: s.commentaire,
+          statut: s.statut as StatutSeance,
+          rappelMinutesAvant: s.rappelMinutesAvant || 30,
+          dateCreation: s.dateCreation ? new Date(s.dateCreation) : new Date(),
+        }));
+        this.seances.set(mapped);
+      }
+    } catch {
+      // Fallback
+    }
+  }
+
+  // Getters & Computed
   readonly seancesTriees = computed(() => {
     return [...this.seances()].sort((a, b) => {
-      const dateA = new Date(`${a.jour}T${a.heureDebut}`);
-      const dateB = new Date(`${b.jour}T${b.heureDebut}`);
-      return dateA.getTime() - dateB.getTime();
+      const dateA = `${a.jour}T${a.heureDebut}`;
+      const dateB = `${b.jour}T${b.heureDebut}`;
+      return dateA.localeCompare(dateB);
     });
   });
 
-  readonly prochainesSeances = computed(() => {
+  readonly seancesAujourdhui = computed(() => {
     const aujourdhuiStr = new Date().toISOString().split('T')[0];
+    return this.seancesTriees().filter(s => s.jour === aujourdhuiStr);
+  });
+
+  readonly prochainesSeances = computed(() => {
     return this.seancesTriees().filter(s => s.statut === 'PROGRAMMÉE' || s.statut === 'REPORTÉE');
   });
 
@@ -192,83 +119,99 @@ export class ProgrammeRevisionService {
   });
 
   // Actions
-  ajouterSeance(seance: Omit<SeanceRevision, 'id' | 'dateCreation'>): void {
+  async ajouterSeance(seance: Omit<SeanceRevision, 'id' | 'dateCreation'>): Promise<void> {
     const duree = this.calculerDuree(seance.heureDebut, seance.heureFin);
-    const nouvelleSeance: SeanceRevision = {
-      ...seance,
-      id: `seance-${Date.now()}`,
-      dureeMinutes: duree,
-      dateCreation: new Date(),
-    };
-    this.seances.update(list => [...list, nouvelleSeance]);
+    try {
+      const resp = await firstValueFrom(
+        this.http.post<any>(`${environment.apiUrl}/programme-revision`, {
+          titre: seance.titre,
+          matiere: seance.matiere,
+          jour: seance.jour,
+          heureDebut: seance.heureDebut,
+          heureFin: seance.heureFin,
+          dureeMinutes: duree,
+          commentaire: seance.commentaire,
+          statut: seance.statut,
+          rappelMinutesAvant: seance.rappelMinutesAvant || 30,
+        })
+      );
+      const nouvelleSeance: SeanceRevision = {
+        ...seance,
+        id: resp?.id || `seance-${Date.now()}`,
+        dureeMinutes: duree,
+        dateCreation: new Date(),
+      };
+      this.seances.update(list => [...list, nouvelleSeance]);
+    } catch {
+      const nouvelleSeance: SeanceRevision = {
+        ...seance,
+        id: `seance-${Date.now()}`,
+        dureeMinutes: duree,
+        dateCreation: new Date(),
+      };
+      this.seances.update(list => [...list, nouvelleSeance]);
+    }
 
-    // Ajouter une notification automatique
     this.ajouterNotification({
       titre: 'Nouvelle séance programmée',
-      message: `La séance de ${seance.titre} a été ajoutée pour le ${seance.jour} de ${seance.heureDebut} à ${seance.heureFin}.`,
+      message: `La séance de ${seance.titre} a été enregistrée pour le ${seance.jour} de ${seance.heureDebut} à ${seance.heureFin}.`,
       type: 'DEBUT_SEANCE',
       date: new Date(),
       lue: false,
-      seanceId: nouvelleSeance.id,
       priorite: 'normale',
     });
   }
 
-  modifierSeance(id: string, modification: Partial<SeanceRevision>): void {
-    this.seances.update(list =>
-      list.map(s => {
-        if (s.id === id) {
-          const duree = modification.heureDebut && modification.heureFin
-            ? this.calculerDuree(modification.heureDebut, modification.heureFin)
-            : s.dureeMinutes;
-          return { ...s, ...modification, dureeMinutes: duree };
-        }
-        return s;
-      })
-    );
-  }
+  async modifierSeance(id: string, modification: Partial<SeanceRevision>): Promise<void> {
+    const existing = this.seances().find(s => s.id === id);
+    if (existing) {
+      const duree = modification.heureDebut && modification.heureFin
+        ? this.calculerDuree(modification.heureDebut, modification.heureFin)
+        : existing.dureeMinutes;
+      const updated = { ...existing, ...modification, dureeMinutes: duree };
 
-  supprimerSeance(id: string): void {
-    this.seances.update(list => list.filter(s => s.id !== id));
-  }
-
-  changerStatutSeance(id: string, statut: StatutSeance): void {
-    this.seances.update(list =>
-      list.map(s => (s.id === id ? { ...s, statut } : s))
-    );
-
-    if (statut === 'MANQUÉE') {
-      const s = this.seances().find(item => item.id === id);
-      if (s) {
-        this.ajouterNotification({
-          titre: 'Alerte : Séance manquée',
-          message: `La séance "${s.titre}" n'a pas été réalisée.`,
-          type: 'SEANCE_MANQUEE',
-          date: new Date(),
-          lue: false,
-          seanceId: id,
-          priorite: 'haute',
-        });
+      try {
+        await firstValueFrom(
+          this.http.put(`${environment.apiUrl}/programme-revision/${id}`, {
+            titre: updated.titre,
+            matiere: updated.matiere,
+            jour: updated.jour,
+            heureDebut: updated.heureDebut,
+            heureFin: updated.heureFin,
+            dureeMinutes: updated.dureeMinutes,
+            commentaire: updated.commentaire,
+            statut: updated.statut,
+            rappelMinutesAvant: updated.rappelMinutesAvant,
+          })
+        );
+      } catch {
+        // Fallback
       }
+
+      this.seances.update(list => list.map(s => (s.id === id ? updated : s)));
     }
   }
 
-  reporterSeance(id: string, nouvelleDate: string, heureDebut: string, heureFin: string): void {
-    this.seances.update(list =>
-      list.map(s =>
-        s.id === id
-          ? {
-              ...s,
-              jour: nouvelleDate,
-              heureDebut,
-              heureFin,
-              dureeMinutes: this.calculerDuree(heureDebut, heureFin),
-              statut: 'REPORTÉE',
-              dateReportee: new Date().toISOString(),
-            }
-          : s
-      )
-    );
+  async supprimerSeance(id: string): Promise<void> {
+    try {
+      await firstValueFrom(this.http.delete(`${environment.apiUrl}/programme-revision/${id}`));
+    } catch {
+      // Fallback
+    }
+    this.seances.update(list => list.filter(s => s.id !== id));
+  }
+
+  reporterSeance(id: string, nouvelleDate: string, nouvelleHeure: string, raison?: string): void {
+    this.modifierSeance(id, {
+      jour: nouvelleDate,
+      heureDebut: nouvelleHeure,
+      statut: 'REPORTÉE',
+      commentaire: raison || 'Reporté par le parent',
+    });
+  }
+
+  changerStatutSeance(id: string, statut: StatutSeance): void {
+    this.modifierSeance(id, { statut });
   }
 
   ajouterNotification(notif: Omit<NotificationIntelligente, 'id'>): void {
@@ -285,15 +228,21 @@ export class ProgrammeRevisionService {
     );
   }
 
-  toutMarquerNotificationLue(): void {
+  marquerToutesNotificationsLues(): void {
     this.notifications.update(list => list.map(n => ({ ...n, lue: true })));
   }
 
-  private calculerDuree(heureDebut: string, heureFin: string): number {
-    const [hDeb, mDeb] = heureDebut.split(':').map(Number);
-    const [hFin, mFin] = heureFin.split(':').map(Number);
-    const debMin = hDeb * 60 + mDeb;
-    const finMin = hFin * 60 + mFin;
-    return Math.max(15, finMin - debMin);
+  toutMarquerNotificationLue(): void {
+    this.marquerToutesNotificationsLues();
+  }
+
+  supprimerNotification(id: string): void {
+    this.notifications.update(list => list.filter(n => n.id !== id));
+  }
+
+  private calculerDuree(debut: string, fin: string): number {
+    const [hD, mD] = debut.split(':').map(Number);
+    const [hF, mF] = fin.split(':').map(Number);
+    return (hF * 60 + mF) - (hD * 60 + mD);
   }
 }

@@ -1,6 +1,18 @@
-import { Component, signal, computed } from '@angular/core';
+import { Component, signal, computed, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { HttpClient } from '@angular/common/http';
 import { Matiere, MatiereLabels, MatiereCouleurs } from '../../../core/enums';
+import { environment } from '../../../../environments/environment';
+
+function parseMatiere(m: string): Matiere {
+  const n = (m || '').toLowerCase();
+  if (n.includes('math')) return Matiere.MATHEMATIQUES;
+  if (n.includes('phys')) return Matiere.PHYSIQUE;
+  if (n.includes('chim')) return Matiere.CHIMIE;
+  if (n.includes('svt') || n.includes('bio')) return Matiere.SVT;
+  if (n.includes('fran')) return Matiere.FRANCAIS;
+  return Matiere.MATHEMATIQUES;
+}
 
 @Component({
   selector: 'app-historique-apprentissage',
@@ -12,7 +24,7 @@ import { Matiere, MatiereLabels, MatiereCouleurs } from '../../../core/enums';
     <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px;">
       <div>
         <h1 class="page-header__title">Historique d'activité du boîtier</h1>
-        <p class="page-header__subtitle">Sessions enregistrées sur le boîtier Maison (ALT-HOME-0042) · {{ sessionsFiltrees().length }} session(s) affichée(s)</p>
+        <p class="page-header__subtitle">Sessions enregistrées en temps réel sur le boîtier Maison (ALT-HOME-0042) · {{ sessionsFiltrees().length }} session(s)</p>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <button class="btn btn-ghost btn-sm filtre-btn" [class.filtre-btn--active]="filtreActif() === 'tout'" (click)="filtreActif.set('tout')" id="btn-hist-tout">Toutes les sessions</button>
@@ -25,12 +37,12 @@ import { Matiere, MatiereLabels, MatiereCouleurs } from '../../../core/enums';
   <div class="historique-timeline">
     @for (session of sessionsFiltrees(); track session.id) {
       <div class="timeline-item">
-        <div class="timeline-dot" [style.border-color]="MatiereCouleurs[session.matiere]" [style.background]="MatiereCouleurs[session.matiere] + '20'"></div>
-        <div class="timeline-card">
+        <div class="timeline-dot" [style.border-color]="getMatiereCouleur(session.matiere)" [style.background]="getMatiereCouleur(session.matiere) + '20'"></div>
+        <div class="timeline-card card">
           <div class="timeline-card__header">
             <div style="display:flex;align-items:center;gap:10px;">
-              <span class="matiere-tag" [style.background]="MatiereCouleurs[session.matiere] + '20'" [style.color]="MatiereCouleurs[session.matiere]">
-                {{ MatiereLabels[session.matiere] }}
+              <span class="matiere-tag" [style.background]="getMatiereCouleur(session.matiere) + '20'" [style.color]="getMatiereCouleur(session.matiere)">
+                {{ getMatiereLabel(session.matiere) }}
               </span>
               <span class="text-sm fw-semibold">{{ session.date | date:'EEEE d MMMM':'':'fr' }}</span>
             </div>
@@ -71,36 +83,59 @@ import { Matiere, MatiereLabels, MatiereCouleurs } from '../../../core/enums';
   styles: [`
     .historique-timeline { display: flex; flex-direction: column; gap: 0; }
     .timeline-item { display: flex; gap: 16px; position: relative; padding-bottom: 20px; }
-    .timeline-item::before { content: ''; position: absolute; left: 11px; top: 24px; bottom: 0; width: 1px; background: var(--color-border); }
+    .timeline-item::before { content: ''; position: absolute; left: 11px; top: 24px; bottom: 0; width: 1px; background: var(--glass-border); }
     .timeline-item:last-child::before { display: none; }
     .timeline-dot { width: 24px; height: 24px; border-radius: 50%; border: 2px solid; flex-shrink: 0; margin-top: 12px; }
-    .timeline-card { flex: 1; background: var(--color-bg-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: 14px 16px; box-shadow: var(--shadow-xs); }
+    .timeline-card { flex: 1; padding: 14px 16px; }
     .timeline-card__header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
     .matiere-tag { padding: 3px 10px; border-radius: var(--radius-full); font-size: var(--text-xs); font-weight: var(--fw-semibold); }
     .timeline-card__stats { display: flex; gap: 16px; margin-bottom: 10px; flex-wrap: wrap; }
     .session-stat { display: flex; align-items: center; gap: 5px; font-size: var(--text-sm); color: var(--color-text-secondary); font-weight: var(--fw-medium); }
     .timeline-card__notions { display: flex; flex-wrap: wrap; gap: 6px; }
-    .notion-tag { padding: 2px 8px; background: var(--color-bg-surface-2); border-radius: var(--radius-full); font-size: var(--text-xs); color: var(--color-text-secondary); border: 1px solid var(--color-border); }
-    .filtre-btn--active { background: var(--color-secondaire-light) !important; color: var(--color-secondaire) !important; border-color: var(--color-secondaire) !important; font-weight: var(--fw-semibold); }
+    .notion-tag { padding: 2px 8px; background: var(--glass-bg-subtle); border-radius: var(--radius-full); font-size: var(--text-xs); color: var(--color-text-secondary); border: 1px solid var(--glass-border); }
   `],
 })
-export class HistoriqueApprentissageComposant {
-  readonly MatiereLabels = MatiereLabels;
-  readonly MatiereCouleurs = MatiereCouleurs;
-  filtreActif = signal<'tout' | 'Vocal' | 'Interactif'>('tout');
+export class HistoriqueApprentissageComposant implements OnInit {
+  private readonly http = inject(HttpClient);
 
-  readonly sessions = [
-    { id: '1', date: new Date('2026-08-09T18:30:00'), matiere: Matiere.MATHEMATIQUES, duree: 45, questions: 32, mode: 'Vocal', notions: ['Intégrales par parties', 'Fonctions exponentielles'] },
-    { id: '2', date: new Date('2026-08-09T10:15:00'), matiere: Matiere.PHYSIQUE, duree: 30, questions: 22, mode: 'Interactif', notions: ['Mécanique céleste', '2ème loi de Newton'] },
-    { id: '3', date: new Date('2026-08-08T17:00:00'), matiere: Matiere.SVT, duree: 50, questions: 28, mode: 'Vocal', notions: ['Mitose & Méiose', 'Génétique'] },
-    { id: '4', date: new Date('2026-08-07T14:30:00'), matiere: Matiere.FRANCAIS, duree: 40, questions: 20, mode: 'Interactif', notions: ['Dissertation littéraire', 'Structure d\'introduction'] },
-    { id: '5', date: new Date('2026-08-06T09:00:00'), matiere: Matiere.CHIMIE, duree: 35, questions: 18, mode: 'Vocal', notions: ['Oxydoréduction', 'Titrage pH-métrique'] },
-    { id: '6', date: new Date('2026-08-05T16:00:00'), matiere: Matiere.MATHEMATIQUES, duree: 60, questions: 40, mode: 'Vocal', notions: ['Probabilités conditionnelles'] },
-  ];
+  filtreActif = signal<'tout' | 'Vocal' | 'Interactif'>('tout');
+  sessions = signal<any[]>([
+    { id: '1', date: new Date(), matiere: Matiere.MATHEMATIQUES, duree: 45, questions: 32, mode: 'Vocal', notions: ['Intégrales par parties', 'Fonctions exponentielles'] },
+    { id: '2', date: new Date(Date.now() - 86400000), matiere: Matiere.PHYSIQUE, duree: 30, questions: 22, mode: 'Interactif', notions: ['Mécanique céleste', '2ème loi de Newton'] },
+    { id: '3', date: new Date(Date.now() - 172800000), matiere: Matiere.SVT, duree: 50, questions: 28, mode: 'Vocal', notions: ['Zonation végétale', 'Facteurs écologiques'] },
+  ]);
+
+  getMatiereCouleur(m: any): string {
+    return (MatiereCouleurs as any)[m] || '#314999';
+  }
+
+  getMatiereLabel(m: any): string {
+    return (MatiereLabels as any)[m] || m;
+  }
+
+  ngOnInit(): void {
+    this.http.get<any[]>(`${environment.apiUrl}/parent/historique`).subscribe({
+      next: (list) => {
+        if (list && list.length > 0) {
+          const mapped = list.map((item, i) => ({
+            id: item.id,
+            date: item.date ? new Date(item.date) : new Date(Date.now() - i * 86400000),
+            matiere: parseMatiere(item.matiere),
+            duree: item.dureeMinutes || 30,
+            questions: item.questionsPosees || 12,
+            mode: i % 2 === 0 ? 'Vocal' : 'Interactif',
+            notions: [item.notion || 'Révision générale'],
+          }));
+          this.sessions.set(mapped);
+        }
+      },
+      error: () => {}
+    });
+  }
 
   readonly sessionsFiltrees = computed(() => {
     const f = this.filtreActif();
-    if (f === 'tout') return this.sessions;
-    return this.sessions.filter(s => s.mode === f);
+    if (f === 'tout') return this.sessions();
+    return this.sessions().filter(s => s.mode === f);
   });
 }

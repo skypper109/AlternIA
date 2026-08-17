@@ -27,6 +27,9 @@ from backend.src.routes import (
     chat_router,
     device_router,
     insights_router,
+    parent_router,
+    rapports_router,
+    revision_router,
 )
 
 
@@ -69,6 +72,9 @@ app.include_router(apprenants_router)
 app.include_router(avatars_router)
 app.include_router(alertes_router)
 app.include_router(insights_router)
+app.include_router(parent_router)
+app.include_router(rapports_router)
+app.include_router(revision_router)
 
 # ==============================================================================
 # HÉBERGEMENT DU PORTAIL ALTA (ANGULAR SPA & KIOSK DISPOSITIF)

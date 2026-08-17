@@ -1,45 +1,66 @@
 // ╔══════════════════════════════════════════════════════════════╗
-// ║  AlternIA – Connexion Page (Flat & Clean)                    ║
+// ║  AlternIA – Connexion Page (Liquid Glass & Floating Card)     ║
 // ╚══════════════════════════════════════════════════════════════╝
 
 .auth-page {
   display: flex;
+  align-items: center;
+  justify-content: center;
   min-height: 100vh;
+  padding: 24px 16px;
+  background: var(--color-bg-app);
+}
+
+// ── Floating Liquid Glass Container ───────────────────────────
+.auth-card-glass {
+  width: 100%;
+  max-width: 960px;
+  min-height: 560px;
+  display: flex;
+  border-radius: 24px;
+  background: var(--glass-bg-surface);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-card-shadow);
+  overflow: hidden;
 
   @media (max-width: 900px) {
     flex-direction: column;
+    max-width: 480px;
   }
 }
 
-// ── Left: Branding Panel (Flat Solid Dark) ────────────────────
+// ── Left: Branding Panel ──────────────────────────────────────
 .auth-branding {
-  flex: 0 0 460px;
+  flex: 0 0 440px;
   position: relative;
-  background: #0F172A;
+  background: rgba(15, 23, 42, 0.88);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   align-items: stretch;
-  border-right: 1px solid #1E293B;
 
   @media (max-width: 1100px) { flex: 0 0 380px; }
 
   @media (max-width: 900px) {
     flex: 0 0 auto;
-    min-height: 200px;
+    border-right: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   }
 }
 
 .auth-branding__inner {
   position: relative;
-  padding: 48px;
+  padding: 40px;
   display: flex;
   flex-direction: column;
-  gap: 40px;
+  gap: 32px;
   width: 100%;
   justify-content: center;
 
   @media (max-width: 900px) {
-    padding: 32px 24px;
-    gap: 24px;
+    padding: 28px 24px;
+    gap: 20px;
   }
 }
 
@@ -47,7 +68,7 @@
 .auth-logo {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
 
   &__icon {
     flex-shrink: 0;
@@ -55,7 +76,7 @@
 
   &__name {
     font-family: var(--font-display);
-    font-size: 26px;
+    font-size: 24px;
     font-weight: 700;
     color: #FFFFFF;
     letter-spacing: -0.03em;
@@ -66,25 +87,25 @@
 .auth-hero {
   &__title {
     font-family: var(--font-display);
-    font-size: 34px;
+    font-size: 28px;
     font-weight: 800;
     color: #FFFFFF;
-    line-height: 1.15;
+    line-height: 1.2;
     letter-spacing: -0.035em;
-    margin-bottom: 14px;
+    margin-bottom: 12px;
 
     em {
       font-style: normal;
-      color: #F1851F;
+      color: #38BDF8;
     }
 
-    @media (max-width: 900px) { font-size: 24px; }
+    @media (max-width: 900px) { font-size: 22px; }
   }
 
   &__desc {
-    font-size: 14px;
+    font-size: 13px;
     color: #94A3B8;
-    line-height: 1.7;
+    line-height: 1.6;
     max-width: 340px;
   }
 }
@@ -94,19 +115,19 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 18px;
+  margin-top: 14px;
 }
 
 .auth-feature-pill {
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 6px 12px;
-  background: #1E293B;
-  border: 1px solid #334155;
+  gap: 6px;
+  padding: 5px 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: var(--radius-full);
   color: #E2E8F0;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
 
   .pill-icon {
@@ -120,8 +141,8 @@
 .auth-stats {
   display: flex;
   gap: 0;
-  padding-top: 24px;
-  border-top: 1px solid #1E293B;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 
   @media (max-width: 900px) { display: none; }
 }
@@ -130,14 +151,14 @@
   flex: 1;
 
   &:not(:last-child) {
-    border-right: 1px solid #1E293B;
-    padding-right: 20px;
-    margin-right: 20px;
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+    padding-right: 16px;
+    margin-right: 16px;
   }
 
   &__value {
     font-family: var(--font-display);
-    font-size: 26px;
+    font-size: 22px;
     font-weight: 800;
     color: #FFFFFF;
     letter-spacing: -0.03em;
@@ -145,12 +166,12 @@
   }
 
   &__label {
-    font-size: 11px;
+    font-size: 10px;
     color: #64748B;
     text-transform: uppercase;
     letter-spacing: 0.06em;
     font-weight: 600;
-    margin-top: 4px;
+    margin-top: 3px;
   }
 }
 
@@ -160,20 +181,23 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 40px 32px;
-  background: var(--color-bg-app);
+  padding: 40px 36px;
   overflow-y: auto;
+
+  @media (max-width: 600px) {
+    padding: 28px 20px;
+  }
 }
 
 .auth-form-container {
   width: 100%;
-  max-width: 420px;
+  max-width: 380px;
 }
 
 .auth-step {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 20px;
 }
 
 // ── Form Header ───────────────────────────────────────────────
@@ -187,7 +211,7 @@
   font-weight: 700;
   color: var(--color-text-primary);
   letter-spacing: -0.025em;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 .auth-form-subtitle {
@@ -207,8 +231,8 @@
   align-items: center;
   gap: 14px;
   padding: 16px 18px;
-  background: var(--color-bg-surface);
-  border: 1px solid var(--color-border);
+  background: var(--glass-bg-subtle);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   cursor: pointer;
   text-align: left;
@@ -218,15 +242,15 @@
 
   &:hover {
     border-color: var(--color-primaire);
-    box-shadow: var(--shadow-sm);
-    transform: translateY(-1px);
+    box-shadow: var(--glass-hover-shadow);
+    transform: translateY(-2px);
 
     .profile-card__arrow { color: var(--color-primaire); transform: translateX(3px); }
   }
 
   &__icon {
-    width: 48px;
-    height: 48px;
+    width: 44px;
+    height: 44px;
     border-radius: var(--radius-md);
     display: flex;
     align-items: center;
@@ -247,7 +271,7 @@
   }
 
   &__desc {
-    font-size: 12px;
+    font-size: 11px;
     color: var(--color-text-secondary);
     line-height: 1.4;
   }
@@ -259,18 +283,35 @@
   }
 }
 
+// ── Notice Card ───────────────────────────────────────────────
+.auth-notice-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--glass-bg-subtle);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+
+  .auth-notice-icon {
+    color: var(--color-primaire);
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+}
+
 // ── Back button ───────────────────────────────────────────────
 .auth-back-btn {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 12px;
+  font-weight: 600;
   color: var(--color-text-secondary);
   background: none;
   border: none;
   cursor: pointer;
-  padding: 3px 0;
+  padding: 2px 0;
   transition: color var(--transition-fast);
 
   &:hover {
@@ -284,7 +325,7 @@
 .profile-badge {
   display: inline-flex;
   align-items: center;
-  padding: 4px 12px;
+  padding: 4px 10px;
   border-radius: var(--radius-full);
   font-size: 11px;
   font-weight: 600;
@@ -297,7 +338,7 @@
 .auth-form-body {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
 }
 
 .form-input-wrapper {
@@ -337,13 +378,13 @@
 .auth-error-alert {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
+  gap: 8px;
+  padding: 9px 12px;
   background: var(--color-danger-light);
   border: 1px solid var(--color-danger);
   border-radius: var(--radius-md);
   color: var(--color-danger);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
 }
 
@@ -357,10 +398,6 @@
   color: var(--color-text-tertiary);
   padding: 6px 10px;
   border-radius: var(--radius-md);
-  background: var(--color-bg-surface-2);
-  border: 1px solid var(--color-border);
-}
-
-.auth-form-footer {
-  padding-top: 4px;
+  background: var(--glass-bg-subtle);
+  border: 1px solid var(--glass-border);
 }

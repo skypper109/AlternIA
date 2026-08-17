@@ -1,14 +1,18 @@
 .voix-card {
-  background: var(--color-bg-surface);
-  border: 1px solid var(--color-border);
+  background: var(--glass-bg-surface);
+  backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
+  box-shadow: var(--glass-card-shadow);
   padding: 18px;
   transition: all var(--transition-fast);
   display: flex;
   flex-direction: column;
 
   &:hover {
-    box-shadow: var(--shadow-sm);
-    border-color: var(--color-text-tertiary);
+    box-shadow: var(--glass-hover-shadow);
+    border-color: rgba(49, 73, 153, 0.4);
+    transform: translateY(-2px);
   }
 }

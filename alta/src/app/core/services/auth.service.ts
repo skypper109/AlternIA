@@ -29,7 +29,11 @@ export class AuthService {
     );
 
     if (resp && resp.succes && resp.utilisateur) {
-      const role = resp.utilisateur.role === 'admin_ecole' ? RoleUtilisateur.ADMIN_ECOLE : RoleUtilisateur.PARENT;
+      let role = RoleUtilisateur.PARENT;
+      const r = (resp.utilisateur.role || '').toLowerCase();
+      if (r.includes('admin') || r.includes('ecole')) role = RoleUtilisateur.ADMIN_ECOLE;
+      else if (r.includes('ens') || r.includes('prof')) role = RoleUtilisateur.ENSEIGNANT;
+
       const utilisateur: Utilisateur = {
         id: resp.utilisateur.id,
         email: resp.utilisateur.email,
@@ -55,6 +59,83 @@ export class AuthService {
     throw new Error('Identifiants invalides');
   }
 
+  async modifierMonProfil(
+    nomComplet: string,
+    email: string,
+    motDePasseActuel?: string,
+    nouveauMotDePasse?: string
+  ): Promise<Utilisateur> {
+    const resp = await firstValueFrom(
+      this.http.put<{ succes: boolean; message: string; utilisateur: any }>(
+        `${environment.apiUrl}/auth/profile`,
+        {
+          nom_complet: nomComplet,
+          email: email,
+          mot_de_passe_actuel: motDePasseActuel || null,
+          nouveau_mot_de_passe: nouveauMotDePasse || null,
+        }
+      )
+    );
+
+    if (resp && resp.utilisateur && this._session()) {
+      const current = this._session()!;
+      const updatedUser: Utilisateur = {
+        ...current.utilisateur,
+        nomComplet: resp.utilisateur.nomComplet,
+        email: resp.utilisateur.email,
+      };
+      const updatedSession: SessionUtilisateur = {
+        ...current,
+        utilisateur: updatedUser,
+      };
+      this.sauvegarderSession(updatedSession);
+      this._session.set(updatedSession);
+      return updatedUser;
+    }
+    throw new Error(resp?.message || 'Erreur lors de la mise à jour');
+  }
+
+  async listerUtilisateurs(): Promise<Utilisateur[]> {
+    const list = await firstValueFrom(
+      this.http.get<any[]>(`${environment.apiUrl}/auth/users`)
+    );
+    return (list || []).map(u => {
+      let role = RoleUtilisateur.PARENT;
+      const r = (u.role || '').toLowerCase();
+      if (r.includes('admin') || r.includes('ecole')) role = RoleUtilisateur.ADMIN_ECOLE;
+      else if (r.includes('ens') || r.includes('prof')) role = RoleUtilisateur.ENSEIGNANT;
+
+      return {
+        id: u.id,
+        email: u.email,
+        role,
+        nomComplet: u.nomComplet,
+        avatar: u.avatar,
+        dateCreation: u.dateCreation ? new Date(u.dateCreation) : new Date(),
+        dernierAcces: u.dernierAcces ? new Date(u.dernierAcces) : new Date(),
+        actif: u.actif ?? true,
+      };
+    });
+  }
+
+  async creerUtilisateur(nomComplet: string, email: string, role: string, motDePasse?: string): Promise<any> {
+    return await firstValueFrom(
+      this.http.post<any>(`${environment.apiUrl}/auth/users`, {
+        nom_complet: nomComplet,
+        email: email,
+        role: role,
+        mot_de_passe: motDePasse || 'alternia2026',
+        actif: true,
+      })
+    );
+  }
+
+  async toggleStatutUtilisateur(userId: string): Promise<any> {
+    return await firstValueFrom(
+      this.http.post<any>(`${environment.apiUrl}/auth/users/${userId}/toggle-status`, {})
+    );
+  }
+
   deconnexion(): void {
     localStorage.removeItem(SESSION_KEY);
     this._session.set(null);
@@ -63,7 +144,7 @@ export class AuthService {
 
   redirectionSelonRole(): void {
     const role = this.roleUtilisateur();
-    if (role === RoleUtilisateur.ADMIN_ECOLE) {
+    if (role === RoleUtilisateur.ADMIN_ECOLE || role === RoleUtilisateur.ENSEIGNANT) {
       this.router.navigate([ROUTES_APP.ETABLISSEMENT.TABLEAU_DE_BORD]);
     } else if (role === RoleUtilisateur.PARENT) {
       this.router.navigate([ROUTES_APP.PARENT.TABLEAU_DE_BORD]);

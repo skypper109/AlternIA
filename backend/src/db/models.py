@@ -183,3 +183,35 @@ class StatistiquePedagogique(Base):
     total_temps_sec: Mapped[int] = mapped_column(Integer, default=0)
     taux_comprehension: Mapped[float] = mapped_column(Float, default=75.0)
     notions_difficiles_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # JSON array
+
+
+class SeanceRevisionModel(Base):
+    __tablename__ = "seances_revision"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    titre: Mapped[str] = mapped_column(String(150), nullable=False)
+    matiere: Mapped[str] = mapped_column(String(50), nullable=False)
+    jour: Mapped[str] = mapped_column(String(10), nullable=False)  # 'YYYY-MM-DD'
+    heure_debut: Mapped[str] = mapped_column(String(10), nullable=False)  # 'HH:MM'
+    heure_fin: Mapped[str] = mapped_column(String(10), nullable=False)
+    duree_minutes: Mapped[int] = mapped_column(Integer, default=45)
+    commentaire: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    statut: Mapped[str] = mapped_column(String(30), default="PROGRAMMÉE")
+    rappel_minutes_avant: Mapped[int] = mapped_column(Integer, default=30)
+    date_creation: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class RapportModel(Base):
+    __tablename__ = "rapports_pedagogiques"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    etablissement_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
+    titre: Mapped[str] = mapped_column(String(150), nullable=False)
+    periode: Mapped[str] = mapped_column(String(80), default="Semaine en cours")
+    date_debut: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
+    date_fin: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
+    type_fichier: Mapped[str] = mapped_column(String(20), default="pdf")  # 'pdf', 'excel'
+    statut: Mapped[str] = mapped_column(String(30), default="genere")
+    taille_fichier_octets: Mapped[int] = mapped_column(Integer, default=450000)
+    url_telechargement: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    date_generation: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)

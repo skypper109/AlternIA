@@ -9,7 +9,7 @@ import { NotificationService } from '../../../core/services/notification.service
 @Component({
   selector: 'app-connexion',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterLink],
+  imports: [CommonModule, ReactiveFormsModule],
   templateUrl: './connexion.composant.html',
   styleUrl: './connexion.composant.scss',
 })
