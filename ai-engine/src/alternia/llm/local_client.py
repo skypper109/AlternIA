@@ -23,9 +23,11 @@ class LocalLLMClient(LLMClient):
         n_threads: int | None = None,
         n_batch: int = 512,
         n_gpu_layers: int | None = None,
-        temperature: float = 0.2,
+        temperature: float = 0.15,
         top_p: float = 0.9,
-        repeat_penalty: float = 1.15,
+        repeat_penalty: float = 1.20,
+        frequency_penalty: float = 0.5,
+        presence_penalty: float = 0.3,
         max_tokens: int | None = None,  # None ou 0 = illimité, le modèle s'arrête naturellement
     ):
         path = Path(model_path)
@@ -46,8 +48,10 @@ class LocalLLMClient(LLMClient):
         self.temperature = temperature
         self.top_p = top_p
         self.repeat_penalty = repeat_penalty
-        # max_tokens : 240 tokens par défaut (permet une explication complète en ~15s max sur CPU)
-        self._max_tokens: int | None = max_tokens if (max_tokens is not None and max_tokens > 0) else 240
+        self.frequency_penalty = frequency_penalty
+        self.presence_penalty = presence_penalty
+        # max_tokens : 180 tokens par défaut (permet une explication concise et dense en ~6-8s max sur CPU)
+        self._max_tokens: int | None = max_tokens if (max_tokens is not None and max_tokens > 0) else 180
 
         # Détection du nombre optimal de threads :
         # - Sur x86/Intel (Hyperthreading) : utiliser les cœurs physiques (cpu_count // 2 = 4)
@@ -166,6 +170,8 @@ class LocalLLMClient(LLMClient):
             temperature=self.temperature,
             top_p=self.top_p,
             repeat_penalty=self.repeat_penalty,
+            frequency_penalty=self.frequency_penalty,
+            presence_penalty=self.presence_penalty,
             max_tokens=self._max_tokens,  # None = illimité
         )
         response: dict[str, Any] = cast(dict[str, Any], raw_response)
@@ -231,6 +237,8 @@ class LocalLLMClient(LLMClient):
             temperature=self.temperature,
             top_p=self.top_p,
             repeat_penalty=self.repeat_penalty,
+            frequency_penalty=self.frequency_penalty,
+            presence_penalty=self.presence_penalty,
             max_tokens=self._max_tokens,  # None = illimité
             stream=True,
         )

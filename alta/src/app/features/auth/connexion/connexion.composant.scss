@@ -1,0 +1,366 @@
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  AlternIA – Connexion Page (Flat & Clean)                    ║
+// ╚══════════════════════════════════════════════════════════════╝
+
+.auth-page {
+  display: flex;
+  min-height: 100vh;
+
+  @media (max-width: 900px) {
+    flex-direction: column;
+  }
+}
+
+// ── Left: Branding Panel (Flat Solid Dark) ────────────────────
+.auth-branding {
+  flex: 0 0 460px;
+  position: relative;
+  background: #0F172A;
+  display: flex;
+  align-items: stretch;
+  border-right: 1px solid #1E293B;
+
+  @media (max-width: 1100px) { flex: 0 0 380px; }
+
+  @media (max-width: 900px) {
+    flex: 0 0 auto;
+    min-height: 200px;
+  }
+}
+
+.auth-branding__inner {
+  position: relative;
+  padding: 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+  width: 100%;
+  justify-content: center;
+
+  @media (max-width: 900px) {
+    padding: 32px 24px;
+    gap: 24px;
+  }
+}
+
+// ── Logo ──────────────────────────────────────────────────────
+.auth-logo {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+
+  &__icon {
+    flex-shrink: 0;
+  }
+
+  &__name {
+    font-family: var(--font-display);
+    font-size: 26px;
+    font-weight: 700;
+    color: #FFFFFF;
+    letter-spacing: -0.03em;
+  }
+}
+
+// ── Hero ──────────────────────────────────────────────────────
+.auth-hero {
+  &__title {
+    font-family: var(--font-display);
+    font-size: 34px;
+    font-weight: 800;
+    color: #FFFFFF;
+    line-height: 1.15;
+    letter-spacing: -0.035em;
+    margin-bottom: 14px;
+
+    em {
+      font-style: normal;
+      color: #F1851F;
+    }
+
+    @media (max-width: 900px) { font-size: 24px; }
+  }
+
+  &__desc {
+    font-size: 14px;
+    color: #94A3B8;
+    line-height: 1.7;
+    max-width: 340px;
+  }
+}
+
+// ── Feature pills ─────────────────────────────────────────────
+.auth-features {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.auth-feature-pill {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px;
+  background: #1E293B;
+  border: 1px solid #334155;
+  border-radius: var(--radius-full);
+  color: #E2E8F0;
+  font-size: 12px;
+  font-weight: 500;
+
+  .pill-icon {
+    display: flex;
+    align-items: center;
+    color: #38BDF8;
+  }
+}
+
+// ── Stats ─────────────────────────────────────────────────────
+.auth-stats {
+  display: flex;
+  gap: 0;
+  padding-top: 24px;
+  border-top: 1px solid #1E293B;
+
+  @media (max-width: 900px) { display: none; }
+}
+
+.auth-stat {
+  flex: 1;
+
+  &:not(:last-child) {
+    border-right: 1px solid #1E293B;
+    padding-right: 20px;
+    margin-right: 20px;
+  }
+
+  &__value {
+    font-family: var(--font-display);
+    font-size: 26px;
+    font-weight: 800;
+    color: #FFFFFF;
+    letter-spacing: -0.03em;
+    line-height: 1;
+  }
+
+  &__label {
+    font-size: 11px;
+    color: #64748B;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+    margin-top: 4px;
+  }
+}
+
+// ── Right: Form Panel ─────────────────────────────────────────
+.auth-form-panel {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 32px;
+  background: var(--color-bg-app);
+  overflow-y: auto;
+}
+
+.auth-form-container {
+  width: 100%;
+  max-width: 420px;
+}
+
+.auth-step {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+// ── Form Header ───────────────────────────────────────────────
+.auth-form-header {
+  text-align: center;
+}
+
+.auth-form-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  letter-spacing: -0.025em;
+  margin-bottom: 6px;
+}
+
+.auth-form-subtitle {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+// ── Profile Cards ─────────────────────────────────────────────
+.profile-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.profile-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  text-align: left;
+  transition: all var(--transition-fast);
+  width: 100%;
+  box-shadow: var(--shadow-xs);
+
+  &:hover {
+    border-color: var(--color-primaire);
+    box-shadow: var(--shadow-sm);
+    transform: translateY(-1px);
+
+    .profile-card__arrow { color: var(--color-primaire); transform: translateX(3px); }
+  }
+
+  &__icon {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+
+    &--etab { background: var(--color-primaire-light); color: var(--color-primaire); }
+    &--parent { background: var(--color-secondaire-light); color: var(--color-secondaire); }
+  }
+
+  &__content { flex: 1; min-width: 0; }
+
+  &__title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin-bottom: 2px;
+  }
+
+  &__desc {
+    font-size: 12px;
+    color: var(--color-text-secondary);
+    line-height: 1.4;
+  }
+
+  &__arrow {
+    color: var(--color-text-tertiary);
+    flex-shrink: 0;
+    transition: all var(--transition-fast);
+  }
+}
+
+// ── Back button ───────────────────────────────────────────────
+.auth-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 3px 0;
+  transition: color var(--transition-fast);
+
+  &:hover {
+    color: var(--color-text-primary);
+    svg { transform: translateX(-2px); }
+  }
+  svg { transition: transform var(--transition-fast); }
+}
+
+// ── Profile Badge ─────────────────────────────────────────────
+.profile-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 600;
+
+  &--etab { background: var(--color-primaire-light); color: var(--color-primaire); }
+  &--parent { background: var(--color-secondaire-light); color: var(--color-secondaire); }
+}
+
+// ── Form Body ─────────────────────────────────────────────────
+.auth-form-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.form-input-icon {
+  position: absolute;
+  left: 12px;
+  color: var(--color-text-tertiary);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.form-input {
+  padding-left: 38px !important;
+  height: 42px;
+}
+
+.form-input-toggle {
+  position: absolute;
+  right: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-tertiary);
+  padding: 4px;
+  display: flex;
+  align-items: center;
+
+  &:hover { color: var(--color-text-secondary); }
+}
+
+// ── Error Alert ───────────────────────────────────────────────
+.auth-error-alert {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--color-danger-light);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-md);
+  color: var(--color-danger);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+// ── Demo hint ─────────────────────────────────────────────────
+.auth-demo-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  padding: 6px 10px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-surface-2);
+  border: 1px solid var(--color-border);
+}
+
+.auth-form-footer {
+  padding-top: 4px;
+}

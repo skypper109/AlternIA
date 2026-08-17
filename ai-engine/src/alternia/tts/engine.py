@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import os
 import platform
 import queue
@@ -7,6 +8,7 @@ import shutil
 import subprocess
 import tempfile
 import threading
+from pathlib import Path
 from typing import Optional
 import edge_tts
 
@@ -29,6 +31,7 @@ class TTSEngine:
 
     Caractéristiques :
     - Voix Neurale française ultra-naturelle et humaine (Vivienne par défaut).
+    - Cache disque intelligent pour 0ms de latence sur les phrases déjà synthétisées.
     - Pipeline audio à 2 étages (synthèse en parallèle pendant la lecture) : 0ms de pause entre phrases.
     - File d'attente asynchrone non-bloquante pour lecture fluide au fil de la génération LLM.
     - Traduction phonétique des symboles et formules mathématiques pour une diction pédagogique parfaite.
@@ -39,12 +42,20 @@ class TTSEngine:
         voice: Optional[str] = None,
         rate: Optional[int] = None,
         use_neural: bool = True,
+        cache_dir: Optional[str] = None,
     ):
         self.system = platform.system()
         self.use_neural = use_neural
         self.neural_voice = self._resolve_neural_voice(voice or "vivienne")
         self.system_voice = self._detect_best_system_voice()
         self.rate = rate or 190
+
+        # Répertoire de cache pour accélérer la voix Vivienne sur Raspberry Pi
+        if cache_dir:
+            self.cache_dir = Path(cache_dir)
+        else:
+            self.cache_dir = Path(tempfile.gettempdir()) / "alternia_tts_cache"
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
 
         # Pipeline à double étage : textes à synthétiser -> audios prêts à jouer
         self._text_queue: queue.Queue = queue.Queue()
@@ -150,19 +161,22 @@ class TTSEngine:
                     continue
 
                 if self.use_neural:
-                    try:
-                        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f:
-                            temp_path = f.name
+                    text_hash = hashlib.md5(f"{self.neural_voice}_{clean_text}_{self.rate}".encode("utf-8")).hexdigest()
+                    cached_path = self.cache_dir / f"{text_hash}.mp3"
+                    if cached_path.exists() and cached_path.stat().st_size > 0:
+                        self._audio_queue.put(("cache_file", str(cached_path)))
+                    else:
+                        try:
+                            temp_path = str(cached_path)
+                            communicate = edge_tts.Communicate(clean_text, self.neural_voice, rate="+5%")
+                            loop.run_until_complete(communicate.save(temp_path))
 
-                        communicate = edge_tts.Communicate(clean_text, self.neural_voice, rate="+5%")
-                        loop.run_until_complete(communicate.save(temp_path))
-
-                        if os.path.exists(temp_path) and os.path.getsize(temp_path) > 0:
-                            self._audio_queue.put(("file", temp_path))
-                        else:
+                            if os.path.exists(temp_path) and os.path.getsize(temp_path) > 0:
+                                self._audio_queue.put(("cache_file", temp_path))
+                            else:
+                                self._audio_queue.put(("system", clean_text))
+                        except Exception:
                             self._audio_queue.put(("system", clean_text))
-                    except Exception:
-                        self._audio_queue.put(("system", clean_text))
                 else:
                     self._audio_queue.put(("system", clean_text))
 
@@ -187,26 +201,28 @@ class TTSEngine:
 
             mode, payload = item
 
-            if mode == "file":
-                temp_path = payload
+            if mode in {"file", "cache_file"}:
+                audio_path = payload
                 try:
                     if self.system == "Darwin":
-                        self._current_process = subprocess.Popen(["afplay", temp_path])
+                        self._current_process = subprocess.Popen(["afplay", audio_path])
                         self._current_process.wait()
                     elif self.system == "Linux":
                         if shutil.which("mpv"):
-                            self._current_process = subprocess.Popen(["mpv", "--no-video", "--really-quiet", temp_path])
+                            self._current_process = subprocess.Popen(["mpv", "--no-video", "--really-quiet", audio_path])
                         elif shutil.which("ffplay"):
-                            self._current_process = subprocess.Popen(["ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet", temp_path])
+                            self._current_process = subprocess.Popen(["ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet", audio_path])
                         elif shutil.which("paplay"):
-                            self._current_process = subprocess.Popen(["paplay", temp_path])
+                            self._current_process = subprocess.Popen(["paplay", audio_path])
+                        elif shutil.which("aplay"):
+                            self._current_process = subprocess.Popen(["aplay", "-q", audio_path])
                         if self._current_process:
                             self._current_process.wait()
                 finally:
                     self._current_process = None
-                    if os.path.exists(temp_path):
+                    if mode == "file" and os.path.exists(audio_path):
                         try:
-                            os.remove(temp_path)
+                            os.remove(audio_path)
                         except Exception:
                             pass
             elif mode == "system":

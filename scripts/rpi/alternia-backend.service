@@ -1,0 +1,16 @@
+[Unit]
+Description=AlternIA IA Engine & Backend FastAPI Service
+After=network.target sound.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/AlternIA
+Environment=PYTHONPATH=ai-engine/src
+Environment=TOKENIZERS_PARALLELISM=false
+ExecStart=/home/pi/AlternIA/.venv/bin/python backend/src/main.py
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

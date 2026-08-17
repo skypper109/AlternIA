@@ -1,0 +1,5 @@
+export enum StatutBoitier {
+  EN_LIGNE_CLOUD = 'EN_LIGNE_CLOUD',
+  HORS_LIGNE_LOCAL = 'HORS_LIGNE_LOCAL',
+  DECONNECTE = 'DECONNECTE',
+}

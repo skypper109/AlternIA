@@ -1,0 +1,296 @@
+<div class="auth-page">
+  <!-- Left Panel – Branding (Identique au Login) -->
+  <div class="auth-branding">
+    <div class="auth-branding__inner">
+      <!-- Logo -->
+      <div class="auth-logo">
+        <div class="auth-logo__icon">
+          <img src="logo-icon.jpeg" alt="AlternIA" width="44" height="44" style="border-radius:10px;object-fit:cover;display:block;box-shadow:0 4px 16px rgba(0,0,0,0.3);">
+        </div>
+        <span class="auth-logo__name">Altern<span style="color:#40BBCC;">iA</span></span>
+      </div>
+
+      <!-- Hero Content -->
+      <div class="auth-hero">
+        <h1 class="auth-hero__title">Rejoignez le réseau des <em>établissements innovants</em></h1>
+        <p class="auth-hero__desc">
+          Déployez des boîtiers autonomes et offrez des tuteurs IA interactifs à l'ensemble de vos élèves, en ligne comme hors-ligne.
+        </p>
+
+        <!-- Feature Pills -->
+        <div class="auth-features">
+          <div class="auth-feature-pill">
+            <span class="pill-icon">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                <rect x="2" y="2" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.3"/>
+                <rect x="9" y="2" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.3"/>
+                <rect x="2" y="9" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.3"/>
+                <rect x="9" y="9" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.3"/>
+              </svg>
+            </span>
+            <span>Supervision temps réel</span>
+          </div>
+
+          <div class="auth-feature-pill">
+            <span class="pill-icon">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                <path d="M2 12L5 8L7.5 10.5L10.5 5.5L13 8L15 6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+            <span>Analytique & Notions</span>
+          </div>
+
+          <div class="auth-feature-pill">
+            <span class="pill-icon">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                <rect x="2" y="4" width="12" height="8" rx="1.5" stroke="currentColor" stroke-width="1.3"/>
+                <circle cx="5" cy="8" r="0.75" fill="currentColor"/>
+                <circle cx="8" cy="8" r="0.75" fill="currentColor"/>
+              </svg>
+            </span>
+            <span>Boîtiers locaux & Cloud</span>
+          </div>
+
+          <div class="auth-feature-pill">
+            <span class="pill-icon">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                <path d="M3.5 2.5H10.5L13.5 5.5V13.5H3.5V2.5Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
+              </svg>
+            </span>
+            <span>Rapports PDF & Excel</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats Footer -->
+      <div class="auth-stats">
+        <div class="auth-stat">
+          <div class="auth-stat__value">350+</div>
+          <div class="auth-stat__label">Écoles & Lycées</div>
+        </div>
+        <div class="auth-stat">
+          <div class="auth-stat__value">15k+</div>
+          <div class="auth-stat__label">Élèves Connectés</div>
+        </div>
+        <div class="auth-stat">
+          <div class="auth-stat__value">98%</div>
+          <div class="auth-stat__label">Taux d'Engagement</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Panel – Formulaire Établissement -->
+  <div class="auth-form-panel">
+    <div class="auth-form-container" style="max-width: 460px;">
+      @if (!succes()) {
+        <div class="auth-step animate-fade-in">
+          
+          <div class="auth-form-header">
+            <div style="display: flex; justify-content: center; margin-bottom: 12px;">
+              <span class="profile-badge profile-badge--etab">
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" style="margin-right: 4px;">
+                  <path d="M2 14V5L8 2L14 5V14H10V9H6V14H2Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
+                </svg>
+                Portail Établissement
+              </span>
+            </div>
+            <h2 class="auth-form-title">Créer votre compte établissement</h2>
+            <p class="auth-form-subtitle">Enregistrez votre école pour démarrer la supervision</p>
+          </div>
+
+          <!-- Message d'erreur -->
+          @if (messageErreur()) {
+            <div class="auth-error-alert animate-fade-in">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex-shrink:0;">
+                <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.3"/>
+                <path d="M8 5V8.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                <circle cx="8" cy="11" r="0.75" fill="currentColor"/>
+              </svg>
+              <span>{{ messageErreur() }}</span>
+            </div>
+          }
+
+          <form [formGroup]="formulaire" (ngSubmit)="sInscrire()" class="auth-form-body">
+            
+            <!-- Nom et Ville -->
+            <div class="form-grid">
+              <div class="form-group">
+                <label class="form-label" for="nomEtablissement">Nom de l'établissement *</label>
+                <div class="form-input-wrapper">
+                  <span class="form-input-icon">
+                    <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+                      <path d="M2 14V5L8 2L14 5V14H10V9H6V14H2Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
+                    </svg>
+                  </span>
+                  <input
+                    id="nomEtablissement"
+                    type="text"
+                    class="form-input"
+                    formControlName="nomEtablissement"
+                    placeholder="Lycée Soundiata Keïta"
+                  />
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="ville">Ville *</label>
+                <div class="form-input-wrapper">
+                  <span class="form-input-icon">
+                    <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+                      <path d="M8 1.5C5.515 1.5 3.5 3.515 3.5 6C3.5 9.5 8 14.5 8 14.5C8 14.5 12.5 9.5 12.5 6C12.5 3.515 10.485 1.5 8 1.5Z" stroke="currentColor" stroke-width="1.3"/>
+                      <circle cx="8" cy="6" r="1.5" fill="currentColor"/>
+                    </svg>
+                  </span>
+                  <input
+                    id="ville"
+                    type="text"
+                    class="form-input"
+                    formControlName="ville"
+                    placeholder="Bamako"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <!-- Email professionnel -->
+            <div class="form-group">
+              <label class="form-label" for="email-etab">Email professionnel de contact *</label>
+              <div class="form-input-wrapper">
+                <span class="form-input-icon">
+                  <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+                    <rect x="2" y="3" width="12" height="10" rx="2" stroke="currentColor" stroke-width="1.3" />
+                    <path d="M2 5.5L8 9.5L14 5.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
+                  </svg>
+                </span>
+                <input
+                  id="email-etab"
+                  type="email"
+                  class="form-input"
+                  formControlName="email"
+                  placeholder="direction@soundiatakeita.edu.ml"
+                />
+              </div>
+            </div>
+
+            <!-- Mot de passe & Confirmation -->
+            <div class="form-grid">
+              <div class="form-group">
+                <label class="form-label" for="mdp-etab">Mot de passe *</label>
+                <div class="form-input-wrapper">
+                  <span class="form-input-icon">
+                    <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+                      <rect x="3" y="7" width="10" height="7" rx="2" stroke="currentColor" stroke-width="1.3" />
+                      <path d="M5.5 7V4.5C5.5 3.119 6.619 2 8 2C9.381 2 10.5 3.119 10.5 4.5V7" stroke="currentColor" stroke-width="1.3" />
+                    </svg>
+                  </span>
+                  <input
+                    id="mdp-etab"
+                    [type]="afficherMdp() ? 'text' : 'password'"
+                    class="form-input"
+                    formControlName="motDePasse"
+                    placeholder="Min. 8 caractères"
+                  />
+                  <button
+                    type="button"
+                    class="form-input-toggle"
+                    (click)="toggleAfficherMdp()"
+                    tabindex="-1"
+                  >
+                    @if (afficherMdp()) {
+                      <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+                        <path d="M2 2L14 14M6.5 6.5C6.187 6.813 6 7.24 6 7.7C6 8.97 7.03 10 8.3 10C8.76 10 9.187 9.813 9.5 9.5M3 8C4.2 5.5 6 4 8 4C9.1 4 10.1 4.5 11 5.3M13 8C12.3 9.4 11 10.8 9.5 11.4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                    } @else {
+                      <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+                        <path d="M1.5 8C2.7 4.8 5.1 3 8 3C10.9 3 13.3 4.8 14.5 8C13.3 11.2 10.9 13 8 13C5.1 13 2.7 11.2 1.5 8Z" stroke="currentColor" stroke-width="1.3"/>
+                        <circle cx="8" cy="8" r="2" stroke="currentColor" stroke-width="1.3"/>
+                      </svg>
+                    }
+                  </button>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="conf-mdp-etab">Confirmation *</label>
+                <div class="form-input-wrapper">
+                  <span class="form-input-icon">
+                    <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+                      <rect x="3" y="7" width="10" height="7" rx="2" stroke="currentColor" stroke-width="1.3" />
+                      <path d="M5.5 7V4.5C5.5 3.119 6.619 2 8 2C9.381 2 10.5 3.119 10.5 4.5V7" stroke="currentColor" stroke-width="1.3" />
+                    </svg>
+                  </span>
+                  <input
+                    id="conf-mdp-etab"
+                    [type]="afficherConfMdp() ? 'text' : 'password'"
+                    class="form-input"
+                    formControlName="confirmationMotDePasse"
+                    placeholder="Retapez le mot de passe"
+                  />
+                  <button
+                    type="button"
+                    class="form-input-toggle"
+                    (click)="toggleAfficherConfMdp()"
+                    tabindex="-1"
+                  >
+                    @if (afficherConfMdp()) {
+                      <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+                        <path d="M2 2L14 14M6.5 6.5C6.187 6.813 6 7.24 6 7.7C6 8.97 7.03 10 8.3 10C8.76 10 9.187 9.813 9.5 9.5M3 8C4.2 5.5 6 4 8 4C9.1 4 10.1 4.5 11 5.3M13 8C12.3 9.4 11 10.8 9.5 11.4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                    } @else {
+                      <svg width="15" height="16" viewBox="0 0 16 16" fill="none">
+                        <path d="M1.5 8C2.7 4.8 5.1 3 8 3C10.9 3 13.3 4.8 14.5 8C13.3 11.2 10.9 13 8 13C5.1 13 2.7 11.2 1.5 8Z" stroke="currentColor" stroke-width="1.3"/>
+                        <circle cx="8" cy="8" r="2" stroke="currentColor" stroke-width="1.3"/>
+                      </svg>
+                    }
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Submit Button -->
+            <button
+              id="btn-creer-compte-etab"
+              type="submit"
+              class="btn btn-primary btn-lg btn-full"
+              [disabled]="chargement()"
+              style="margin-top: 6px;"
+            >
+              @if (chargement()) {
+                <span class="animate-spin">⟳</span> Inscription en cours…
+              } @else {
+                Créer mon compte établissement
+              }
+            </button>
+          </form>
+
+          <div style="text-align:center; margin-top: 18px;">
+            <p class="text-secondary text-sm">
+              Vous avez déjà un compte ?
+              <a [routerLink]="routes.AUTH.CONNEXION" class="fw-semibold text-link" style="margin-left: 4px;">
+                Se connecter
+              </a>
+            </p>
+          </div>
+
+        </div>
+      } @else {
+        <div class="auth-step auth-success animate-scale-in" style="text-align:center; padding: 32px 16px;">
+          <div class="icon-box icon-box-lg icon-box-success" style="margin: 0 auto 18px auto; width: 56px; height: 56px;">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <circle cx="12" cy="12" r="10"/>
+              <polyline points="16 9 10 15 7 12"/>
+            </svg>
+          </div>
+          <h2 class="auth-form-title">Établissement enregistré avec succès !</h2>
+          <p class="auth-form-subtitle" style="margin-bottom: 24px; line-height: 1.6;">
+            Votre espace établissement est configuré. Vous pouvez dès à présent vous connecter pour superviser votre flotte de boîtiers.
+          </p>
+          <a [routerLink]="routes.AUTH.CONNEXION" class="btn btn-primary btn-lg btn-full" id="link-retour-connexion">
+            Accéder à la connexion →
+          </a>
+        </div>
+      }
+    </div>
+  </div>
+</div>

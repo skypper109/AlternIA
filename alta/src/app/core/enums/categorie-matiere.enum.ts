@@ -1,0 +1,5 @@
+export enum CategorieMatiere {
+  SCIENTIFIQUE = 'SCIENTIFIQUE',
+  LITTERAIRE = 'LITTERAIRE',
+  ECONOMIQUE = 'ECONOMIQUE',
+}

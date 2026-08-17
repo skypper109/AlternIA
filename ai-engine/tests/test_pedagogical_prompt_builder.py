@@ -64,3 +64,26 @@ def test_prompt_builder_includes_conversation_context():
         "Une équation est une égalité"
         in prompt
     )
+
+
+def test_prompt_builder_question_guidance_closed():
+    builder = PedagogicalPromptBuilder()
+    guidance = builder.detect_question_guidance("Est-ce que les métaux sont conducteurs ?")
+    assert guidance is not None
+    assert "QUESTION FERMÉE" in guidance
+    assert "'Oui', 'Non'" in guidance
+
+
+def test_prompt_builder_question_guidance_comparison():
+    builder = PedagogicalPromptBuilder()
+    guidance = builder.detect_question_guidance("Quelle est la différence entre vitesse et accélération ?")
+    assert guidance is not None
+    assert "COMPARAISON" in guidance
+
+
+def test_prompt_builder_question_guidance_reexplanation():
+    builder = PedagogicalPromptBuilder()
+    guidance = builder.detect_question_guidance("Réexplique moi en détail")
+    assert guidance is not None
+    assert "RÉEXPLICATION" in guidance
+    assert "INTERDICTION STRICTE de répéter" in guidance

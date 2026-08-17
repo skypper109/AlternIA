@@ -18,8 +18,12 @@ class LocalLlamaClient(LLMClient):
         n_ctx: int = 2048,
         n_threads: int = 4,
         n_batch: int = 128,
-        temperature: float = 0.2,
-        max_tokens: int = 512,
+        temperature: float = 0.15,
+        top_p: float = 0.9,
+        repeat_penalty: float = 1.20,
+        frequency_penalty: float = 0.5,
+        presence_penalty: float = 0.3,
+        max_tokens: int = 180,
         verbose: bool = False,
     ):
         self.model_path = Path(model_path)
@@ -31,6 +35,10 @@ class LocalLlamaClient(LLMClient):
             )
 
         self.temperature = temperature
+        self.top_p = top_p
+        self.repeat_penalty = repeat_penalty
+        self.frequency_penalty = frequency_penalty
+        self.presence_penalty = presence_penalty
         self.max_tokens = max_tokens
 
         try:
@@ -78,6 +86,10 @@ class LocalLlamaClient(LLMClient):
         raw_response = self.llm.create_chat_completion(
             messages=cast(Any, messages),
             temperature=self.temperature,
+            top_p=self.top_p,
+            repeat_penalty=self.repeat_penalty,
+            frequency_penalty=self.frequency_penalty,
+            presence_penalty=self.presence_penalty,
             max_tokens=self.max_tokens,
         )
         response: dict[str, Any] = cast(dict[str, Any], raw_response)
@@ -89,3 +101,38 @@ class LocalLlamaClient(LLMClient):
             return str(content).strip()
 
         return ""
+
+    def generate_stream(
+        self,
+        prompt: str | None = None,
+        *,
+        messages: list[dict[str, str]] | None = None,
+        system_prompt: str | None = None,
+    ):
+        if messages is None:
+            messages = []
+            if system_prompt:
+                messages.append({"role": "system", "content": system_prompt})
+            if prompt:
+                messages.append({"role": "user", "content": prompt})
+
+        raw_stream = self.llm.create_chat_completion(
+            messages=cast(Any, messages),
+            temperature=self.temperature,
+            top_p=self.top_p,
+            repeat_penalty=self.repeat_penalty,
+            frequency_penalty=self.frequency_penalty,
+            presence_penalty=self.presence_penalty,
+            max_tokens=self.max_tokens,
+            stream=True,
+        )
+
+        for chunk_item in raw_stream:
+            if not isinstance(chunk_item, dict):
+                continue
+            choices = chunk_item.get("choices", [])
+            if not choices or not isinstance(choices[0], dict):
+                continue
+            delta = choices[0].get("delta", {})
+            if isinstance(delta, dict) and "content" in delta:
+                yield str(delta["content"])

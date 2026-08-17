@@ -1,0 +1,570 @@
+<div class="page-content stagger-children">
+
+  <!-- Page Header -->
+  <div class="page-header">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
+      <div>
+        <h1 class="page-header__title">Tableau de bord</h1>
+        <p class="page-header__subtitle">Vue d'ensemble de votre établissement · Août 2026</p>
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <button class="btn btn-ghost btn-sm" (click)="exporterStats()" id="btn-exporter-stats">
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+            <path d="M7.5 10V2M7.5 10L4 7M7.5 10L11 7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+            <path d="M2 13H13" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+          </svg>
+          Exporter
+        </button>
+        <button class="btn btn-primary btn-sm" (click)="genererRapport()" id="btn-generer-rapport">
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+            <path d="M7.5 2V10M7.5 2L4 5M7.5 2L11 5" stroke="white" stroke-width="1.3" stroke-linecap="round"/>
+            <path d="M2 13H13" stroke="white" stroke-width="1.3" stroke-linecap="round"/>
+          </svg>
+          Nouveau rapport
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  @if (chargement()) {
+    <div class="kpi-grid">
+      @for (i of [1,2,3,4]; track i) {
+        <div class="skeleton" style="height: 120px; border-radius: 16px;"></div>
+      }
+    </div>
+    <div class="content-grid" style="margin-top: 24px;">
+      <div class="skeleton" style="height: 300px; border-radius: 16px;"></div>
+      <div class="skeleton" style="height: 300px; border-radius: 16px;"></div>
+    </div>
+  }
+
+  <!-- Dashboard Content -->
+  @if (!chargement() && stats()) {
+
+    <!-- KPI Cards -->
+    <div class="kpi-grid">
+      <!-- Boîtiers connectés -->
+      <div class="kpi-card kpi-card--primary">
+        <div class="kpi-card__header">
+          <div class="icon-box icon-box-lg icon-box-primary">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <rect x="3" y="3" width="18" height="12" rx="3" stroke="currentColor" stroke-width="1.8"/>
+              <path d="M7 21H17M12 15V21" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <span class="badge badge-success"><span class="dot"></span>En ligne</span>
+        </div>
+        <div class="kpi-card__value">{{ boitiersEnLigne() }} / {{ boitiers().length || 350 }}</div>
+        <div class="kpi-card__label">Boîtiers connectés</div>
+        <div class="kpi-card__trend kpi-trend--up">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M3 9L7 5L11 9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+          </svg>
+          97.7% opérationnels
+        </div>
+      </div>
+
+      <!-- Questions IA -->
+      <div class="kpi-card kpi-card--innovation">
+        <div class="kpi-card__header">
+          <div class="icon-box icon-box-lg icon-box-innovation">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <path d="M12 2C6.477 2 2 6.477 2 12C2 13.934 2.548 15.737 3.5 17.269L2 22L6.731 20.5C8.263 21.452 10.066 22 12 22C17.523 22 22 17.523 22 12C22 6.477 17.523 2 12 2Z" stroke="currentColor" stroke-width="1.8"/>
+              <path d="M8 12H16M12 8V16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+          </div>
+        </div>
+        <div class="kpi-card__value">{{ stats()!.totalQuestionsIA.toLocaleString('fr-FR') }}</div>
+        <div class="kpi-card__label">Questions posées à l'IA</div>
+        <div class="kpi-card__trend kpi-trend--up">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M3 9L7 5L11 9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+          </svg>
+          +8% cette semaine
+        </div>
+      </div>
+
+      <!-- Temps apprentissage -->
+      <div class="kpi-card kpi-card--secondaire">
+        <div class="kpi-card__header">
+          <div class="icon-box icon-box-lg icon-box-secondaire">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/>
+              <path d="M12 7V12L15.5 15.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+          </div>
+        </div>
+        <div class="kpi-card__value">{{ tempsFormatte() }}</div>
+        <div class="kpi-card__label">Temps d'apprentissage</div>
+        <div class="kpi-card__trend kpi-trend--up">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M3 9L7 5L11 9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+          </svg>
+          +5% vs. mois dernier
+        </div>
+      </div>
+
+      <!-- Taux d'engagement -->
+      <div class="kpi-card kpi-card--success">
+        <div class="kpi-card__header">
+          <div class="icon-box icon-box-lg icon-box-success">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <path d="M3 12L9 18L21 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+        </div>
+        <div class="kpi-card__value">{{ stats()!.tauxEngagement }}%</div>
+        <div class="kpi-card__label">Taux d'engagement</div>
+        <div class="engagement-bar">
+          <div class="progress-bar">
+            <div class="progress-bar__fill success" [style.width.%]="stats()!.tauxEngagement"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="content-grid">
+      <!-- Activité journalière (Diagramme Moderne & Interactif) -->
+      <div class="card card-activity-modern">
+        <div class="card__header" style="flex-wrap: wrap; gap: 12px;">
+          <div class="activity-header-left">
+            <div class="icon-indicator icon-indicator--primary">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="20" x2="18" y2="10"/>
+                <line x1="12" y1="20" x2="12" y2="4"/>
+                <line x1="6" y1="20" x2="6" y2="14"/>
+              </svg>
+            </div>
+            <div>
+              <h2 class="card__title">Activité Journalière & Fréquentation</h2>
+              <div class="activity-header-subtitle">
+                <span>{{ totalActivitePeriode().toLocaleString('fr-FR') }} sessions totales</span>
+                <span class="dot-sep">·</span>
+                <span>Moyenne : <strong>{{ moyenneActivitePeriode() }}</strong>/jour</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="activity-header-controls">
+            <!-- View Mode (Bars / Curve) -->
+            <div class="view-switch-group">
+              <button 
+                class="view-switch-btn" 
+                [class.view-switch-btn--active]="typeGraphique() === 'barres'" 
+                (click)="setTypeGraphique('barres')"
+                title="Vue Histogramme"
+                id="btn-view-barres">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="12" width="4" height="8" rx="1"/><rect x="10" y="8" width="4" height="12" rx="1"/><rect x="17" y="4" width="4" height="16" rx="1"/></svg>
+              </button>
+              <button 
+                class="view-switch-btn" 
+                [class.view-switch-btn--active]="typeGraphique() === 'courbe'" 
+                (click)="setTypeGraphique('courbe')"
+                title="Vue Courbe lissée"
+                id="btn-view-courbe">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+              </button>
+            </div>
+
+            <!-- Period Switcher -->
+            <div class="period-pills-group">
+              <button class="period-pill" [class.period-pill--active]="periodeActive() === '7j'" (click)="setPeriode('7j')" id="btn-periode-jour">7j</button>
+              <button class="period-pill" [class.period-pill--active]="periodeActive() === '30j'" (click)="setPeriode('30j')" id="btn-periode-mois">30j</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card__body" style="padding-top: 10px;">
+
+          <!-- Top Highlight Tag -->
+          <div class="activity-highlight-row">
+            <div class="activity-badge-peak">
+              <span class="peak-dot"></span>
+              <span>Pic d'affluence : <strong>{{ jourPicNom() }}</strong> ({{ valeurPic() }} sessions)</span>
+            </div>
+            <div class="activity-trend-chip">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
+              <span>+14.2% d'assiduité</span>
+            </div>
+          </div>
+
+          <!-- CHART CONTAINER -->
+          <div class="modern-chart-stage">
+            <!-- Histogram View -->
+            @if (typeGraphique() === 'barres') {
+              <div class="modern-bar-chart">
+                <!-- Average reference line -->
+                <div class="modern-avg-line" [style.bottom.%]="(moyenneActivitePeriode() / getMaxActivite()) * 100">
+                  <span class="modern-avg-tag">Moy. {{ moyenneActivitePeriode() }}</span>
+                </div>
+
+                @for (val of donneesActives(); track $index; let i = $index) {
+                  <div class="modern-bar-col"
+                       [class.modern-bar-col--peak]="i === indexPic()"
+                       [class.modern-bar-col--hovered]="jourSurvole()?.index === i"
+                       (mouseenter)="survolerBarre(val, i)"
+                       (mouseleave)="quitterSurvol()">
+                    
+                    <div class="modern-bar-slot">
+                      <div class="modern-bar-core"
+                           [style.height.%]="getBarHeight(val, getMaxActivite())"
+                           [class.is-peak-bar]="i === indexPic()">
+                        
+                        <!-- Floating Tooltip -->
+                        @if (jourSurvole()?.index === i || (i === indexPic() && !jourSurvole())) {
+                          <div class="modern-bar-popover">
+                            <span class="popover-val">{{ val }}</span>
+                            <span class="popover-sub">
+                              {{ val >= moyenneActivitePeriode() ? '+' : '' }}{{ Math.round(((val - moyenneActivitePeriode()) / (moyenneActivitePeriode() || 1)) * 100) }}% moy.
+                            </span>
+                          </div>
+                        }
+                      </div>
+                    </div>
+
+                    <span class="modern-bar-axis-label" [class.is-peak-axis]="i === indexPic()">
+                      {{ periodeActive() === '7j' ? joursSemaineCourt[i] : labelsActifs()[i] }}
+                    </span>
+                  </div>
+                }
+              </div>
+            }
+
+            <!-- SVG Smooth Area Curve View -->
+            @if (typeGraphique() === 'courbe') {
+              <div class="modern-curve-chart" style="position: relative;">
+                <svg viewBox="0 0 460 180" class="modern-curve-svg" preserveAspectRatio="none">
+                  <defs>
+                    <linearGradient id="dashboardCurveGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stop-color="var(--color-primaire)" stop-opacity="0.38"/>
+                      <stop offset="100%" stop-color="var(--color-primaire)" stop-opacity="0.0"/>
+                    </linearGradient>
+                  </defs>
+
+                  <line x1="0" y1="45" x2="460" y2="45" stroke="var(--color-border)" stroke-dasharray="3 3" stroke-width="1"/>
+                  <line x1="0" y1="90" x2="460" y2="90" stroke="var(--color-border)" stroke-dasharray="3 3" stroke-width="1"/>
+                  <line x1="0" y1="135" x2="460" y2="135" stroke="var(--color-border)" stroke-dasharray="3 3" stroke-width="1"/>
+
+                  <path [attr.d]="svgCurveAreaPath()" fill="url(#dashboardCurveGradient)"/>
+                  <path [attr.d]="svgCurvePath()" fill="none" stroke="var(--color-primaire)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+
+                  @for (pt of chartPointsSvg(); track pt.label; let i = $index) {
+                    <circle 
+                      [attr.cx]="pt.x" 
+                      [attr.cy]="pt.y" 
+                      r="4.5" 
+                      class="curve-point-dot"
+                      [class.curve-point-dot--peak]="i === indexPic()"
+                      (mouseenter)="survolerBarre(pt.val, i)"
+                      (mouseleave)="quitterSurvol()"
+                    />
+                  }
+                </svg>
+
+                @for (pt of chartPointsSvg(); track pt.label; let i = $index) {
+                  @if (jourSurvole()?.index === i || (i === indexPic() && !jourSurvole())) {
+                    <div class="modern-curve-popover"
+                         [style.left.%]="(pt.x / 460) * 100"
+                         [style.top.px]="pt.y">
+                      <span class="popover-val">{{ pt.val }}</span>
+                      <span class="popover-sub">
+                        {{ pt.val >= moyenneActivitePeriode() ? '+' : '' }}{{ Math.round(((pt.val - moyenneActivitePeriode()) / (moyenneActivitePeriode() || 1)) * 100) }}% moy.
+                      </span>
+                    </div>
+                  }
+                }
+
+                <div class="curve-bottom-labels">
+                  @for (lbl of labelsActifs(); track lbl; let i = $index) {
+                    <span class="curve-axis-txt" [class.is-peak-axis]="i === indexPic()">
+                      {{ periodeActive() === '7j' ? joursSemaineCourt[i] : lbl }}
+                    </span>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+
+          <!-- Bottom Footer Metrics -->
+          <div class="activity-chart-footer">
+            <div class="footer-stat-box">
+              <span class="footer-stat-dot week"></span>
+              <span class="text-xs text-secondary">Semaine ouvrée : <strong>2 078</strong> sessions (76%)</span>
+            </div>
+            <div class="footer-stat-box">
+              <span class="footer-stat-dot weekend"></span>
+              <span class="text-xs text-secondary">Weekend : <strong>632</strong> sessions (24%)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Répartition par matière -->
+      <div class="card">
+        <div class="card__header">
+          <h2 class="card__title">Matières les plus utilisées</h2>
+        </div>
+        <div class="card__body">
+          <div class="matiere-list">
+            @for (matStat of stats()!.matieresPlusUtilisees; track matStat.matiere) {
+              <div class="matiere-item">
+                <div class="matiere-item__header">
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <span class="matiere-dot" [style.background]="MatiereCouleurs[matStat.matiere]"></span>
+                    <span class="matiere-name">{{ MatiereLabels[matStat.matiere] }}</span>
+                  </div>
+                  <span class="matiere-pct">{{ matStat.pourcentage }}%</span>
+                </div>
+                <div class="progress-bar">
+                  <div
+                    class="progress-bar__fill"
+                    [style.width.%]="matStat.pourcentage"
+                    [style.background]="MatiereCouleurs[matStat.matiere]"
+                  ></div>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Row -->
+    <div class="content-grid" style="margin-top: 24px;">
+      <!-- Statut des boîtiers -->
+      <div class="card">
+        <div class="card__header">
+          <h2 class="card__title">Statut des boîtiers</h2>
+          <span class="badge badge-primary">{{ boitiers().length }} total</span>
+        </div>
+        <div class="card__body">
+          <div class="boitier-status-row">
+            <div class="boitier-status-card boitier-status-card--online">
+              <div class="boitier-status-value">{{ boitiersEnLigne() }}</div>
+              <div class="boitier-status-label">
+                <span class="status-dot online"></span>
+                En ligne
+              </div>
+            </div>
+            <div class="boitier-status-card boitier-status-card--warning">
+              <div class="boitier-status-value">{{ boitiersHorsLigne() }}</div>
+              <div class="boitier-status-label">
+                <span class="status-dot warning"></span>
+                Hors ligne
+              </div>
+            </div>
+            <div class="boitier-status-card boitier-status-card--danger">
+              <div class="boitier-status-value">{{ boitiersDeconnectes() }}</div>
+              <div class="boitier-status-label">
+                <span class="status-dot danger"></span>
+                Déconnectés
+              </div>
+            </div>
+          </div>
+
+          <!-- Liste des boîtiers -->
+          <div class="boitier-list">
+            @for (boitier of boitiers(); track boitier.id) {
+              <div class="boitier-row">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <span class="status-dot {{ getStatutClass(boitier.statut) }}"></span>
+                  <div>
+                    <div class="boitier-nom">{{ boitier.nom }}</div>
+                    <div class="boitier-code">{{ boitier.codeUnique }}</div>
+                  </div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                  <div class="boitier-battery">
+                    <svg width="16" height="10" viewBox="0 0 16 10" fill="none">
+                      <rect x="0.5" y="0.5" width="13" height="9" rx="2" stroke="currentColor" stroke-opacity="0.4"/>
+                      <rect x="2" y="2" [attr.width]="(boitier.niveauBatterie / 100) * 9" height="6" rx="1" [attr.fill]="boitier.niveauBatterie > 20 ? '#10B981' : '#EF4444'"/>
+                      <path d="M14 3V7" stroke="currentColor" stroke-opacity="0.4" stroke-width="1.5" stroke-linecap="round"/>
+                    </svg>
+                    <span [style.color]="boitier.niveauBatterie > 20 ? 'var(--color-success)' : 'var(--color-danger)'">
+                      {{ boitier.niveauBatterie }}%
+                    </span>
+                  </div>
+                  <span class="badge {{ getStatutClass(boitier.statut) === 'online' ? 'badge-success' : getStatutClass(boitier.statut) === 'warning' ? 'badge-warning' : 'badge-danger' }}">
+                    {{ getStatutLabel(boitier.statut) }}
+                  </span>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+
+      <!-- Activité hebdomadaire – 4 Semaines (Épuré & Essentiel) -->
+      <div class="card hebdo-card">
+        <div class="card__header">
+          <div>
+            <h2 class="card__title">Évolution sur 4 semaines</h2>
+            <p class="hebdo-card-subtitle">Activité consolidée du mois</p>
+          </div>
+          <span class="badge-growth" [class.badge-growth--positive]="croissanceHebdo() >= 0">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polyline points="18 15 12 9 6 15"/>
+            </svg>
+            {{ croissanceHebdo() >= 0 ? '+' : '' }}{{ croissanceHebdo() }}%
+          </span>
+        </div>
+
+        <div class="card__body" style="padding-top: 4px;">
+          <div class="hebdo-chart-wrapper">
+            <!-- Floating Popover Tooltip -->
+            @if (semaineSurvolee()) {
+              <div class="hebdo-popover"
+                   [style.left.%]="(semaineSurvolee()!.x / 360) * 100"
+                   [style.top.px]="semaineSurvolee()!.y">
+                <span class="hebdo-popover__title">{{ semaineSurvolee()!.label }}</span>
+                <span class="hebdo-popover__val">{{ semaineSurvolee()!.valeur.toLocaleString('fr-FR') }} <span>sessions</span></span>
+              </div>
+            }
+
+            <svg class="hebdo-chart-svg" viewBox="0 0 360 145" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="hebdoAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#314999" stop-opacity="0.35"/>
+                  <stop offset="100%" stop-color="#314999" stop-opacity="0.0"/>
+                </linearGradient>
+                <linearGradient id="hebdoStrokeGrad" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stop-color="#4F46E5"/>
+                  <stop offset="100%" stop-color="#38BDF8"/>
+                </linearGradient>
+              </defs>
+
+              <!-- Grid Lines & Y-Labels -->
+              @for (grid of hebdoGridLines(); track grid.y) {
+                <line x1="35" [attr.y1]="grid.y" x2="350" [attr.y2]="grid.y" stroke="var(--color-border)" stroke-dasharray="3,3" stroke-width="1"/>
+                <text x="28" [attr.y]="grid.y + 3" text-anchor="end" class="hebdo-axis-text">{{ grid.label }}</text>
+              }
+
+              <!-- Average Reference Line -->
+              <line x1="35" [attr.y1]="hebdoAvgY()" x2="350" [attr.y2]="hebdoAvgY()" stroke="var(--color-secondaire)" stroke-dasharray="3,3" stroke-width="1" stroke-opacity="0.75"/>
+              <text x="350" [attr.y]="hebdoAvgY() - 4" text-anchor="end" class="hebdo-avg-badge">
+                Moy. {{ moyenneHebdo().toLocaleString('fr-FR') }}
+              </text>
+
+              <!-- Area Fill -->
+              <path [attr.d]="hebdoAreaPath()" fill="url(#hebdoAreaGrad)"/>
+
+              <!-- Smooth Bezier Line -->
+              <path
+                [attr.d]="hebdoCurvePath()"
+                fill="none"
+                stroke="url(#hebdoStrokeGrad)"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+
+              <!-- Interactive Points -->
+              @for (pt of pointsHebdoSvg(); track pt.label; let i = $index) {
+                <circle
+                  [attr.cx]="pt.x"
+                  [attr.cy]="pt.y"
+                  [attr.r]="semaineSurvolee()?.index === i ? 7 : 4"
+                  [attr.fill]="pt.isPeak ? 'var(--color-secondaire)' : '#FFFFFF'"
+                  [attr.stroke]="pt.isPeak ? '#FFFFFF' : '#314999'"
+                  stroke-width="2"
+                  class="hebdo-point-dot"
+                  [class.is-hovered]="semaineSurvolee()?.index === i"
+                  (mouseenter)="survolerSemaine(i)"
+                  (mouseleave)="quitterSurvolSemaine()"
+                />
+              }
+            </svg>
+          </div>
+
+          <!-- Bottom X-Axis Labels -->
+          <div class="hebdo-x-labels">
+            @for (pt of pointsHebdoSvg(); track pt.label; let i = $index) {
+              <span class="hebdo-x-label"
+                    [class.is-peak]="pt.isPeak"
+                    [class.is-active]="semaineSurvolee()?.index === i"
+                    (mouseenter)="survolerSemaine(i)"
+                    (mouseleave)="quitterSurvolSemaine()">
+                {{ pt.label }}
+              </span>
+            }
+          </div>
+
+          <!-- Essential 2-KPI Summary Footer -->
+          <div class="hebdo-kpi-footer">
+            <div class="hebdo-kpi-item">
+              <span class="hebdo-kpi-item__label">Moyenne</span>
+              <span class="hebdo-kpi-item__value">{{ moyenneHebdo().toLocaleString('fr-FR') }} <small>/sem</small></span>
+            </div>
+            <div class="hebdo-kpi-item">
+              <span class="hebdo-kpi-item__label">Semaine pic</span>
+              <span class="hebdo-kpi-item__value record">
+                {{ labelsHebdo4Sem[indexPicHebdo()] }} 
+                <small>({{ (donneesHebdo4Sem()[indexPicHebdo()]).toLocaleString('fr-FR') }})</small>
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Boîtiers récemment synchronisés -->
+    <div class="card" style="margin-top: 24px;">
+      <div class="card__header">
+        <h2 class="card__title">Boîtiers récemment synchronisés</h2>
+        <a routerLink="/etablissement/supervision-boitiers" class="btn btn-ghost btn-sm" id="btn-voir-tous-boitiers">Superviser tous les boîtiers →</a>
+      </div>
+      <div class="table-wrapper">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Boîtier</th>
+              <th>Code Unique</th>
+              <th>Batterie</th>
+              <th>Version Firmware</th>
+              <th>Dernière Sync</th>
+              <th>Statut Réseau</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (b of boitiers().slice(0, 5); track b.id) {
+              <tr>
+                <td>
+                  <div style="display: flex; align-items: center; gap: 10px;">
+                    <div class="icon-box icon-box-sm icon-box-primary">
+                        <svg width="14" height="14" viewBox="0 0 18 18" fill="none">
+                          <path d="M2 5L9 1.5L16 5V13L9 16.5L2 13V5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+                          <path d="M2 5L9 8.5L16 5" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+                          <path d="M9 8.5V16.5" stroke="currentColor" stroke-width="1.5"/>
+                        </svg>
+                      </div>
+                    <span class="fw-medium">{{ b.nom }}</span>
+                  </div>
+                </td>
+                <td class="text-mono text-secondary text-sm">{{ b.codeUnique }}</td>
+                <td>
+                  <div style="display: flex; align-items: center; gap: 8px; min-width: 100px;">
+                    <div class="progress-bar" style="flex: 1;">
+                      <div class="progress-bar__fill" [class.success]="b.niveauBatterie > 50" [class.warning]="b.niveauBatterie <= 50 && b.niveauBatterie > 20" [class.danger]="b.niveauBatterie <= 20" [style.width.%]="b.niveauBatterie"></div>
+                    </div>
+                    <span class="text-sm fw-semibold">{{ b.niveauBatterie }}%</span>
+                  </div>
+                </td>
+                <td class="text-secondary text-sm">v{{ b.versionFirmware }}</td>
+                <td class="text-secondary text-sm">{{ b.derniereSync | date:'dd MMM, HH:mm' }}</td>
+                <td>
+                  <span class="badge" [class.badge-success]="b.statut === StatutBoitier.EN_LIGNE_CLOUD" [class.badge-warning]="b.statut === StatutBoitier.HORS_LIGNE_LOCAL" [class.badge-danger]="b.statut === StatutBoitier.DECONNECTE">
+                    <span class="dot"></span>
+                    {{ getStatutLabel(b.statut) }}
+                  </span>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  }
+</div>

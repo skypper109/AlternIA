@@ -1,0 +1,462 @@
+<div class="pp-page">
+
+  <!-- ═══════════════════════════════════════════════════════
+       HERO BANNER IMMERSIF PREMIUM (PARENTS)
+  ════════════════════════════════════════════════════════════ -->
+  <section class="pp-hero">
+    <div class="pp-hero__glow pp-hero__glow--1"></div>
+    <div class="pp-hero__glow pp-hero__glow--2"></div>
+
+    <div class="pp-hero__content">
+      <div class="pp-hero__left">
+        <h1 class="pp-hero__title">L'excellence pédagogique en voix réelle</h1>
+        <p class="pp-hero__sub">
+          Sélectionnez l'enseignant virtuel qui accompagne votre enfant dans ses séances de révision et son apprentissage quotidien.
+        </p>
+      </div>
+
+      <!-- Highlight du profil actif actuellement -->
+      @if (profilActif(); as actif) {
+        <div class="pp-hero__active-card">
+          <div class="pp-hero-card__header">
+            <div class="pp-hero-card__badge">
+              <span class="pulse-dot"></span>
+              <span>Enseignant sélectionné</span>
+            </div>
+            <span class="pp-hero-card__matiere-chip">{{ actif.matiere }}</span>
+          </div>
+
+          <div class="pp-hero-card__user">
+            <div class="pp-hero-card__avatar">
+              @if (actif.photoUrl) {
+                <img [src]="actif.photoUrl" [alt]="actif.nom" />
+              } @else {
+                <span>{{ getInitiales(actif.nom) }}</span>
+              }
+            </div>
+            <div class="pp-hero-card__meta">
+              <h4 class="pp-hero-card__nom">{{ actif.nom }}</h4>
+              <p class="pp-hero-card__sub">Accompagnateur virtuel de révision</p>
+            </div>
+          </div>
+
+          @if (profilEnLecture() === actif.id) {
+            <div class="pp-hero-waveform-container">
+              <div class="pp-hero-waveform">
+                @for (bar of [1,2,3,4,5,6,7,8,9,10,11,12]; track bar) {
+                  <span class="pp-hero-wave-bar" [style.animation-delay]="(bar * 0.06) + 's'"></span>
+                }
+              </div>
+              <span class="pp-hero-audio-label">Lecture audio en cours…</span>
+            </div>
+          }
+
+          <button
+            class="pp-hero-card__audio-btn"
+            [class.pp-hero-card__audio-btn--playing]="profilEnLecture() === actif.id"
+            (click)="toggleEcouterProfil(actif, $event)"
+            [id]="'btn-hero-audio-' + actif.id"
+          >
+            @if (profilEnLecture() === actif.id) {
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <rect x="6" y="4" width="4" height="16" rx="1"/>
+                <rect x="14" y="4" width="4" height="16" rx="1"/>
+              </svg>
+              <span>Arrêter l'écoute</span>
+            } @else {
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <polygon points="5 3 19 12 5 21 5 3"/>
+              </svg>
+              <span>Écouter la voix</span>
+            }
+          </button>
+        </div>
+      }
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════
+       BARRE D'ACTION & TOOLBAR
+  ════════════════════════════════════════════════════════════ -->
+  <div class="pp-toolbar">
+    <div class="pp-toolbar__left">
+      <h2 class="pp-section-title">Profils Pédagogiques Enregistrés</h2>
+      <span class="pp-count-chip">{{ profils().length }} profils</span>
+    </div>
+
+    <button class="pp-btn pp-btn--primary" (click)="ouvrirModalAjout()" id="btn-ajouter-profil">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <line x1="12" y1="5" x2="12" y2="19"/>
+        <line x1="5" y1="12" x2="19" y2="12"/>
+      </svg>
+      <span>Nouveau profil</span>
+    </button>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       GRILLE DES PROFILS PÉDAGOGIQUES (CARTE COMPACTE & SOBRE)
+  ════════════════════════════════════════════════════════════ -->
+  <section class="pp-grid-section">
+    <div class="pp-cards-grid">
+      @for (profil of profils(); track profil.id) {
+        <div
+          class="pp-card"
+          [class.pp-card--active]="profil.id === profilActif().id"
+          (click)="choisirProfil(profil.id)"
+          [attr.id]="'card-profil-' + profil.id"
+        >
+          <!-- Barre d'accent supérieure -->
+          <div class="pp-card__accent-bar"></div>
+
+          <!-- Badge Statut Actif -->
+          @if (profil.id === profilActif().id) {
+            <div class="pp-card__active-pill">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              <span>Actif</span>
+            </div>
+          }
+
+          <!-- Photo de l'enseignant ou Initiales -->
+          <div class="pp-card__avatar-wrapper">
+            <div class="pp-card__avatar-halo">
+              @if (profil.photoUrl) {
+                <img [src]="profil.photoUrl" [alt]="profil.nom" class="pp-card__photo" />
+              } @else {
+                <div class="pp-card__initiales">
+                  {{ getInitiales(profil.nom) }}
+                </div>
+              }
+            </div>
+          </div>
+
+          <!-- Infos enseignant -->
+          <div class="pp-card__info">
+            <h3 class="pp-card__nom">{{ profil.nom }}</h3>
+            <div class="pp-card__matiere-badge">
+              {{ profil.matiere }}
+            </div>
+          </div>
+
+          <!-- Lecteur Audio Compact (Spotify-like Waveform) -->
+          <div class="pp-card__audio-player" (click)="$event.stopPropagation()">
+            <button
+              class="pp-play-btn"
+              [class.pp-play-btn--playing]="profilEnLecture() === profil.id"
+              (click)="toggleEcouterProfil(profil, $event)"
+              [attr.aria-label]="profilEnLecture() === profil.id ? 'Pause' : 'Écouter la voix'"
+              [id]="'btn-play-' + profil.id"
+            >
+              @if (profilEnLecture() === profil.id) {
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                  <rect x="6" y="4" width="4" height="16" rx="1"/>
+                  <rect x="14" y="4" width="4" height="16" rx="1"/>
+                </svg>
+              } @else {
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                  <polygon points="5 3 19 12 5 21 5 3"/>
+                </svg>
+              }
+            </button>
+
+            <div class="pp-audio-waveform-wrapper">
+              <div class="pp-waveform" [class.pp-waveform--active]="profilEnLecture() === profil.id">
+                @for (bar of [1,2,3,4,5,6,7,8,9,10,11,12]; track bar) {
+                  <span
+                    class="pp-waveform-bar"
+                    [style.animation-delay]="(bar * 0.07) + 's'"
+                  ></span>
+                }
+              </div>
+              <div class="pp-audio-progress-bar">
+                <div
+                  class="pp-audio-progress-fill"
+                  [style.width.%]="profilEnLecture() === profil.id ? tempsLecture() : 0"
+                ></div>
+              </div>
+            </div>
+
+            <span class="pp-audio-status-label">
+              {{ profil.audioFileName ? 'Voix réelles' : 'Extrait HD' }}
+            </span>
+          </div>
+
+          <!-- Barre de boutons d'action -->
+          <div class="pp-card__footer-actions" (click)="$event.stopPropagation()">
+            <button
+              class="pp-btn-select-profil"
+              [class.pp-btn-select-profil--active]="profil.id === profilActif().id"
+              (click)="choisirProfil(profil.id)"
+              [id]="'btn-choisir-' + profil.id"
+            >
+              @if (profil.id === profilActif().id) {
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+                <span>Sélectionné</span>
+              } @else {
+                <span>Activer</span>
+              }
+            </button>
+
+            <div class="pp-card__icon-actions">
+              <button
+                class="pp-icon-btn pp-icon-btn--edit"
+                (click)="ouvrirModalEdition(profil, $event)"
+                [id]="'btn-modifier-' + profil.id"
+                title="Modifier le profil"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 20h9"/>
+                  <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                </svg>
+              </button>
+
+              <button
+                class="pp-icon-btn pp-icon-btn--delete"
+                (click)="confirmerSuppression(profil, $event)"
+                [id]="'btn-supprimer-' + profil.id"
+                title="Supprimer le profil"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="3 6 5 6 21 6"/>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      } @empty {
+        <div class="pp-empty-state">
+          <div class="pp-empty-icon">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+            </svg>
+          </div>
+          <h3>Aucun profil pédagogique enregistré</h3>
+          <p>Créez votre premier profil d'enseignant virtuel avec sa photo et son extrait sonore.</p>
+          <button class="pp-btn pp-btn--primary" (click)="ouvrirModalAjout()">Ajouter un profil</button>
+        </div>
+      }
+    </div>
+  </section>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MODALE FORMULAIRE DE CRÉATION / MODIFICATION
+══════════════════════════════════════════════════════════════ -->
+@if (modalOuverte()) {
+  <div class="pp-modal-overlay" (click)="fermerModal()">
+    <div class="pp-modal" (click)="$event.stopPropagation()">
+      <div class="pp-modal__header">
+        <div class="pp-modal__title-group">
+          <div class="pp-modal-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+              <circle cx="12" cy="7" r="4"/>
+            </svg>
+          </div>
+          <div>
+            <h2 class="pp-modal__title">
+              {{ modeEdition() ? 'Modifier le profil' : 'Ajouter un enseignant' }}
+            </h2>
+            <span class="pp-modal__subtitle">Renseignez la photo, le nom et le fichier audio de la vraie voix.</span>
+          </div>
+        </div>
+
+        <button class="pp-modal__close" (click)="fermerModal()" aria-label="Fermer">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="pp-modal__body">
+        <!-- 1. PHOTO DE L'ENSEIGNANT -->
+        <div class="pp-form-field">
+          <label class="pp-label">Photo de l'enseignant</label>
+          <div class="pp-photo-upload-box">
+            <div class="pp-photo-avatar-ring">
+              @if (formPhotoUrl()) {
+                <img [src]="formPhotoUrl()" alt="Prévisualisation photo" class="pp-photo-img" />
+              } @else {
+                <div class="pp-photo-placeholder">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                    <circle cx="12" cy="13" r="4"/>
+                  </svg>
+                </div>
+              }
+            </div>
+
+            <div class="pp-photo-actions">
+              <input
+                #fileInputPhoto
+                type="file"
+                accept="image/*"
+                class="pp-hidden-input"
+                (change)="onPhotoFileSelected($event)"
+              />
+              <button class="pp-btn pp-btn--outline-sm" (click)="declencherUploadPhoto()" type="button">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="17 8 12 3 7 8"/>
+                  <line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+                <span>{{ formPhotoUrl() ? 'Changer la photo' : 'Importer une photo' }}</span>
+              </button>
+
+              @if (formPhotoUrl()) {
+                <button class="pp-btn pp-btn--danger-sm" (click)="supprimerPhotoForm()" type="button">
+                  Supprimer photo
+                </button>
+              }
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. NOM COMPLET -->
+        <div class="pp-form-field">
+          <label class="pp-label" for="form-nom">Nom complet de l'enseignant *</label>
+          <input
+            id="form-nom"
+            type="text"
+            class="pp-input"
+            [ngModel]="formNom()"
+            (ngModelChange)="formNom.set($event)"
+            placeholder="Ex: Professeur Diarra"
+          />
+        </div>
+
+        <!-- 3. MATIÈRE ENSEIGNÉE -->
+        <div class="pp-form-field">
+          <label class="pp-label" for="form-matiere">Matière enseignée *</label>
+          <div class="pp-select-wrapper">
+            <select
+              id="form-matiere"
+              class="pp-select"
+              [ngModel]="formMatiere()"
+              (ngModelChange)="formMatiere.set($event)"
+            >
+              @for (m of matieresSuggerees; track m) {
+                <option [value]="m">{{ m }}</option>
+              }
+            </select>
+            <svg class="pp-select-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </div>
+        </div>
+
+        <!-- 4. FICHIER AUDIO -->
+        <div class="pp-form-field">
+          <label class="pp-label">Fichier audio (Voix enregistrée)</label>
+
+          <input
+            #fileInputAudio
+            type="file"
+            accept="audio/*"
+            class="pp-hidden-input"
+            (change)="onAudioFileSelected($event)"
+          />
+
+          @if (formAudioFileName() || formAudioUrl()) {
+            <div class="pp-audio-file-card">
+              <div class="pp-audio-file-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                  <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                </svg>
+              </div>
+
+              <div class="pp-audio-file-details">
+                <span class="pp-audio-file-name">{{ formAudioFileName() || 'Extrait audio sélectionné' }}</span>
+                <span class="pp-audio-file-status">Voix prête pour la révision</span>
+              </div>
+
+              <div class="pp-audio-file-btns">
+                <button class="pp-btn pp-btn--outline-sm" (click)="declencherUploadAudio()" type="button">
+                  Remplacer
+                </button>
+                <button class="pp-btn pp-btn--danger-sm" (click)="supprimerAudioForm()" type="button">
+                  Supprimer
+                </button>
+              </div>
+            </div>
+          } @else {
+            <div class="pp-audio-dropzone" (click)="declencherUploadAudio()">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+              </svg>
+              <div class="pp-dropzone-text">
+                <strong>Importer le fichier audio de l'enseignant</strong>
+                <span>Formats acceptés : MP3, WAV, OGG</span>
+              </div>
+              <button class="pp-btn pp-btn--outline-sm" type="button">Parcourir</button>
+            </div>
+          }
+        </div>
+
+      </div>
+
+      <div class="pp-modal__footer">
+        <button class="pp-btn pp-btn--ghost" (click)="fermerModal()" type="button">
+          Annuler
+        </button>
+        <button
+          class="pp-btn pp-btn--primary"
+          (click)="enregistrerFormulaire()"
+          [disabled]="!formNom().trim() || !formMatiere().trim()"
+          type="button"
+          id="btn-enregistrer-profil"
+        >
+          Enregistrer le profil
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- ═══════════════════════════════════════════════════════════
+     MODALE DE CONFIRMATION SUPPRESSION
+══════════════════════════════════════════════════════════════ -->
+@if (profilASupprimer()) {
+  <div class="pp-modal-overlay" (click)="annulerSuppression()">
+    <div class="pp-modal pp-modal--confirm" (click)="$event.stopPropagation()">
+      <div class="pp-modal__header">
+        <div class="pp-modal__title-group">
+          <div class="pp-modal-icon pp-modal-icon--danger">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="3 6 5 6 21 6"/>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+            </svg>
+          </div>
+          <div>
+            <h2 class="pp-modal__title">Supprimer le profil</h2>
+            <span class="pp-modal__subtitle">Cette action est irréversible.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="pp-modal__body">
+        <p class="pp-confirm-text">
+          Êtes-vous sûr de vouloir supprimer définitivement le profil pédagogique de <strong>{{ profilASupprimer()!.nom }}</strong> ({{ profilASupprimer()!.matiere }}) ?
+        </p>
+      </div>
+
+      <div class="pp-modal__footer">
+        <button class="pp-btn pp-btn--ghost" (click)="annulerSuppression()" type="button">
+          Annuler
+        </button>
+        <button class="pp-btn pp-btn--danger" (click)="validerSuppression()" type="button" id="btn-valider-suppression">
+          Supprimer définitivement
+        </button>
+      </div>
+    </div>
+  </div>
+}

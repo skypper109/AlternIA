@@ -1,0 +1,233 @@
+<div class="page-content stagger-children">
+
+  <!-- Page Header Standard -->
+  <div class="page-header">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px;">
+      <div>
+        <h1 class="page-header__title">Studio Vocal & Voix IA</h1>
+        <p class="page-header__subtitle">Générez, clonez et attribuez les voix d'enseignants pour chaque matière</p>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <button class="btn btn-outline btn-sm" (click)="ouvrirModalClonage()" id="btn-cloner-voix">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <rect x="2" y="2" width="10" height="10" rx="2" stroke="currentColor" stroke-width="1.3"/>
+            <path d="M4 6H10M4 8H8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+          </svg>
+          Cloner une voix IA
+        </button>
+
+        <button class="btn btn-primary btn-sm" (click)="ouvrirModalAjoutVoix()" id="btn-ajouter-voix">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M7 2V12M2 7H12" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          + Nouvelle Voix Studio
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Voix en Lecture Active / Preview Card -->
+  @if (voixEnLecture(); as voixActive) {
+    <div class="card" style="margin-bottom: 24px;">
+      <div class="card__header">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="icon-box icon-box-sm icon-box-secondaire">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="2" width="6" height="11" rx="3"/>
+              <path d="M5 10a7 7 0 0 0 14 0"/>
+              <line x1="12" y1="17" x2="12" y2="22"/>
+            </svg>
+          </div>
+          <div>
+            <h2 class="card__title">Écoute en cours : {{ voixActive.nom }}</h2>
+            <p class="text-xs text-secondary">{{ voixActive.genre | titlecase }} · {{ voixActive.langue }}</p>
+          </div>
+        </div>
+        <button class="btn btn-ghost btn-sm" (click)="arreterLecture()">
+          Arrêter l'écoute
+        </button>
+      </div>
+      <div class="card__body">
+        <p class="text-sm text-secondary">{{ voixActive.description }}</p>
+        <div class="progress-bar" style="height: 6px; margin-top: 12px;">
+          <div class="progress-bar__fill secondaire" [style.width.%]="tempsLecture()"></div>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- Grille des Voix -->
+  <div class="card">
+    <div class="card__header">
+      <h2 class="card__title">Bibliothèque des Voix Pédagogiques</h2>
+      <span class="badge badge-primary">{{ voixList().length }} voix disponibles</span>
+    </div>
+
+    <div class="card__body">
+      @if (chargement()) {
+        <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));gap:16px;">
+          @for (i of [1,2,3,4]; track i) {
+            <div class="skeleton" style="height:180px;border-radius:12px;"></div>
+          }
+        </div>
+      } @else {
+        <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(300px, 1fr));gap:16px;">
+          @for (voix of voixList(); track voix.id) {
+            <div class="voix-card" [attr.id]="'card-voix-' + voix.id">
+              
+              <!-- Header Voix -->
+              <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                  <div class="icon-box icon-box-sm" [class.icon-box-primary]="voix.genre === 'masculin'" [class.icon-box-secondaire]="voix.genre === 'feminin'">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="9" y="2" width="6" height="11" rx="3"/>
+                      <path d="M5 10a7 7 0 0 0 14 0"/>
+                      <line x1="12" y1="17" x2="12" y2="22"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <div class="fw-semibold text-sm">{{ voix.nom }}</div>
+                    <span class="text-xs text-secondary">{{ voix.langue }} · {{ voix.genre | titlecase }}</span>
+                  </div>
+                </div>
+
+                @if (voix.matiereAssociee; as mat) {
+                  <span class="badge" [style.background]="getCouleurMatiere(mat) + '18'" [style.color]="getCouleurMatiere(mat)">
+                    {{ getLibelleMatiere(mat) }}
+                  </span>
+                }
+              </div>
+
+              <p class="text-xs text-secondary" style="margin-bottom:12px;line-height:1.45;min-height:36px;">{{ voix.description }}</p>
+
+              <!-- Actions & Play Button -->
+              <div style="display:flex;align-items:center;justify-content:space-between;padding-top:12px;border-top:1px solid var(--color-border);">
+                <button
+                  class="btn btn-ghost btn-sm"
+                  (click)="toggleLectureVoix(voix)"
+                  [id]="'btn-lire-' + voix.id"
+                >
+                  @if (voixEnLecture()?.id === voix.id) {
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
+                    <span>Pause</span>
+                  } @else {
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                    <span>Tester</span>
+                  }
+                </button>
+
+                <div style="display:flex;gap:4px;">
+                  <button class="btn btn-ghost btn-sm" (click)="ouvrirModalAssociation(voix)" [id]="'btn-associer-' + voix.id" title="Attribuer à une matière">
+                    Attribuer matière
+                  </button>
+                  <button class="btn btn-ghost btn-sm btn-icon" (click)="confirmerSuppression(voix)" [id]="'btn-delete-voix-' + voix.id" title="Supprimer" style="color:var(--color-danger);">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          }
+        </div>
+      }
+    </div>
+  </div>
+
+</div>
+
+<!-- Modale Création / Clonage Voix -->
+@if (modalVoixOuverte()) {
+  <div class="modal-overlay" (click)="fermerModalVoix()">
+    <div class="modal-card animate-scale-in" (click)="$event.stopPropagation()" style="max-width: 500px;">
+      <div class="modal-header">
+        <h3 class="fw-bold text-lg">{{ estModeClonage ? 'Cloner une voix par IA' : 'Ajouter une voix studio' }}</h3>
+        <button class="btn btn-ghost btn-sm btn-icon" (click)="fermerModalVoix()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+
+      <div class="modal-body" style="display:flex;flex-direction:column;gap:14px;padding:20px 0;">
+        <div class="form-group">
+          <label class="form-label">Nom de la voix *</label>
+          <input type="text" class="form-input" [(ngModel)]="voixForm.nom" placeholder="Ex: Oumar / Professeur Diarra"/>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Genre vocal *</label>
+          <select class="form-input" [(ngModel)]="voixForm.genre">
+            <option value="feminin">Féminin</option>
+            <option value="masculin">Masculin</option>
+            <option value="neutre">Neutre</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Description & Tonalité</label>
+          <input type="text" class="form-input" [(ngModel)]="voixForm.description" placeholder="Ex: Voix dynamique, chaleureuse et engageante"/>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Échantillon audio modèle (MP3 / WAV)</label>
+          <input #fileInputAudio type="file" accept="audio/*" style="display:none;" (change)="onAudioFileSelected($event)"/>
+          <button class="btn btn-outline btn-sm" (click)="declencherUploadAudio()" type="button">
+            {{ formAudioFileName() ? 'Fichier : ' + formAudioFileName() : '📁 Choisir un enregistrement sonore' }}
+          </button>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-ghost" (click)="fermerModalVoix()">Annuler</button>
+        <button class="btn btn-primary" (click)="sauvegarderVoix()" [disabled]="!voixForm.nom.trim()" id="btn-enregistrer-voix">
+          {{ estModeClonage ? 'Lancer le clonage' : 'Créer la voix' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Modale Attribution Matière -->
+@if (voixEnAssociation(); as voixAssoc) {
+  <div class="modal-overlay" (click)="fermerModalAssociation()">
+    <div class="modal-card animate-scale-in" (click)="$event.stopPropagation()" style="max-width: 440px;">
+      <div class="modal-header">
+        <h3 class="fw-bold text-lg">Attribuer : {{ voixAssoc.nom }}</h3>
+        <button class="btn btn-ghost btn-sm btn-icon" (click)="fermerModalAssociation()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+
+      <div class="modal-body" style="padding: 20px 0;">
+        <div class="form-group">
+          <label class="form-label">Matière attribuée</label>
+          <select class="form-input" [(ngModel)]="matiereAssociation">
+            @for (m of matieresList; track m) {
+              <option [value]="m">{{ getLibelleMatiere(m) }}</option>
+            }
+          </select>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-ghost" (click)="fermerModalAssociation()">Annuler</button>
+        <button class="btn btn-primary" (click)="enregistrerAssociation()">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Modale Suppression Voix -->
+@if (voixASupprimer(); as voixSuppr) {
+  <div class="modal-overlay" (click)="annulerSuppression()">
+    <div class="modal-card animate-scale-in" (click)="$event.stopPropagation()" style="max-width: 440px;">
+      <div class="modal-header">
+        <h3 class="fw-bold text-lg" style="color:var(--color-danger);">Supprimer la voix</h3>
+        <button class="btn btn-ghost btn-sm btn-icon" (click)="annulerSuppression()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <div class="modal-body" style="padding: 16px 0;">
+        <p class="text-sm text-secondary">
+          Êtes-vous sûr de vouloir supprimer définitivement la voix <strong>{{ voixSuppr.nom }}</strong> ?
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" (click)="annulerSuppression()">Annuler</button>
+        <button class="btn btn-danger" (click)="validerSuppression()">Supprimer</button>
+      </div>
+    </div>
+  </div>
+}

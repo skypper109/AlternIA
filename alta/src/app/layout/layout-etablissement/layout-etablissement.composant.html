@@ -1,0 +1,253 @@
+<div class="app-shell" [class.sidebar-collapsed]="!sidebarExpanded()">
+  <!-- Sidebar -->
+  <aside class="sidebar" [class.sidebar--expanded]="sidebarExpanded()">
+
+    <!-- Logo + Toggle -->
+    <div class="sidebar__logo" [class.sidebar__logo--clickable]="!sidebarExpanded()" (click)="!sidebarExpanded() ? basculerSidebar() : null" [title]="!sidebarExpanded() ? 'Développer le menu' : ''">
+      <div class="sidebar-logo-icon">
+        <img src="logo-icon.jpeg" alt="AlternIA" width="34" height="34" style="border-radius:8px;object-fit:cover;display:block;box-shadow:0 2px 8px rgba(0,0,0,0.3);">
+      </div>
+      @if (sidebarExpanded()) {
+        <span class="sidebar-logo-name">Altern<span style="color:#40BBCC;">iA</span></span>
+        <button
+          class="sidebar-collapse-btn"
+          (click)="basculerSidebar(); $event.stopPropagation()"
+          id="btn-toggle-sidebar-inline"
+          aria-label="Réduire la navigation"
+          title="Réduire la navigation"
+        >
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+            <path d="M10 3L5 8L10 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      }
+    </div>
+
+    <!-- Portal Badge -->
+    @if (sidebarExpanded()) {
+      <div class="sidebar__portal-badge">
+        <span class="portal-badge-dot"></span>
+        <span>Portail Établissement</span>
+      </div>
+    }
+
+    <!-- Navigation -->
+    <nav class="sidebar__nav" aria-label="Navigation principale">
+
+      <!-- Groupe principal -->
+      @if (sidebarExpanded()) {
+        <div class="sidebar-nav-group-label">Général</div>
+      }
+      @for (item of navItemsPrimary; track item.route) {
+        <a
+          [routerLink]="item.route"
+          routerLinkActive="sidebar-nav-item--active"
+          class="sidebar-nav-item"
+          [class.sidebar-nav-item--icon-only]="!sidebarExpanded()"
+          [attr.data-tooltip]="!sidebarExpanded() ? item.label : null"
+          [attr.id]="'nav-' + item.icon"
+          [attr.aria-label]="item.label"
+        >
+          <span class="sidebar-nav-icon">
+            @switch (item.icon) {
+              @case ('dashboard') {
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                  <rect x="2.5" y="2.5" width="5.5" height="5.5" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
+                  <rect x="10" y="2.5" width="5.5" height="5.5" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
+                  <rect x="2.5" y="10" width="5.5" height="5.5" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
+                  <rect x="10" y="10" width="5.5" height="5.5" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
+                </svg>
+              }
+              @case ('insights') {
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                  <path d="M9 1.5L10.8 6.2L15.5 8L10.8 9.8L9 14.5L7.2 9.8L2.5 8L7.2 6.2L9 1.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+                  <path d="M14 13L14.6 14.4L16 15L14.6 15.6L14 17L13.4 15.6L12 15L13.4 14.4L14 13Z" fill="currentColor"/>
+                </svg>
+              }
+              @case ('box') {
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                  <rect x="2" y="4" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.5"/>
+                  <circle cx="5.5" cy="9" r="1" fill="currentColor"/>
+                  <circle cx="8.5" cy="9" r="1" fill="currentColor"/>
+                  <path d="M12 9H13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+              }
+              @case ('stats') {
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                  <path d="M2.5 15.5H15.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                  <path d="M4.5 12.5V15.5M9 8.5V15.5M13.5 4.5V15.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                </svg>
+              }
+              @case ('avatar') {
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                  <rect x="3" y="5" width="12" height="10" rx="3" stroke="currentColor" stroke-width="1.5"/>
+                  <circle cx="6.5" cy="9.5" r="1" fill="currentColor"/>
+                  <circle cx="11.5" cy="9.5" r="1" fill="currentColor"/>
+                  <path d="M9 2V5M6 2H12M6.5 12.5H11.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+              }
+              @case ('mic') {
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                  <rect x="6.5" y="2" width="5" height="8" rx="2.5" stroke="currentColor" stroke-width="1.5"/>
+                  <path d="M3.5 7.5C3.5 10.5 6 12.5 9 12.5C12 12.5 14.5 10.5 14.5 7.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                  <path d="M9 12.5V15.5M6 15.5H12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+              }
+              @case ('report') {
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                  <path d="M4 2.5H11L14.5 6V15.5H4V2.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+                  <path d="M11 2.5V6H14.5M7 10H11.5M7 12.5H10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+              }
+              @default {
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                  <circle cx="9" cy="9" r="6" stroke="currentColor" stroke-width="1.5"/>
+                </svg>
+              }
+            }
+          </span>
+          @if (sidebarExpanded()) {
+            <span class="sidebar-nav-label">{{ item.label }}</span>
+          }
+          @if (item.badge && sidebarExpanded()) {
+            <span class="sidebar-nav-badge">{{ item.badge }}</span>
+          }
+        </a>
+      }
+
+      <!-- Séparateur -->
+      <div class="sidebar-nav-divider"></div>
+
+      <!-- Groupe configuration -->
+      @if (sidebarExpanded()) {
+        <div class="sidebar-nav-group-label">Configuration</div>
+      }
+      @for (item of navItemsSecondary; track item.route) {
+        <a
+          [routerLink]="item.route"
+          routerLinkActive="sidebar-nav-item--active"
+          class="sidebar-nav-item"
+          [class.sidebar-nav-item--icon-only]="!sidebarExpanded()"
+          [attr.data-tooltip]="!sidebarExpanded() ? item.label : null"
+          [attr.id]="'nav-' + item.icon"
+          [attr.aria-label]="item.label"
+        >
+          <span class="sidebar-nav-icon">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <circle cx="9" cy="9" r="2.5" stroke="currentColor" stroke-width="1.5"/>
+              <path d="M9 2V4M9 14V16M2 9H4M14 9H16M4.05 4.05L5.46 5.46M12.54 12.54L13.95 13.95M4.05 13.95L5.46 12.54M12.54 5.46L13.95 4.05" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </span>
+          @if (sidebarExpanded()) {
+            <span class="sidebar-nav-label">{{ item.label }}</span>
+          }
+        </a>
+      }
+
+    </nav>
+
+    <!-- Sidebar footer -->
+    <div class="sidebar__footer">
+      <!-- User block -->
+      <div class="sidebar-user" [class.sidebar-user--compact]="!sidebarExpanded()">
+        <div class="avatar avatar-sm avatar-primary sidebar-user__avatar">
+          {{ utilisateur()?.nomComplet?.charAt(0) ?? 'A' }}
+        </div>
+        @if (sidebarExpanded()) {
+          <div class="sidebar-user__info">
+            <span class="sidebar-user__name">{{ utilisateur()?.nomComplet }}</span>
+            <span class="sidebar-user__role">Administrateur</span>
+          </div>
+          <button class="sidebar-user__logout" (click)="seDeconnecter()" aria-label="Déconnexion" id="btn-deconnecter">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path d="M6 14H3C2.448 14 2 13.552 2 13V3C2 2.448 2.448 2 3 2H6M11 11L14 8L11 5M14 8H6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        } @else {
+          <button class="sidebar-user__logout-compact" (click)="seDeconnecter()" data-tooltip="Déconnexion" id="btn-deconnecter-collapsed" aria-label="Déconnexion">
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+              <path d="M6 14H3C2.448 14 2 13.552 2 13V3C2 2.448 2.448 2 3 2H6M11 11L14 8L11 5M14 8H6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        }
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main Content Area -->
+  <div class="app-main">
+    <!-- Top Header -->
+    <header class="app-header">
+      <div class="header-left">
+        <!-- Sidebar Toggle Button in Header -->
+        <button
+          class="header-action-btn header-toggle-btn"
+          (click)="basculerSidebar()"
+          [attr.aria-label]="sidebarExpanded() ? 'Réduire le menu' : 'Développer le menu'"
+          [title]="sidebarExpanded() ? 'Réduire le menu' : 'Développer le menu'"
+          id="btn-toggle-sidebar-header"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.3"/>
+            <path d="M6 2V14" stroke="currentColor" stroke-width="1.3"/>
+          </svg>
+        </button>
+
+        <div class="header-breadcrumb">
+          <span class="header-breadcrumb__root">Alternia</span>
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M5 3L9 7L5 11" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+          </svg>
+          <span class="header-breadcrumb__current">Établissement</span>
+        </div>
+      </div>
+
+      <div class="header-right">
+        <!-- Theme toggle -->
+        <button
+          class="header-action-btn"
+          (click)="basculerTheme()"
+          id="btn-toggle-theme"
+          [attr.aria-label]="estModeNuit() ? 'Passer en mode clair' : 'Passer en mode nuit'"
+          [title]="estModeNuit() ? 'Passer en mode clair' : 'Passer en mode nuit'"
+        >
+          @if (estModeNuit()) {
+            <svg width="17" height="17" viewBox="0 0 18 18" fill="none">
+              <circle cx="9" cy="9" r="3.5" stroke="currentColor" stroke-width="1.5"/>
+              <path d="M9 2V4M9 14V16M2 9H4M14 9H16M3.757 3.757L5.172 5.172M12.828 12.828L14.243 14.243M3.757 14.243L5.172 12.828M12.828 5.172L14.243 3.757" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          } @else {
+            <svg width="17" height="17" viewBox="0 0 18 18" fill="none">
+              <path d="M15 9.5C14.5 12.5 11.8 15 8.5 15C4.91 15 2 12.09 2 8.5C2 5.2 4.5 2.5 7.5 2C6.5 3.5 6 5 6 6.5C6 10.09 8.91 13 12.5 13C13.5 13 14.5 12.5 15 12C15.1 11 15 10.3 15 9.5Z" fill="currentColor" fill-opacity="0.9"/>
+            </svg>
+          }
+        </button>
+
+        <!-- Notifications -->
+        <button class="header-action-btn header-notif-btn" (click)="basculerNotifications()" id="btn-notifications" aria-label="Notifications">
+          <svg width="17" height="17" viewBox="0 0 18 18" fill="none">
+            <path d="M9 2C6.239 2 4 4.239 4 7V12H14V7C14 4.239 11.761 2 9 2Z" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M4 12H14L15 14H3L4 12Z" fill="currentColor" fill-opacity="0.5"/>
+            <path d="M7.5 15C7.5 16.105 8.12 17 9 17C9.88 17 10.5 16.105 10.5 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          <span class="notif-dot"></span>
+        </button>
+
+        <!-- User chip -->
+        <div class="header-user">
+          <div class="avatar avatar-sm avatar-primary">
+            {{ utilisateur()?.nomComplet?.charAt(0) ?? 'A' }}
+          </div>
+          <div class="header-user__info">
+            <span class="header-user__name">{{ utilisateur()?.nomComplet }}</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Page Content -->
+    <main class="app-content" id="main-content">
+      <router-outlet/>
+    </main>
+  </div>
+</div>

@@ -1,0 +1,589 @@
+<div class="page-content stagger-children" (click)="fermerPopover()">
+
+  <!-- Banner Header -->
+  <div class="revision-header-card">
+    <div class="revision-header-card__glow"></div>
+    <div class="revision-header-card__content">
+      <div class="revision-header-badge">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+          <line x1="16" y1="2" x2="16" y2="6"/>
+          <line x1="8" y1="2" x2="8" y2="6"/>
+          <line x1="3" y1="10" x2="21" y2="10"/>
+        </svg>
+        <span>Planification Intelligente</span>
+      </div>
+      <div class="revision-header-main">
+        <div>
+          <h1 class="revision-header-title">Programme de Révision</h1>
+          <p class="revision-header-sub">
+            Organisez les séances d'étude de votre enfant, suivez le respect du planning et recevez des alertes automatiques.
+          </p>
+        </div>
+        <button class="btn btn-secondaire btn-lg btn-add-session" (click)="ouvrirModalCreation()" id="btn-creer-seance-hero">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="12" y1="5" x2="12" y2="19"/>
+            <line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          Créer une séance
+        </button>
+      </div>
+
+      <!-- Quick Stats Row -->
+      <div class="revision-stats-row">
+        <!-- Taux de respect -->
+        <div class="revision-stat-pill">
+          <div class="circular-progress" [style.--progress]="tauxRespectPlanning() + '%'">
+            <span>{{ tauxRespectPlanning() }}%</span>
+          </div>
+          <div class="pill-info">
+            <span class="pill-label">Respect du planning</span>
+            <span class="pill-value">{{ service.seancesTerminees().length }} / {{ service.seancesTerminees().length + service.seancesManquees().length }} séances accomplies</span>
+          </div>
+        </div>
+
+        <!-- Prochaines séances -->
+        <div class="revision-stat-pill">
+          <div class="pill-icon-circle pill-icon-circle--primary">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <polyline points="12 6 12 12 16 14"/>
+            </svg>
+          </div>
+          <div class="pill-info">
+            <span class="pill-label">Séances à venir</span>
+            <span class="pill-value">{{ service.prochainesSeances().length }} programmée(s)</span>
+          </div>
+        </div>
+
+        <!-- Notification Alertes -->
+        <div class="revision-stat-pill" [class.revision-stat-pill--warning]="notificationsNonLuesCount() > 0">
+          <div class="pill-icon-circle pill-icon-circle--warning">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+            </svg>
+          </div>
+          <div class="pill-info">
+            <span class="pill-label">Alertes intelligentes</span>
+            <span class="pill-value">{{ notificationsNonLuesCount() }} alerte(s) non lue(s)</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Navigation Toolbar -->
+  <div class="toolbar-container">
+    <div class="toolbar-left">
+      <!-- Tabs Vue -->
+      <div class="tabs-nav">
+        <button
+          class="tab-btn"
+          [class.tab-btn--active]="vueCourante() === 'semaine'"
+          (click)="vueCourante.set('semaine')"
+          id="btn-vue-semaine"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+          Calendrier Semaine
+        </button>
+
+        <button
+          class="tab-btn"
+          [class.tab-btn--active]="vueCourante() === 'agenda'"
+          (click)="vueCourante.set('agenda')"
+          id="btn-vue-agenda"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="8" y1="6" x2="21" y2="6"/>
+            <line x1="8" y1="12" x2="21" y2="12"/>
+            <line x1="8" y1="18" x2="21" y2="18"/>
+            <line x1="3" y1="6" x2="3.01" y2="6"/>
+            <line x1="3" y1="12" x2="3.01" y2="12"/>
+            <line x1="3" y1="18" x2="3.01" y2="18"/>
+          </svg>
+          Agenda & Liste
+        </button>
+
+        <button
+          class="tab-btn"
+          [class.tab-btn--active]="vueCourante() === 'notifications'"
+          (click)="vueCourante.set('notifications')"
+          id="btn-vue-notifications"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
+          Alertes & Notifications
+          @if (notificationsNonLuesCount() > 0) {
+            <span class="tab-badge-count">{{ notificationsNonLuesCount() }}</span>
+          }
+        </button>
+      </div>
+    </div>
+
+    <div class="toolbar-right">
+      <!-- Filtre Matière -->
+      <select
+        class="select-filter"
+        [ngModel]="filtreMatiere()"
+        (ngModelChange)="filtreMatiere.set($event)"
+        id="select-filtre-matiere"
+      >
+        <option value="TOUTES">Toutes les matières</option>
+        @for (m of matieresOptions; track m.key) {
+          <option [value]="m.key">{{ m.label }}</option>
+        }
+      </select>
+
+      <!-- Filtre Statut -->
+      <select
+        class="select-filter"
+        [ngModel]="filtreStatut()"
+        (ngModelChange)="filtreStatut.set($event)"
+        id="select-filtre-statut"
+      >
+        <option value="TOUS">Tous les statuts</option>
+        <option value="PROGRAMMÉE">Programmé</option>
+        <option value="EN_COURS">En cours</option>
+        <option value="TERMINÉE">Terminé</option>
+        <option value="MANQUÉE">Manqué</option>
+        <option value="REPORTÉE">Reporté</option>
+      </select>
+
+      <button class="btn btn-primaire btn-sm" (click)="ouvrirModalCreation()" id="btn-creer-seance-toolbar">
+        + Nouvelle séance
+      </button>
+    </div>
+  </div>
+
+  <!-- VUE 1 : CALENDRIER MODERNE SEMAINE (Google / Notion Calendar Style) -->
+  @if (vueCourante() === 'semaine') {
+    <div class="calendar-container">
+      <div class="calendar-grid">
+        @for (j of joursSemaine(); track j.dateStr) {
+          <div class="calendar-day-col" [class.calendar-day-col--today]="j.estAujourdhui">
+            <!-- Day Column Header -->
+            <div class="day-col-header">
+              <div class="day-name">{{ j.nom }}</div>
+              <div class="day-number" [class.day-number--active]="j.estAujourdhui">{{ j.dateNum }}</div>
+              <button
+                class="btn-quick-add"
+                (click)="ouvrirModalCreation(j.dateStr); $event.stopPropagation();"
+                title="Ajouter une séance ce jour"
+                [attr.id]="'btn-quick-add-' + j.dateStr"
+              >
+                +
+              </button>
+            </div>
+
+            <!-- Sessions List in Day -->
+            <div class="day-col-body">
+              @for (seance of getSeancesPourJour(j.dateStr); track seance.id) {
+                <div
+                  class="calendar-event-card"
+                  [style.border-left-color]="MatiereCouleurs[seance.matiere]"
+                  (click)="togglePopoverSeance(seance, $event)"
+                  [attr.id]="'event-card-' + seance.id"
+                >
+                  <div class="event-card-top">
+                    <span class="event-matiere-dot" [style.background]="MatiereCouleurs[seance.matiere]"></span>
+                    <span class="event-time">{{ seance.heureDebut }} - {{ seance.heureFin }}</span>
+                  </div>
+
+                  <h4 class="event-title">{{ seance.titre }}</h4>
+                  <div class="event-subject-label">{{ MatiereLabels[seance.matiere] }}</div>
+
+                  <div class="event-card-bottom">
+                    <!-- Alternia Status Badge -->
+                    <span
+                      class="statut-badge"
+                      [style.background]="STATUT_SEANCE_CONFIG[seance.statut].couleurBg"
+                      [style.color]="STATUT_SEANCE_CONFIG[seance.statut].couleurTexte"
+                      [style.border-color]="STATUT_SEANCE_CONFIG[seance.statut].couleurBorder"
+                    >
+                      @if (seance.statut === 'EN_COURS') {
+                        <span class="pulse-dot"></span>
+                      }
+                      {{ STATUT_SEANCE_CONFIG[seance.statut].label }}
+                    </span>
+                    <span class="event-duration">{{ seance.dureeMinutes }} min</span>
+                  </div>
+
+                  <!-- Popover Action Menu -->
+                  @if (seanceSelectionneePopover()?.id === seance.id) {
+                    <div class="event-popover" (click)="$event.stopPropagation()">
+                      <div class="popover-header">
+                        <span>Actions sur la séance</span>
+                        <button class="popover-close" (click)="fermerPopover()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+                      </div>
+                      <div class="popover-actions">
+                        <button class="popover-item text-success" (click)="changerStatut(seance.id, 'TERMINÉE', $event)">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="20 6 9 17 4 12"/>
+                          </svg>
+                          Marquer comme Terminée
+                        </button>
+                        <button class="popover-item text-warning" (click)="ouvrirModalReport(seance, $event)">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
+                          </svg>
+                          Reporter à une autre date
+                        </button>
+                        <button class="popover-item text-danger" (click)="changerStatut(seance.id, 'MANQUÉE', $event)">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"/>
+                            <line x1="6" y1="6" x2="18" y2="18"/>
+                          </svg>
+                          Marquer comme Manquée
+                        </button>
+                        <hr class="popover-divider"/>
+                        <button class="popover-item" (click)="ouvrirModalEdition(seance, $event)">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 20h9"/>
+                            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                          </svg>
+                          Modifier la séance
+                        </button>
+                        <button class="popover-item text-danger" (click)="supprimerSeance(seance.id, $event)">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="3 6 5 6 21 6"/>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                          </svg>
+                          Supprimer
+                        </button>
+                      </div>
+                    </div>
+                  }
+                </div>
+              } @empty {
+                <div class="empty-day-slot">
+                  <span>Aucune séance</span>
+                </div>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+  }
+
+  <!-- VUE 2 : AGENDA / LISTE CHRONOLOGIQUE -->
+  @if (vueCourante() === 'agenda') {
+    <div class="agenda-list-container">
+      @for (seance of seancesFiltrees(); track seance.id) {
+        <div class="agenda-card">
+          <div class="agenda-card__color-strip" [style.background]="MatiereCouleurs[seance.matiere]"></div>
+
+          <div class="agenda-card__time">
+            <div class="time-main">{{ seance.heureDebut }}</div>
+            <div class="time-sub">{{ seance.heureFin }}</div>
+            <span class="time-dur">{{ seance.dureeMinutes }} min</span>
+          </div>
+
+          <div class="agenda-card__content">
+            <div class="agenda-card__date-badge">
+              {{ formatDateLisible(seance.jour) }}
+            </div>
+            <h3 class="agenda-card__title">{{ seance.titre }}</h3>
+            <div class="agenda-card__subject">
+              <span class="subject-dot" [style.background]="MatiereCouleurs[seance.matiere]"></span>
+              <span>{{ MatiereLabels[seance.matiere] }}</span>
+            </div>
+            @if (seance.commentaire) {
+              <p class="agenda-card__comment">« {{ seance.commentaire }} »</p>
+            }
+          </div>
+
+          <div class="agenda-card__status-col">
+            <span
+              class="statut-badge"
+              [style.background]="STATUT_SEANCE_CONFIG[seance.statut].couleurBg"
+              [style.color]="STATUT_SEANCE_CONFIG[seance.statut].couleurTexte"
+              [style.border-color]="STATUT_SEANCE_CONFIG[seance.statut].couleurBorder"
+            >
+              {{ STATUT_SEANCE_CONFIG[seance.statut].label }}
+            </span>
+
+            <div class="agenda-actions-row">
+              <button class="btn btn-ghost btn-sm" (click)="ouvrirModalEdition(seance)" [id]="'btn-edit-' + seance.id">
+                Modifier
+              </button>
+              <button class="btn btn-ghost btn-sm text-warning" (click)="ouvrirModalReport(seance)" [id]="'btn-report-' + seance.id">
+                Reporter
+              </button>
+            </div>
+          </div>
+        </div>
+      } @empty {
+        <div class="empty-state-card">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--color-primaire)" stroke-width="1.5">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+          </svg>
+          <h3>Aucune séance trouvée</h3>
+          <p>Ajustez les filtres ou créez votre première séance de révision.</p>
+          <button class="btn btn-primaire" (click)="ouvrirModalCreation()">Créer une séance</button>
+        </div>
+      }
+    </div>
+  }
+
+  <!-- VUE 3 : CENTRE DE NOTIFICATIONS INTELLIGENTES & ALERTES -->
+  @if (vueCourante() === 'notifications') {
+    <div class="notifications-center-container">
+      <div class="notif-center-header">
+        <div>
+          <h3>Centre de Notifications & Alertes Intelligentes</h3>
+          <p>Rappels automatiques, alertes d'assiduité et alertes en cas de séances manquées.</p>
+        </div>
+        <button class="btn btn-ghost btn-sm" (click)="toutMarquerNotifLue()" id="btn-tout-lire-notifications">
+          Tout marquer comme lu
+        </button>
+      </div>
+
+      <div class="notifications-list">
+        @for (notif of notifications(); track notif.id) {
+          <div
+            class="notif-card"
+            [class.notif-card--unread]="!notif.lue"
+            [class.notif-card--urgent]="notif.priorite === 'urgente'"
+          >
+            <div
+              class="notif-icon-circle"
+              [class.notif-icon-circle--rappel]="notif.type === 'RAPPEL_AVANT'"
+              [class.notif-icon-circle--manquee]="notif.type === 'SEANCE_MANQUEE'"
+              [class.notif-icon-circle--alerte]="notif.type === 'ALERTE_SUIVI'"
+              [class.notif-icon-circle--fin]="notif.type === 'FIN_SEANCE'"
+            >
+              @switch (notif.type) {
+                @case ('RAPPEL_AVANT') {
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <polyline points="12 6 12 12 16 14"/>
+                  </svg>
+                }
+                @case ('SEANCE_MANQUEE') {
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                    <line x1="12" y1="9" x2="12" y2="13"/>
+                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                  </svg>
+                }
+                @case ('ALERTE_SUIVI') {
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                  </svg>
+                }
+                @default {
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                    <polyline points="22 4 12 14.01 9 11.01"/>
+                  </svg>
+                }
+              }
+            </div>
+
+            <div class="notif-content">
+              <div class="notif-top-row">
+                <h4 class="notif-title">{{ notif.titre }}</h4>
+                <div class="notif-meta">
+                  @if (notif.priorite === 'urgente') {
+                    <span class="badge-urgent">Alerte Prioritaire</span>
+                  }
+                  <span class="notif-date">{{ notif.date | date:'dd MMM, HH:mm':'':'fr' }}</span>
+                </div>
+              </div>
+              <p class="notif-message">{{ notif.message }}</p>
+            </div>
+
+            <div class="notif-actions">
+              @if (!notif.lue) {
+                <button class="btn btn-ghost btn-xs" (click)="marquerNotifLue(notif.id)" [id]="'btn-read-notif-' + notif.id">
+                  Marquer comme lue
+                </button>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+  }
+
+</div>
+
+<!-- Modal Création / Édition de Séance -->
+@if (modalOuverte()) {
+  <div class="modal-overlay" (click)="fermerModal()">
+    <div class="modal-card modal-card--lg" (click)="$event.stopPropagation()">
+      <div class="modal-card__header">
+        <h3 class="modal-card__title">{{ seanceEnEditionId() ? 'Modifier la séance' : 'Créer une séance de révision' }}</h3>
+        <button class="modal-close-btn" (click)="fermerModal()" aria-label="Fermer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+
+      <div class="modal-card__body">
+        <div class="form-grid">
+          <!-- Titre -->
+          <div class="form-group form-group--full">
+            <label class="form-label">Titre de la séance *</label>
+            <input
+              type="text"
+              class="form-input"
+              [ngModel]="formTitre()"
+              (ngModelChange)="formTitre.set($event)"
+              placeholder="Ex: Révision Mathématiques - Trigonométrie"
+            />
+          </div>
+
+          <!-- Matière -->
+          <div class="form-group">
+            <label class="form-label">Matière *</label>
+            <select
+              class="form-select"
+              [ngModel]="formMatiere()"
+              (ngModelChange)="formMatiere.set($event)"
+            >
+              @for (m of matieresOptions; track m.key) {
+                <option [value]="m.key">{{ m.label }}</option>
+              }
+            </select>
+          </div>
+
+          <!-- Jour -->
+          <div class="form-group">
+            <label class="form-label">Date / Jour *</label>
+            <input
+              type="date"
+              class="form-input"
+              [ngModel]="formJour()"
+              (ngModelChange)="formJour.set($event)"
+            />
+          </div>
+
+          <!-- Heure Début -->
+          <div class="form-group">
+            <label class="form-label">Heure de début *</label>
+            <input
+              type="time"
+              class="form-input"
+              [ngModel]="formHeureDebut()"
+              (ngModelChange)="formHeureDebut.set($event)"
+            />
+          </div>
+
+          <!-- Heure Fin -->
+          <div class="form-group">
+            <label class="form-label">Heure de fin *</label>
+            <input
+              type="time"
+              class="form-input"
+              [ngModel]="formHeureFin()"
+              (ngModelChange)="formHeureFin.set($event)"
+            />
+          </div>
+
+          <!-- Durée calculée & Rappel -->
+          <div class="form-group">
+            <label class="form-label">Durée calculée</label>
+            <div class="form-read-only-badge">{{ formDureeCalculee() }} minutes</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Rappel notification</label>
+            <select
+              class="form-select"
+              [ngModel]="formRappelMinutes()"
+              (ngModelChange)="formRappelMinutes.set(+$event)"
+            >
+              <option [value]="15">15 minutes avant</option>
+              <option [value]="30">30 minutes avant</option>
+              <option [value]="60">1 heure avant</option>
+            </select>
+          </div>
+
+          <!-- Commentaire facultatif -->
+          <div class="form-group form-group--full">
+            <label class="form-label">Commentaire ou consignes facultatives</label>
+            <textarea
+              class="form-textarea"
+              rows="3"
+              [ngModel]="formCommentaire()"
+              (ngModelChange)="formCommentaire.set($event)"
+              placeholder="Ex: Insister sur les exercices 4 et 5 du manuel."
+            ></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-card__footer">
+        <button class="btn btn-ghost" (click)="fermerModal()">Annuler</button>
+        <button
+          class="btn btn-secondaire"
+          (click)="sauvegarderSeance()"
+          [disabled]="!formTitre().trim()"
+          id="btn-save-seance"
+        >
+          {{ seanceEnEditionId() ? 'Mettre à jour' : 'Enregistrer la séance' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Modal Report de Séance -->
+@if (modalReportOuverte()) {
+  <div class="modal-overlay" (click)="fermerModalReport()">
+    <div class="modal-card" (click)="$event.stopPropagation()">
+      <div class="modal-card__header">
+        <h3 class="modal-card__title">Reporter la séance</h3>
+        <button class="modal-close-btn" (click)="fermerModalReport()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <div class="modal-card__body">
+        <p class="modal-subtext">Séance : <strong>{{ seanceAReporter()?.titre }}</strong></p>
+
+        <div class="form-group">
+          <label class="form-label">Nouvelle date *</label>
+          <input
+            type="date"
+            class="form-input"
+            [ngModel]="reportNouvelleDate()"
+            (ngModelChange)="reportNouvelleDate.set($event)"
+          />
+        </div>
+
+        <div class="form-grid" style="margin-top:12px;">
+          <div class="form-group">
+            <label class="form-label">Heure début</label>
+            <input
+              type="time"
+              class="form-input"
+              [ngModel]="reportNouvelleHeureDebut()"
+              (ngModelChange)="reportNouvelleHeureDebut.set($event)"
+            />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Heure fin</label>
+            <input
+              type="time"
+              class="form-input"
+              [ngModel]="reportNouvelleHeureFin()"
+              (ngModelChange)="reportNouvelleHeureFin.set($event)"
+            />
+          </div>
+        </div>
+      </div>
+      <div class="modal-card__footer">
+        <button class="btn btn-ghost" (click)="fermerModalReport()">Annuler</button>
+        <button class="btn btn-secondaire" (click)="confirmerReport()" id="btn-confirm-report">Confirmer le report</button>
+      </div>
+    </div>
+  </div>
+}

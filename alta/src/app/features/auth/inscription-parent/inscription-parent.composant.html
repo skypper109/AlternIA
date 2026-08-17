@@ -1,0 +1,132 @@
+<div class="auth-page">
+  <!-- Left Panel – Branding -->
+  <div class="auth-branding auth-branding--parent">
+    <div class="auth-branding__inner">
+      <!-- Logo -->
+      <div class="auth-logo">
+        <div class="auth-logo__icon">
+          <img src="logo-icon.jpeg" alt="AlternIA" width="44" height="44" style="border-radius:10px;object-fit:cover;display:block;box-shadow:0 4px 16px rgba(0,0,0,0.3);">
+        </div>
+        <span class="auth-logo__name">Altern<span style="color:#40BBCC;">iA</span></span>
+      </div>
+
+      <!-- Hero Content -->
+      <div class="auth-hero">
+        <h1 class="auth-hero__title">Accompagnez vos enfants <em>au quotidien</em></h1>
+        <p class="auth-hero__desc">Suivez en temps réel la progression scolaire de vos enfants et configurez leur boîtier d'apprentissage à domicile.</p>
+      </div>
+
+      <!-- Feature Checklist -->
+      <div class="auth-check-list">
+        <div class="auth-check-item">
+          <span class="check-icon">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path d="M3 8.5L6.5 12L13 4.5" stroke="#F1851F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+          <span>Suivi de l'activité du boîtier à distance</span>
+        </div>
+        <div class="auth-check-item">
+          <span class="check-icon">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path d="M3 8.5L6.5 12L13 4.5" stroke="#F1851F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+          <span>Alertes et recommandations pédagogiques</span>
+        </div>
+        <div class="auth-check-item">
+          <span class="check-icon">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path d="M3 8.5L6.5 12L13 4.5" stroke="#F1851F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+          <span>Programmes de révision sur mesure</span>
+        </div>
+        <div class="auth-check-item">
+          <span class="check-icon">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path d="M3 8.5L6.5 12L13 4.5" stroke="#F1851F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+          <span>Historique des sessions et questions posées</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Panel – Formulaire -->
+  <div class="auth-form-panel">
+    <div class="auth-form-container">
+      @if (!succes()) {
+        <div class="auth-step animate-fade-in">
+          <div class="auth-form-header">
+            <div class="profile-badge profile-badge--parent">Espace Famille</div>
+            <h2 class="auth-form-title">Créer votre compte parent</h2>
+            <p class="auth-form-subtitle">Associez votre boîtier Alternia pour commencer le suivi</p>
+          </div>
+
+          <form [formGroup]="formulaire" (ngSubmit)="sInscrire()" class="auth-form-body">
+            <div class="form-grid">
+              <div class="form-group">
+                <label class="form-label" for="nom-parent">Nom *</label>
+                <input id="nom-parent" type="text" class="form-input" formControlName="nom" placeholder="Coulibaly"/>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="prenom-parent">Prénom *</label>
+                <input id="prenom-parent" type="text" class="form-input" formControlName="prenom" placeholder="Aïssata"/>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="email-parent">Email personnel *</label>
+              <input id="email-parent" type="email" class="form-input" formControlName="email" placeholder="aissata.coulibaly@gmail.com"/>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="code-boitier">Code unique du boîtier *</label>
+              <input id="code-boitier" type="text" class="form-input text-mono" formControlName="codeBoitier" placeholder="ALT-HOME-0042"/>
+              <span class="form-hint">Le code se situe sur l'étiquette sous votre boîtier Alternia</span>
+            </div>
+
+            <div class="form-grid">
+              <div class="form-group">
+                <label class="form-label" for="mdp-parent">Mot de passe *</label>
+                <input id="mdp-parent" type="password" class="form-input" formControlName="motDePasse" placeholder="Min. 8 caractères"/>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="conf-mdp-parent">Confirmation *</label>
+                <input id="conf-mdp-parent" type="password" class="form-input" formControlName="confirmationMotDePasse" placeholder="Retapez le mot de passe"/>
+              </div>
+            </div>
+
+            <button id="btn-creer-compte-parent" type="submit" class="btn btn-secondary btn-lg btn-full" [disabled]="chargement()" style="margin-top: 8px;">
+              @if (chargement()) { 
+                <span class="animate-spin">⟳</span> Création en cours… 
+              } @else { 
+                Créer le compte parent 
+              }
+            </button>
+          </form>
+
+          <p class="text-secondary text-sm" style="text-align: center; margin-top: 20px;">
+            Vous avez déjà un compte ? <a [routerLink]="routes.AUTH.CONNEXION" class="fw-semibold">Se connecter</a>
+          </p>
+        </div>
+      } @else {
+        <div class="auth-step auth-success animate-scale-in" style="text-align:center; padding: 40px 20px;">
+          <div class="icon-box icon-box-lg icon-box-success" style="margin: 0 auto 16px auto;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <circle cx="12" cy="12" r="10"/>
+              <polyline points="16 9 10 15 7 12"/>
+            </svg>
+          </div>
+          <h2 class="auth-form-title">Compte parent créé !</h2>
+          <p class="auth-form-subtitle" style="margin-bottom: 24px;">Votre boîtier a été associé avec succès à votre compte.</p>
+          <a [routerLink]="routes.AUTH.CONNEXION" class="btn btn-secondary btn-lg btn-full" id="link-retour-connexion-parent">
+            Accéder à la connexion →
+          </a>
+        </div>
+      }
+    </div>
+  </div>
+</div>

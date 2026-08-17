@@ -20,6 +20,7 @@ from alternia.rag.embeddings import EmbeddingService
 from alternia.rag.semantic_retriever import SemanticRetriever
 from alternia.rag.vector_store import LocalVectorStore
 from alternia.rag.service import RAGService
+from alternia.rag.contextualizer import QueryContextualizer
 from alternia.tts.engine import TTSEngine, NEURAL_VOICES
 from alternia.conversation.manager import ConversationManager
 from alternia.learner.manager import LearnerManager
@@ -320,11 +321,11 @@ def main():
             session = orchestrator.conversation_manager.get(session_id)
             if session and session.messages:
                 student_past_msgs = [m.content for m in session.messages if m.role == "student"]
-                if student_past_msgs and (
-                    len(question.split()) <= 5
-                    or any(w in question.lower() for w in ["reexplique", "réexplique", "detail", "détail", "exemple", "pourquoi", "ensuite", "différence", "c'est-à-dire", "comment"])
-                ):
-                    rag_query = f"{student_past_msgs[-1]} - {question}"
+                rag_query = QueryContextualizer.contextualize(
+                    current_question=question,
+                    past_student_messages=student_past_msgs,
+                    current_topic=getattr(session, "current_topic", None),
+                )
 
             # Récupération du contexte RAG (filtrage strict par classe et série)
             rag_context = None
@@ -413,6 +414,24 @@ def main():
 
             elapsed = time.perf_counter() - start_time
             print(f"\n\n\033[2m[Réponse générée en {elapsed:.2f}s]\033[0m\n")
+
+            # Enregistrement en direct de l'interaction dans alta_db (alertes & analytics admin temps réel)
+            try:
+                if str(PROJECT_ROOT) not in sys.path:
+                    sys.path.insert(0, str(PROJECT_ROOT))
+                from backend.src.services.learning_service import record_student_interaction
+                record_student_interaction(
+                    student_id=student_id,
+                    student_class=current_class,
+                    series=current_series,
+                    subject=effective_subject,
+                    question=question,
+                    answer=full_response,
+                    sources=last_sources,
+                    session_id=session_id,
+                )
+            except Exception as db_err:
+                pass
 
         except Exception as exc:
             print(f"\n\n❌ Erreur : {exc}\n")
