@@ -118,3 +118,41 @@ def test_spa_index_serving():
     response = client.get("/etablissement/tableau-de-bord")
     assert response.status_code == 200
     assert "text/html" in response.headers.get("content-type", "")
+
+
+def test_inscription_etablissement():
+    import uuid
+    unique_id = uuid.uuid4().hex[:6]
+    payload = {
+        "nomEtablissement": f"Complexe Scolaire Horizon {unique_id}",
+        "email": f"horizon_{unique_id}@horizon.edu.ml",
+        "motDePasse": "horizon2026",
+        "nomResponsable": "M. Diallo",
+        "ville": "Bamako",
+    }
+    response = client.post("/api/auth/inscription-etablissement", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["succes"] is True
+    assert data["utilisateur"]["email"] == f"horizon_{unique_id}@horizon.edu.ml"
+    assert data["utilisateur"]["role"] == "admin_ecole"
+
+
+def test_inscription_parent():
+    import uuid
+    unique_id = uuid.uuid4().hex[:6]
+    payload = {
+        "nom": "Cissé",
+        "prenom": "Aminata",
+        "email": f"aminata_{unique_id}@test.ml",
+        "motDePasse": "parent2026",
+        "codeBoitier": f"ALT-HOME-{unique_id.upper()}",
+    }
+    response = client.post("/api/auth/inscription-parent", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["succes"] is True
+    assert data["utilisateur"]["email"] == f"aminata_{unique_id}@test.ml"
+    assert data["utilisateur"]["role"] == "parent"
+
+

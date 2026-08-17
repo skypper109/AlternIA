@@ -46,7 +46,7 @@ ai-engine/data/index/*.json
 *.safetensors
 *.bin
 *.onnx
-models/
+/models/
 ai-engine/models/
 
 # PDFs and heavy raw documents (preserve directory structure with .gitkeep)

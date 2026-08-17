@@ -1,179 +1,194 @@
 # AlternIA - Dispositif Pédagogique Intelligent et Tuteur Vocal pour le Secondaire au Mali
 
----
-
-## 1. Presentation generale et vision du projet
-
-AlternIA est un systeme d'assistance pedagogique base sur l'intelligence artificielle, concu pour accompagner les eleves du cycle secondaire au Mali (10eme, 11eme et 12eme Annee / Terminale).
-
-Le projet repond aux defis structurels d'acces a un encadrement scolaire personnalise et aux ressources educatives dans les contextes a connectivite limitee ou instable. Il est concu des l'origine selon le paradigme **Edge AI / Local-First** :
-- Le moteur d'inference linguistique (LLM) s'execute localement sur le dispositif physique sans dependance obligatoire a une connexion Internet permanente.
-- La base de connaissances pedagogiques officielles du Mali est vectorisee et interrogee localement via un pipeline RAG (Retrieval-Augmented Generation).
-- Le systeme adapte son niveau d'exigence, ses explications et son vocabulaire a la classe, a la serie et a la progression reelle de chaque eleve.
-- Une interface vocale neuronale haute fidelite permet un dialogue naturel, fluide et didactique avec l'apprenant.
+[![FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688?style=flat-square&logo=fastapi)](https://fastapi.tiangolo.com/)
+[![Angular](https://img.shields.io/badge/Frontend-Angular%2018-DD0031?style=flat-square&logo=angular)](https://angular.dev/)
+[![LLM Local](https://img.shields.io/badge/Edge%20AI-Qwen2.5%20GGUF-412991?style=flat-square)](https://huggingface.co/Qwen)
+[![RAG](https://img.shields.io/badge/RAG-Local%20%26%20Qdrant-orange?style=flat-square)](https://qdrant.tech/)
+[![TTS](https://img.shields.io/badge/Audio-Neural%20Edge%20TTS-blue?style=flat-square)](https://github.com/rany2/edge-tts)
+[![Python](https://img.shields.io/badge/Python-3.11%20%7C%203.12-3776AB?style=flat-square&logo=python)](https://www.python.org/)
 
 ---
 
-## 2. Contexte educatif et alignement sur le programme national malien
+## 1. Présentation générale et vision du projet
 
-AlternIA embarque l'integralite de la structure curriculaire du ministere de l'Education nationale du Mali.
+**AlternIA** est un écosystème d'assistance pédagogique intelligent basé sur l'intelligence artificielle, spécialement conçu pour accompagner les élèves du cycle secondaire au Mali (10ème, 11ème et 12ème Année / Terminale).
 
-### 2.1. Niveaux et filieres supportes
-
-1. **10eme Annee (Tronc Commun)**
-   - Filieres : 10eme Commune Generale (CG), 10eme Commune Technique (CT).
-   - Matieres principales : Mathematiques, Physique-Chimie, Francais, Anglais, Biologie, Histoire, Geographie.
-
-2. **11eme Annee (Specialisation)**
-   - Series :
-     - 11eme Sciences (11eme SC)
-     - 11eme Lettres (11eme LL)
-     - 11eme Sciences Economiques (11eme SECO)
-     - 11eme Sciences et Technologies Industrielles (11eme STI)
-   - Matieres adaptees a chaque serie : Mathematiques, Sciences Physiques, Chimie, Francais, Philosophie, Anglais, Biologie, Geologie, Histoire, Geographie.
-
-3. **12eme Annee (Terminale & Baccalaureat)**
-   - Series :
-     - TSE : Terminale Sciences Exactes (priorite forte Mathematiques, Physique-Chimie)
-     - TSExp : Terminale Sciences Experimentales (Sciences Naturelles, Physique-Chimie, Mathematiques)
-     - TSS : Terminale Sciences Sociales (Histoire, Geographie, Philosophie, Francais, Mathematiques appliquees)
-     - TSEco : Terminale Sciences Economiques (Economie, Mathematiques appliquees, Gestion)
-     - TLL : Terminale Lettres et Langues (Litterature, Philosophie, Langues vivantes)
-
-### 2.2. Objectif d'alignement pedagogique
-Lorsqu'un eleve pose une question, AlternIA ne repond pas de facon generique : le systeme identifie la classe, consulte les manuels et programmes officiels de la serie selectionnee, et formule une reponse rigoureusement conforme aux attentes du programme scolaire malien.
+Le projet répond aux défis structurels d'accès à un encadrement scolaire personnalisé et aux ressources éducatives dans les contextes à connectivité limitée ou instable :
+- **Edge AI / Local-First** : Le moteur d'inférence linguistique (LLM) s'exécute localement sur le boîtier physique (AlternIA Box) sans dépendance obligatoire à Internet.
+- **RAG Curriculaire Malien** : La base de connaissances des manuels et programmes officiels du Mali est vectorisée et interrogée localement via un pipeline RAG (*Retrieval-Augmented Generation*).
+- **Pédagogie Adaptative & Socratique** : Le système adapte son niveau, ses explications et son vocabulaire à la classe, à la série et à la progression réelle de chaque élève sans donner directement les réponses aux exercices.
+- **Interface Vocale Haute Définition** : Synthèse vocale neuronale fluide avec prononciation exacte des expressions mathématiques et scientifiques.
+- **Portail d'Administration et Suivi Multi-Rôles** : Une application web moderne (*Alta*) et des APIs complètes pour les établissements scolaires, les enseignants et les parents d'élèves.
 
 ---
 
-## 3. Architecture globale du systeme
+## 2. Contexte éducatif et alignement curriculaire malien
 
-Le projet est compose de 4 briques logicielles interconnectees :
+AlternIA intègre l'intégralité de la structure curriculaire du ministère de l'Éducation nationale du Mali.
+
+### 2.1. Niveaux et filières supportés
+
+1. **10ème Année (Tronc Commun)**
+   - **Filières** : 10ème Commune Générale (CG), 10ème Commune Technique (CT).
+   - **Matières** : Mathématiques, Physique-Chimie, Français, Anglais, Biologie, Histoire, Géographie.
+
+2. **11ème Année (Spécialisation)**
+   - **Séries** :
+     - `11ème SC` : 11ème Sciences
+     - `11ème LL` : 11ème Lettres et Littérature
+     - `11ème SECO` : 11ème Sciences Économiques
+     - `11ème STI` : 11ème Sciences et Technologies Industrielles
+   - **Matières** : Mathématiques, Sciences Physiques, Chimie, Français, Philosophie, Anglais, Biologie, Géologie, Histoire, Géographie.
+
+3. **12ème Année (Terminale & Baccalauréat)**
+   - **Séries** :
+     - `TSE` : Terminale Sciences Exactes (priorité Mathématiques, Physique-Chimie)
+     - `TSExp` : Terminale Sciences Expérimentales (Sciences Naturelles, Physique-Chimie, Mathématiques)
+     - `TSS` : Terminale Sciences Sociales (Histoire, Géographie, Philosophie, Français, Mathématiques appliquées)
+     - `TSEco` : Terminale Sciences Économiques (Économie, Mathématiques appliquées, Gestion)
+     - `TLL` : Terminale Lettres et Langues (Littérature, Philosophie, Langues vivantes)
+
+---
+
+## 3. Architecture globale de l'écosystème
 
 ```
-+-------------------------------------------------------------------------+
-|                          CLIENTS D'ACCES                                |
-|  +-----------------------------------+  +----------------------------+  |
-|  | Interface CLI Terminal Interactive|  | Application Mobile Flutter |  |
-|  +-----------------------------------+  +----------------------------+  |
-+------------------------------------+------------------------------------+
-                                     |
-                                     v
-+------------------------------------+------------------------------------+
-|                         BACKEND FASTAPI                                 |
-|  - API RESTful (Curriculum, Profils apprenants, Diagnostic materiel)   |
-|  - Streaming SSE Token-par-Token (/api/chat/stream)                     |
-|  - Validation et normalisation des donnees d'entree Pydantic            |
-+------------------------------------+------------------------------------+
-                                     |
-                                     v
-+------------------------------------+------------------------------------+
-|                     AI-ENGINE (ORCHESTRATEUR)                           |
-|                                                                         |
-|  +-------------------------+      +----------------------------------+  |
-|  |   Moteur Pedagogique    |      |         RAG Contextuel           |  |
-|  | - Detection d'intention |      | - Embeddings BGE Multilingues    |  |
-|  | - Strategie (cours/exo) |      | - Base Vectorielle Qdrant/Local  |  |
-|  | - Construction Prompts  |      | - Filtrage Classe / Matiere      |  |
-|  +-------------------------+      +----------------------------------+  |
-|               |                                    |                    |
-|               +-----------------+------------------+                    |
-|                                 |                                       |
-|                                 v                                       |
-|  +-------------------------------------------------------------------+  |
-|  |                    LLM Local (GGUF / Llama.cpp)                   |  |
-|  |    Inference locale Qwen 2.5 3B Instruct avec acceleration GPU    |  |
-|  +-------------------------------------------------------------------+  |
-|                                 |                                       |
-|                                 v                                       |
-|  +-------------------------+      +----------------------------------+  |
-|  |   Memoire Apprenant     |      |      Synthese Vocale (TTS)       |  |
-|  | - Historique durable    |      | - Voix Neurales Haute Definition |  |
-|  | - Suivi des notions     |      | - Traduction phonetique maths    |  |
-|  | - Statistiques maitrise |      | - Repli systeme hors-ligne       |  |
-|  +-------------------------+      +----------------------------------+  |
-+-------------------------------------------------------------------------+
++-----------------------------------------------------------------------------------------+
+|                                    CLIENTS D'ACCÈS                                      |
+|  +-------------------------------+  +--------------------------+  +------------------+  |
+|  | Interface Web Alta (Angular)  |  | Application Mobile       |  | CLI Interactive  |  |
+|  | Portails Directeurs / Parents |  | Flutter / Android        |  | Terminal Local   |  |
+|  +-------------------------------+  +--------------------------+  +------------------+  |
++---------------------------------------------+-------------------------------------------+
+                                              |
+                                              v
++-----------------------------------------------------------------------------------------+
+|                                  BACKEND FASTAPI                                        |
+|  - Authentification multi-rôles (Admin École, Enseignants, Parents)                     |
+|  - DTOs Pydantic avec support double camelCase / snake_case                             |
+|  - Base de données SQLAlchemy (SQLite / MySQL)                                          |
+|  - Gestion du parc de boîtiers physiques AlternIA Box                                   |
+|  - Suivi des apprenants, statistiques d'apprentissage & alertes                         |
+|  - Studio de voix & d'avatars pédagogiques                                              |
+|  - Streaming SSE Token-par-Token (/api/chat/stream)                                     |
++---------------------------------------------+-------------------------------------------+
+                                              |
+                                              v
++-----------------------------------------------------------------------------------------+
+|                              AI-ENGINE (ORCHESTRATEUR)                                  |
+|                                                                                         |
+|  +------------------------------------+      +---------------------------------------+  |
+|  |        Moteur Pédagogique          |      |            RAG Contextuel             |  |
+|  | - Détection d'intention             |      | - Ingestion et chunking de PDF        |  |
+|  | - Stratégies socratiques & cours   |      | - Embeddings denses BGE Multilingues  |  |
+|  | - Prompt engineering adaptatif     |      | - Base vectorielle locale / Qdrant    |  |
+|  +------------------------------------+      +---------------------------------------+  |
+|                   |                                              |                      |
+|                   +----------------------+-----------------------+                      |
+|                                          |                                              |
+|                                          v                                              |
+|  +-----------------------------------------------------------------------------------+  |
+|  |                      LLM Local (GGUF via llama-cpp-python)                        |  |
+|  |             Inférence locale Qwen 2.5 (1.5B / 3B Instruct quantifié Q4)           |  |
+|  +-----------------------------------------------------------------------------------+  |
+|                                          |                                              |
+|                                          v                                              |
+|  +------------------------------------+      +---------------------------------------+  |
+|  |       Mémoire Apprenant            |      |         Synthèse Vocale (TTS)         |  |
+|  | - Historique conversationnel       |      | - Voix neuronales HD (Vivienne, Rémy) |  |
+|  | - Profil de maîtrise des notions   |      | - Traduction phonétique des formules  |  |
+|  | - Détection des points de blocage  |      | - Mode de repli hors-ligne (say/espeak|  |
+|  +------------------------------------+      +---------------------------------------+  |
++-----------------------------------------------------------------------------------------+
 ```
 
 ---
 
-## 4. Architecture detaillee de l'AI-Engine (`ai-engine`)
+## 4. Composants principaux
 
-Le dossier `ai-engine/src/alternia/` contient l'ensemble de la logique algorithmique et de traitement automatique du langage naturel.
+### 4.1. Moteur d'Intelligence Artificielle (`ai-engine`)
+- **LLM Local (`llm/local_client.py`)** : Inférence haute performance avec quantification GGUF (`Qwen2.5-3B-Instruct` ou `Qwen2.5-1.5B-Instruct` pour Raspberry Pi / Edge), support d'accélération matérielle Metal (macOS), CUDA (Nvidia) et CPU multi-thread.
+- **RAG & Chunking Pédagogique (`rag/`, `ingestion/`)** : Découpage sémantique préservant la hiérarchie didactique (chapitre, leçon, notion, exercices), embeddings denses BAAI/bge, et recherche hybride filtrée par classe et matière.
+- **Moteur Pédagogique & Stratégies (`pedagogical/`)** : Détection d'intentions et application de stratégies socratiques (guidage étape par étape sans donner directement la solution).
+- **TTS Haute Définition (`tts/`)** : Voix neuronales (`Vivienne`, `Remy`), nettoyage phonétique avancé des formules mathématiques (`x² + 2x = 0` $\rightarrow$ *"x au carré plus deux x égal zéro"*), gestion des flux audio et mode hors-ligne.
+- **Mémoire & Progression (`learner/`, `conversation/`)** : Suivi des notions maîtrisées et à revoir, persistance de session et contextualisation des requêtes.
 
-### 4.1. Ingestion et Chunking Pedagogique (`ingestion/`, `core/`)
-- **Chargeur de documents (`ingestion/loaders/pdf.py`)** : Extraction structuree du texte depuis les manuels scolaires et programmes officiels au format PDF via PyMuPDF (`fitz`) et PyPDF.
-- **Decoupeur pedagogique (`ingestion/chunking/pedagogical_chunker.py`)** : Decoupe semantique respectant la hierarchie du cours (Chapitre, Lecon, Notion, Exercice, Correction) plutot qu'une simple decoupe par nombre brut de caracteres.
-- **Format de Chunk (`core/pedagogical_chunk.py`)** : Chaque fragment conserve ses metadonnees critiques (classe, matiere, serie, chapitre, lecon, niveau de difficulte, mots-cles).
+### 4.2. Serveur Backend FastAPI (`backend`)
+- **API REST & Streaming SSE** : Endpoints modulaires pour le dialogue pédagogique, la gestion des sessions et le diagnostic système.
+- **Authentification & Gestion des Profils (`services/auth_service.py`, `models/auth.py`)** : Inscription et connexion pour directeurs d'établissement (`admin_ecole`), enseignants et parents, hachage sécurisé des mots de passe, gestion du statut actif/inactif.
+- **Gestion des Boîtiers (`services/boitier_service.py`)** : Télémétrie en temps réel (batterie, stockage, statut Wi-Fi, dernière synchronisation, configuration réseau).
+- **Analytique & Alertes (`services/analytics_service.py`, `services/alerte_service.py`)** : Détection des décrochages et alertes pédagogiques, calcul des KPIs d'apprentissage en temps réel.
+- **Studio Vocal & Avatars (`services/avatar_service.py`)** : Gestion des avatars d'enseignants virtuels et génération d'échantillons audio en direct.
+- **Persistance & Base de Données (`db/`)** : Modèles SQLAlchemy (`Utilisateur`, `Etablissement`, `Boitier`, `Apprenant`, `Alerte`, `SessionApprentissage`), compatible SQLite et MySQL/MariaDB (`init_alta_db.sql`).
 
-### 4.2. Embeddings et Base Vectorielle (`embeddings/`, `rag/`)
-- **Service d'Embedding (`rag/embeddings.py`, `embeddings/service.py`)** : Calcul des vecteurs d'embeddings denses via `sentence-transformers` (modele multilingue `BAAI/bge-small-en-v1.5` ou modeles francophones legers).
-- **Magasin Vectoriel Hybride (`rag/vector_store.py`, `rag/qdrant_store.py`)** :
-  - Mode local ultra-leger base sur index memoire/disque binaire pour dispositifs a ressources contraintes.
-  - Mode Qdrant embarque pour indexations et recherches vectorielles filtrees a grande echelle.
-- **Recherche Semantique (`rag/semantic_retriever.py`)** : Recherche hybride combinant similarite cosinus et filtrage strict sur les metadonnees (classe de l'eleve, matiere courante).
-
-### 4.3. Moteur Pedagogique et Strategies Didactiques (`pedagogical/`, `pedagogy/`)
-Le moteur pedagogique determine l'approche pedagogique optimale :
-- **Detection d'intention** : Identification de l'intention de l'eleve (demande de definition, resolution d'exercice guidant pas a pas, demande de correction, question methodologique).
-- **Strategies didactiques modularisees (`pedagogical/strategies/`)** :
-  - *ExplanationStrategy* : Explication claire, progressive, illustree d'analogies issues du quotidien malien/ouest-africain.
-  - *ExerciseStrategy* : Resolution socratique d'exercices (ne donne pas la reponse brute directement, mais guide par questions etapes par etapes).
-- **Construction de Prompts (`pedagogical/prompt_builder.py`)** : Injecte le contexte curriculaire, la definition du profil de l'eleve et les extraits documentaires exacts dans le prompt systeme du LLM.
-
-### 4.4. Memoire d'Apprentissage et Suivi Durable (`learner/`)
-- **Profil d'Apprentissage (`learner/profile.py`, `learner/models.py`)** : Structure dataclass enregistrant :
-  - `mastered_topics` : Notions validees et maitrisees.
-  - `topics_to_review` : Notions posant des difficultes a retravailler.
-  - `topic_progress` : Scores quantitatifs de reussite par notion.
-  - `statistics` : Total des questions, exercices resolus, taux de succes.
-- **Gestionnaire d'Apprentissage (`learner/manager.py`)** : Persistance et conversion des profils vers le contexte actif pour personnaliser les reponses en temps reel.
-
-### 4.5. Client LLM Local (`llm/`)
-- **Inference locale (`llm/local_client.py`)** : Execute les modeles au format GGUF via `llama-cpp-python`.
-- **Modele pre-configure** : `Qwen2.5-3B-Instruct-Q4_K_M.gguf` offrant un equilibre remarquable entre qualite de raisonnement francophone, concision didactique et rapidite d'execution (15 a 40 tokens/s selon le materiel).
-- **Acceleration materielle** : Prise en charge transparente de Metal (Apple Silicon / Mac), CUDA (Nvidia), et optimisation CPU multi-thread (ARM Cortex pour Raspberry Pi 4/5).
-- **Generation Streaming** : Generateur de tokens au fil de l'eau pour affichage instantane sans temps de latence percue.
-
-### 4.6. Moteur Text-To-Speech Haute Fidelite (`tts/`)
-- **Synthese Neurale HD (`tts/engine.py`)** : Utilise le moteur Neural TTS avec des voix francaises ultra-naturelles et expressives :
-  - `Vivienne` (Feminine, douce, pedagogique, profil ChatGPT Voice).
-  - `Remy` (Masculine, naturelle et dynamique).
-  - `Denise`, `Eloise`, `Henri`.
-- **Nettoyage et lecture phonetique des maths** : Traduction automatique des symboles scientifiques avant synthese (`ax² + bx + c = 0` $\rightarrow$ *"a x au carre plus b x plus c egale zero"*, `√` $\rightarrow$ *"racine carree de"*, `±` $\rightarrow$ *"plus ou moins"*, `Δ` $\rightarrow$ *"delta"*).
-- **Mode de repli systeme** : Bascule automatique sur la synthese vocale locale (`say` sur macOS, `espeak-ng` sur Linux) si le dispositif est hors-ligne.
-- **Architecture de diffusion** : Le texte est streame a l'ecran a pleine vitesse, puis la voix prononce la reponse de facon continue et harmonieuse avec interruption immediate (`tts.stop()`) lors d'une nouvelle requete.
+### 4.3. Portail Web Client (`alta`)
+- **Framework & Stack** : Développé en **Angular 18** (Standalone components, Signals, Reactive Forms).
+- **Design System "Liquid Glass"** : Interface moderne, esthétique glassmorphism sombre, micro-interactions, responsive design et tableaux de bord immersifs.
+- **Espaces Dédiés** :
+  - *Espace Établissement* : Vue d'ensemble du parc de boîtiers, statistiques des classes, gestion des comptes utilisateurs, résolution des alertes.
+  - *Espace Parent* : Suivi individuel des enfants, temps d'apprentissage quotidien, notions acquises et configuration du boîtier familial.
+  - *Studio des Avatars* : Création, prévisualisation et test vocal des avatars pédagogiques.
 
 ---
 
-## 5. Architecture du Backend FastAPI (`backend`)
+## 5. Spécifications des Endpoints API
 
-Le backend FastAPI ([backend/src/main.py](backend/src/main.py)) expose l'ensemble des fonctionnalites sous forme d'API HTTP REST et de flux SSE (Server-Sent Events).
-
-### 5.1. Specifications des Endpoints
-
-| Methode | Route | Description |
+### Authentification & Profils (`/api/auth`)
+| Méthode | Route | Description |
 |---|---|---|
-| `GET` | `/health` ou `/api/health` | Verification de l'etat du serveur, disponibilite RAG et LLM |
-| `POST` | `/api/chat` (ou `/api/ask`) | Envoi d'une question avec reponse synchrone complete |
-| `POST` | `/api/chat/stream` (ou `/api/ask/stream`) | Streaming Server-Sent Events (SSE) token par token |
-| `GET` | `/api/curriculum` | Description de l'arborescence des classes et series maliennes |
-| `GET` | `/api/learner/{student_id}` | Consultation du profil et des notions maitrisees/a revoir |
-| `POST` | `/api/learner/{student_id}/interaction` | Enregistrement d'un resultat d'exercice ou quiz |
-| `POST` | `/api/session/reset` | Reinitialisation de l'historique conversationnel |
-| `GET` | `/api/device/info` | Metadonnees sur le boitier AlternIA local |
+| `POST` | `/api/auth/connexion` | Connexion utilisateur (Directeur, Enseignant, Parent) |
+| `POST` | `/api/auth/inscription-etablissement` | Inscription d'un établissement et création de l'administrateur |
+| `POST` | `/api/auth/inscription-parent` | Inscription d'un parent et association du boîtier |
+| `GET` | `/api/auth/me` | Récupération du profil utilisateur connecté |
+| `PUT` | `/api/auth/profile` | Mise à jour du profil et mot de passe |
+| `GET` | `/api/auth/users` | Liste des utilisateurs enregistrés (Admin) |
+| `POST` | `/api/auth/users` | Création d'un utilisateur par l'administrateur |
+| `POST` | `/api/auth/users/{id}/toggle-status` | Activation / désactivation d'un compte |
+
+### Dialogue & Pédagogie (`/api/chat`)
+| Méthode | Route | Description |
+|---|---|---|
+| `POST` | `/api/chat` (ou `/api/ask`) | Question synchrone avec réponse complète et métadonnées RAG |
+| `POST` | `/api/chat/stream` | Flux de tokens en temps réel via Server-Sent Events (SSE) |
+| `POST` | `/api/session/reset` | Réinitialisation du contexte conversationnel |
+
+### Boîtiers & Télémétrie (`/api/boitiers`, `/api/device`)
+| Méthode | Route | Description |
+|---|---|---|
+| `GET` | `/api/boitiers` | Liste de tous les boîtiers physiques déployés |
+| `GET` | `/api/boitiers/{id}` | Détails matériels, batterie, stockage et statut |
+| `POST` | `/api/boitiers/{id}/sync` | Déclenchement d'une synchronisation des données |
+| `POST` | `/api/boitiers/{id}/wifi` | Configuration des paramètres Wi-Fi du boîtier |
+| `GET` | `/api/device/info` | Diagnostic matériel du boîtier local |
+
+### Apprenants, Analytique & Alertes
+| Méthode | Route | Description |
+|---|---|---|
+| `GET` | `/api/apprenants` | Liste des élèves avec niveau de maîtrise et temps passé |
+| `GET` | `/api/apprenants/{id}` | Profil détaillé d'un apprenant |
+| `GET` | `/api/insights` | KPIs temps réel, notions critiques et points de blocage |
+| `GET` | `/api/statistiques` | Répartition des matières et temps d'apprentissage |
+| `GET` | `/api/alertes` | Liste des alertes pédagogiques |
+| `PUT` | `/api/alertes/{id}/resoudre` | Résolution d'une alerte |
+
+### Avatars & Synthèse Vocale (`/api/avatars`, `/api/tts`)
+| Méthode | Route | Description |
+|---|---|---|
+| `GET` | `/api/avatars` | Liste des avatars pédagogiques configurés |
+| `POST` | `/api/avatars` | Création d'un nouvel avatar personnalisé |
+| `POST` | `/api/avatars/test-audio` | Synthèse vocale à la volée d'une phrase de test |
 
 ---
 
-## 6. Installation et Deploiement Pas a Pas
+## 6. Installation et Déploiement
 
-### 6.1. Prerequis systeme
-- Systeme d'exploitation : macOS (Apple Silicon ou Intel), Linux (Ubuntu/Debian, Raspberry Pi OS 64-bit).
-- Python : Version 3.11 ou 3.12 recommandee.
-- Gestionnaires de son systeme : `afplay` (inclus de base sur macOS), ou `mpv` / `ffplay` / `alsa` sur Linux.
+### 6.1. Prérequis
+- **OS** : macOS (Apple Silicon / Intel), Linux (Ubuntu, Debian, Raspberry Pi OS 64-bit).
+- **Python** : Version 3.11 ou 3.12.
+- **Node.js** : Version 18+ (pour le portail Angular `alta`).
+- **Outils audio** : `afplay` (inclus sur macOS) ou `mpv` / `ffplay` / `alsa` (Linux).
 
-### 6.2. Installation des dependances
-
-Cloner le depot et creer un environnement virtuel Python :
+### 6.2. Cloner le projet et configurer l'environnement Python
 
 ```bash
 git clone https://github.com/skypper109/AlternIA.git
@@ -186,204 +201,135 @@ pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-### 6.3. Telechargement du modele de langage (LLM)
-
-Placer le fichier du modele LLM quantifie GGUF dans le repertoire dedie :
+### 6.3. Télécharger le modèle LLM local (GGUF)
 
 ```bash
 mkdir -p ai-engine/models/llm
-```
 
-Telecharger le modele `Qwen2.5-3B-Instruct` quantifie en Q4_K_M (environ 2.1 Go) :
-
-```bash
+# Modèle Qwen 2.5 3B Instruct (recommandé pour Mac/PC) :
 curl -L -o ai-engine/models/llm/qwen2.5-3b-instruct-q4_k_m.gguf \
   https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4_k_m.gguf
+
+# Ou modèle ultra-léger 1.5B (recommandé pour Raspberry Pi / Edge) :
+curl -L -o ai-engine/models/llm/qwen2.5-1.5b-instruct-q4_k_m.gguf \
+  https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf
 ```
 
-### 6.4. Indexation de la base de connaissances malienne
-
-Pour indexer ou reindexer l'ensemble des manuels scolaires situes dans `knowledge-base/` :
+### 6.4. Indexer les manuels scolaires (RAG)
 
 ```bash
 export PYTHONPATH="ai-engine/src:backend/src:$PYTHONPATH"
 python ai-engine/src/alternia/rag/indexer.py
 ```
 
----
+### 6.5. Démarrer le Backend FastAPI
 
-## 7. Guide d'utilisation
+```bash
+export PYTHONPATH="ai-engine/src:backend/src:$PYTHONPATH"
+uvicorn backend.src.main:app --host 0.0.0.0 --port 8000 --reload
+```
+> Accédez à la documentation Swagger interactive sur : `http://localhost:8000/docs`.
 
-### 7.1. Mode Terminal Interactif (CLI Chat)
+### 6.6. Démarrer le Portail Web Angular (Alta)
 
-Le moyen le plus direct d'interagir avec AlternIA :
+```bash
+cd alta
+npm install
+npm start
+```
+> Le portail est accessible à l'adresse : `http://localhost:4200`.
+
+### 6.7. Utiliser le Mode Terminal Interactif (CLI)
 
 ```bash
 export PYTHONPATH="ai-engine/src:backend/src:$PYTHONPATH"
 python ai-engine/src/alternia/cli/chat.py
 ```
 
-#### Commandes speciales dans le terminal :
+---
+
+## 7. Commandes du Terminal Interactif (CLI)
+
 - `/classe 10eme` | `/classe 11eme` | `/classe 12eme` : Change la classe active et recalibre le RAG.
-- `/matiere <nom>` : Bascule sur une matiere (`mathematiques`, `physique`, `chimie`, `francais`, etc.).
-- `/voix` : Affiche les voix disponibles et la voix actuelle.
-- `/voix vivienne` : Active la voix feminine neurale (style ChatGPT).
-- `/voix remy` : Active la voix masculine neurale.
-- `/voix system` : Bascule sur la synthese vocale locale hors-ligne.
+- `/matiere <nom>` : Bascule sur une matière (`mathematiques`, `physique`, `chimie`, `francais`, etc.).
+- `/voix` : Affiche les voix disponibles et la voix courante.
+- `/voix vivienne` | `/voix remy` : Sélectionne une voix neuronale haute fidélité.
+- `/voix system` : Bascule sur la synthèse vocale système hors-ligne.
 - `/audio on` | `/audio off` : Active ou coupe la voix.
-- `/sources` : Affiche les extraits de manuels scolaires maliens utilises pour repondre.
-- `/profil` : Visualise le tableau de bord de l'apprenant (notions acquises, difficultes).
+- `/sources` : Affiche les extraits de manuels scolaires maliens utilisés pour répondre.
+- `/profil` : Affiche les statistiques et le niveau de maîtrise de l'apprenant.
 - `quit` ou `exit` : Quitte la session.
 
-### 7.2. Lancement du Serveur Backend API
-
-Pour demarrer le serveur d'API REST et Streaming :
-
-```bash
-export PYTHONPATH="ai-engine/src:backend/src:$PYTHONPATH"
-uvicorn backend.src.main:app --host 0.0.0.0 --port 8000 --reload
-```
-
-Documentation Swagger interactive disponible sur : `http://localhost:8000/docs`.
-
 ---
 
-## 8. Exemples d'appels API
+## 8. Tests et Assurance Qualité
 
-### 8.1. Question synchrone (`/api/chat`)
-
-```bash
-curl -X POST http://localhost:8000/api/chat \
-  -H "Content-Type: application/json" \
-  -d '{
-    "question": "Comment resoudre une equation du second degre ax2 + bx + c = 0 ?",
-    "student_class": "10eme",
-    "subject": "mathematiques",
-    "enable_rag": true
-  }'
-```
-
-### 8.2. Streaming en temps reel SSE (`/api/chat/stream`)
+Une suite complète de tests automatisés valide le moteur IA et l'ensemble des routes API :
 
 ```bash
-curl -N -X POST http://localhost:8000/api/chat/stream \
-  -H "Content-Type: application/json" \
-  -d '{
-    "question": "Donne-moi la formule du discriminant et un exemple simple.",
-    "student_class": "10eme",
-    "subject": "mathematiques",
-    "enable_rag": true
-  }'
-```
-
-### 8.3. Enregistrement d'un resultat d'exercice (`/api/learner/{id}/interaction`)
-
-```bash
-curl -X POST http://localhost:8000/api/learner/eleve-001/interaction \
-  -H "Content-Type: application/json" \
-  -d '{
-    "student_class": "10eme",
-    "intent": "exercise",
-    "subject": "mathematiques",
-    "topic": "equations du second degre",
-    "difficulty": "moyen",
-    "success": true
-  }'
+# Exécution de tous les tests avec pytest
+export PYTHONPATH=".:ai-engine/src:backend/src:$PYTHONPATH"
+pytest backend/tests -v
 ```
 
 ---
 
-## 9. Tests et Assurance Qualite
-
-Le projet integre une suite de tests unitaires et d'integration couvrant l'integralite de la chaine fonctionnelle.
-
-### 9.1. Execution de la suite de tests
-
-```bash
-export PYTHONPATH="ai-engine/src:backend/src:$PYTHONPATH"
-pytest ai-engine/tests -v
-```
-
-### 9.2. Principaux modules de test
-- `test_backend_api.py` : Verification des endpoints FastAPI, formats de reponse et gestion des classes.
-- `test_tts_engine.py` : Validation de l'initialisation, du basculement des voix et du nettoyage phonetique des maths.
-- `test_learner_profile.py` : Validation de l'evolution des profils apprenants et du suivi des notions.
-- `test_rag_service.py` & `test_semantic_retriever.py` : Validation de la recherche semantique et des scores de pertinence.
-- `test_pedagogical_engine.py` : Verification des prompts systemes et de l'adaptation curriculaire.
-
----
-
-## 10. Arborescence du repertoire
+## 9. Structure du Répertoire
 
 ```
 AlternIA/
-├── README.md                          # Documentation technique generale
-├── requirements.txt                   # Dependances generales du projet
+├── README.md                          # Documentation générale du projet
+├── requirements.txt                   # Dépendances globales du projet
 ├── pyrightconfig.json                 # Configuration du typage statique
-├── .gitignore                         # Exclusions de versionnement
+├── .gitignore                         # Exclusions Git
 │
-├── ai-engine/                         # Moteur d'Intelligence Pedagogique
-│   ├── requirements.txt               # Dependances specifiques au moteur IA
-│   ├── models/
-│   │   └── llm/                       # Repertoire du modele local GGUF
+├── ai-engine/                         # Moteur d'Intelligence Pédagogique
+│   ├── requirements.txt               # Dépendances du moteur IA
+│   ├── models/llm/                    # Fichiers GGUF des modèles LLM locaux
+│   ├── src/alternia/
+│   │   ├── cli/chat.py                # Interface terminale interactive
+│   │   ├── config/settings.py         # Paramètres et variables d'environnement
+│   │   ├── conversation/              # Gestionnaire de sessions conversationnelles
+│   │   ├── core/pedagogical_chunk.py  # Modèle de fragment pédagogique
+│   │   ├── embeddings/service.py      # Calcul des vecteurs d'embeddings
+│   │   ├── ingestion/                 # Extracteurs PDF et découpeurs pédagogiques
+│   │   ├── learner/                   # Profil durable et suivi des notions
+│   │   ├── llm/                       # Client LLM local Llama.cpp / GGUF
+│   │   ├── orchestration/             # Orchestrateur central AlternIA
+│   │   ├── pedagogical/               # Stratégies didactiques socratiques
+│   │   ├── rag/                       # Moteur RAG, indexeur et recherche sémantique
+│   │   └── tts/engine.py              # Synthèse vocale neuronale HD & fallback
+│   └── tests/                         # Tests unitaires du moteur IA
+│
+├── alta/                              # Portail Web Frontend (Angular 18)
+│   ├── package.json                   # Dépendances Node.js
 │   ├── src/
-│   │   └── alternia/
-│   │       ├── cli/
-│   │       │   └── chat.py            # Interface terminale interactive
-│   │       ├── config/
-│   │       │   └── settings.py        # Configuration et variables d'environnement
-│   │       ├── conversation/
-│   │       │   ├── context.py         # Gestionnaire de session conversationnelle
-│   │       │   ├── manager.py         # Cycle de vie des sessions
-│   │       │   └── models.py          # Modeles de messages et historiques
-│   │       ├── core/
-│   │       │   └── pedagogical_chunk.py # Structure des fragments pedagogiques
-│   │       ├── embeddings/
-│   │       │   └── service.py         # Calcul des embeddings denses
-│   │       ├── ingestion/
-│   │       │   ├── chunking/          # Algorithmes de decoupage structure
-│   │       │   └── loaders/           # Extracteurs de documents (PDF)
-│   │       ├── learner/
-│   │       │   ├── adaptation.py      # Adaptation didactique au niveau
-│   │       │   ├── assessment.py      # Module d'evaluation des acquis
-│   │       │   ├── manager.py         # Gestionnaire persistant des profils
-│   │       │   ├── models.py          # Modeles de donnees de progression
-│   │       │   └── profile.py         # Profil apprenant durable
-│   │       ├── llm/
-│   │       │   ├── client.py          # Interface abstraite client LLM
-│   │       │   └── local_client.py    # Implementation locale Llama.cpp / GGUF
-│   │       ├── orchestration/
-│   │       │   └── orchestrator.py    # Orchestrateur central AlternIA
-│   │       ├── pedagogical/
-│   │       │   ├── engine.py          # Moteur de decision pedagogique
-│   │       │   ├── models.py          # Modeles pedagogiques
-│   │       │   ├── prompt_builder.py  # Constructeur de prompts adaptatifs
-│   │       │   └── strategies/        # Strategies d'explication et d'exercices
-│   │       ├── rag/
-│   │       │   ├── embeddings.py      # Wrapper d'embedding RAG
-│   │       │   ├── indexer.py         # Script d'indexation des manuels
-│   │       │   ├── retriever.py       # Extracteur de documents pertinents
-│   │       │   ├── semantic_retriever.py # Recherche semantique vectorielle
-│   │       │   ├── service.py         # Service RAG haut niveau
-│   │       │   └── vector_store.py    # Stockage vectoriel local
-│   │       └── tts/
-│   │           └── engine.py          # Moteur de synthese vocale HD (Neural Edge + fallback)
-│   └── tests/                         # Suites de tests unitaires et d'integration
+│   │   ├── app/
+│   │   │   ├── core/                  # Services d'authentification, modèles, constantes
+│   │   │   └── features/              # Modules Établissement, Parents, Auth, Avatars
+│   │   ├── styles.scss                # Thème global et design system Liquid Glass
+│   │   └── index.html                 # Point d'entrée de l'application SPA
 │
 ├── backend/                           # Serveur API FastAPI
-│   └── src/
-│       └── main.py                    # Application FastAPI, routes REST et SSE
+│   ├── src/
+│   │   ├── db/                        # Modèles SQLAlchemy, connexion DB et seeds
+│   │   ├── models/                    # Schémas DTOs Pydantic (auth, boitier, chat, avatar)
+│   │   ├── routes/                    # Routeurs API (auth, boitiers, chat, insights, etc.)
+│   │   ├── services/                  # Logique métier et interfaçage avec l'AI-Engine
+│   │   └── main.py                    # Point d'entrée de l'application FastAPI
+│   └── tests/                         # Tests d'intégration des endpoints API
 │
+├── data/                              # Index vectoriels persistants (Qdrant / Local)
 ├── knowledge-base/                    # Manuels et programmes scolaires maliens (PDF)
 │   ├── 10eme/
 │   ├── 11eme/
 │   └── 12eme/
-│
-└── data/                              # Index vectoriels persistants (Qdrant / Local)
+├── device/                            # Utilitaires pour le boîtier physique AlternIA
+└── scripts/                           # Scripts SQL d'initialisation et utilitaires
 ```
 
 ---
 
-## 11. Licence et Contributions
+## 10. Licence et Contribution
 
-Le projet AlternIA est developpe pour favoriser l'egalite des chances et la reussite scolaire au Mali par l'intelligence artificielle ouverte et souveraine.
+Le projet **AlternIA** est développé pour favoriser l'égalité des chances et la réussite scolaire au Mali et en Afrique de l'Ouest grâce à une intelligence artificielle ouverte, souveraine et accessible hors-ligne.

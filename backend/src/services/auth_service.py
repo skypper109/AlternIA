@@ -227,21 +227,31 @@ def register_school(db: Session, req: InscriptionEtablissementRequest) -> Dict[s
     if existant:
         raise HTTPException(status_code=400, detail="Un compte existe déjà avec cette adresse email.")
 
+    code_etab = (
+        req.code_etablissement.strip()
+        if req.code_etablissement and req.code_etablissement.strip()
+        else f"ETAB-{uuid.uuid4().hex[:6].upper()}"
+    )
+
     etab = Etablissement(
-        nom=req.nomEtablissement.strip(),
+        nom=req.nom_etablissement.strip() if req.nom_etablissement else "Nouvel Établissement",
+        code=code_etab,
         ville=req.ville.strip() if req.ville else "Bamako",
-        type_etablissement=req.typeEtablissement or "Lycée",
+        type_etablissement=req.type_etablissement or "Lycée",
+        telephone=req.telephone.strip() if req.telephone else None,
+        email=req.email.strip(),
     )
     db.add(etab)
     db.commit()
     db.refresh(etab)
 
+    nom_responsable = req.nom_responsable.strip() if req.nom_responsable else "Directeur d'établissement"
+
     user = Utilisateur(
         email=req.email.strip(),
-        nom_complet=req.nomResponsable.strip(),
+        nom_complet=nom_responsable,
         role="admin_ecole",
-        mot_de_passe_hash=hash_password(req.motDePasse or "alternia2026"),
-        etablissement_id=etab.id,
+        mot_de_passe_hash=hash_password(req.mot_de_passe or "alternia2026"),
         actif=True,
     )
     db.add(user)
@@ -261,11 +271,17 @@ def register_parent(db: Session, req: InscriptionParentRequest) -> Dict[str, Any
     if existant:
         raise HTTPException(status_code=400, detail="Un compte existe déjà avec cette adresse email.")
 
+    nom_complet = (
+        req.nom_complet
+        or f"{req.prenom or ''} {req.nom or ''}".strip()
+        or "Parent d'élève"
+    ).strip()
+
     user = Utilisateur(
         email=req.email.strip(),
-        nom_complet=req.nomParent.strip(),
+        nom_complet=nom_complet,
         role="parent",
-        mot_de_passe_hash=hash_password(req.motDePasse or "alternia2026"),
+        mot_de_passe_hash=hash_password(req.mot_de_passe or "alternia2026"),
         actif=True,
     )
     db.add(user)
