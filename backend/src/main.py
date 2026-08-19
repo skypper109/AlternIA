@@ -109,4 +109,4 @@ if ALTA_BROWSER_DIR.exists():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host=settings.backend_host, port=settings.backend_port)
+    uvicorn.run("backend.src.main:app", host=settings.backend_host, port=settings.backend_port, reload=True)

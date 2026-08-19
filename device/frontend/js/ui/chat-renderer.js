@@ -1,6 +1,8 @@
 /**
- * Module de rendu des bulles de conversation et des messages ALTA (Liquid Glass & SVG Icons).
+ * Module de rendu des bulles de conversation et des Défis Express du Bac (Liquid Glass & SVG Icons).
  */
+
+import { CURRICULUM_DATA } from '../config/curriculum.js';
 
 export class ChatRenderer {
   constructor({ listContainerId = 'chat-messages-list', scrollAreaId = 'chat-scroll-area', katexRenderer } = {}) {
@@ -190,60 +192,125 @@ export class ChatRenderer {
     this.scrollToBottom();
   }
 
-  renderInitialWelcome(onSelectClass) {
+  renderInitialWelcome(onSelectClass, onChallengeClick) {
     const div = document.createElement('div');
     div.className = 'flex items-start gap-3 mb-6 animate-fade-in';
     div.innerHTML = `
       <div class="w-9 h-9 rounded-full overflow-hidden border border-cyan-400/50 flex items-center justify-center shrink-0 shadow-lg shadow-cyan-950/40 bg-slate-900">
         <img src="assets/avatar.png" alt="ALTA" class="w-full h-full object-cover">
       </div>
-      <div class="liquid-glass-card p-5 max-w-[94%] flex-1 border border-white/10 shadow-2xl">
-        <div class="flex items-center justify-between mb-3 pb-2 border-b border-white/5">
+      <div class="liquid-glass-card p-5 max-w-[96%] flex-1 border border-white/12 shadow-2xl">
+        
+        <!-- Header Holographique -->
+        <div class="flex items-center justify-between mb-4 pb-2.5 border-b border-white/8">
           <div class="text-xs font-bold text-cyan-300 tracking-wide uppercase flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_10px_#10B981]"></span>
             <span>ALTA • Tuteur Pédagogique Intelligent</span>
           </div>
-          <span class="glass-status-badge text-[10.5px] text-cyan-300 font-mono">Programme Officiel Malien</span>
+          <div class="flex items-center gap-2">
+            <span class="glass-status-badge text-[11px] text-cyan-300 font-mono">Programme Officiel Malien</span>
+            <span class="glass-status-badge text-[11px] text-emerald-300 font-mono">100% Hors-Ligne</span>
+          </div>
         </div>
-        <div class="ai-body-content">
-          <p class="text-sm md:text-base text-slate-200 leading-relaxed font-sans mb-4">
-            Bienvenue sur le dispositif Alternia. Pour adapter les explications, démarches scientifiques et résolutions d'exercices à ton programme scolaire, sélectionne ton niveau :
+
+        <div class="ai-body-content space-y-4">
+          <p class="text-sm md:text-base text-slate-200 leading-relaxed font-sans">
+            Bienvenue sur le dispositif Alternia ! Choisis ton niveau pour adapter les démonstrations, formules et exercices à ton programme scolaire :
           </p>
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 my-3">
-            <button class="btn-select-class-welcome glass-tab-btn p-4 text-left flex flex-col items-start gap-1 rounded-xl hover:border-emerald-400/50 hover:bg-emerald-950/30 transition-all" data-class="10eme">
-              <div class="flex items-center gap-2">
-                <span class="hardware-btn-pill text-emerald-400 border-emerald-500/30">1</span>
-                <span class="text-sm font-bold text-white">10ème Année</span>
+
+          <!-- Sélecteur de Classes 3D Stylisé -->
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <button class="btn-select-class-welcome p-3.5 text-left flex flex-col items-start gap-1.5 rounded-xl border border-emerald-500/30 bg-gradient-to-br from-emerald-950/40 to-slate-900/60 hover:border-emerald-400 hover:shadow-[0_0_20px_rgba(16,185,129,0.3)] transition-all transform hover:-translate-y-1" data-class="10eme">
+              <div class="flex items-center justify-between w-full">
+                <span class="text-sm font-bold text-white tracking-wide">10ème Année</span>
+                <span class="hardware-btn-pill text-emerald-400 border-emerald-500/40 bg-emerald-950/50">Touche 1</span>
               </div>
-              <span class="text-[11px] text-slate-400 font-normal">Tronc Commun Général & Technique</span>
+              <span class="text-[11px] text-slate-300 font-normal">Tronc Commun Général & Technique</span>
             </button>
-            <button class="btn-select-class-welcome glass-tab-btn p-4 text-left flex flex-col items-start gap-1 rounded-xl hover:border-cyan-400/50 hover:bg-cyan-950/30 transition-all" data-class="11eme">
-              <div class="flex items-center gap-2">
-                <span class="hardware-btn-pill text-cyan-400 border-cyan-500/30">2</span>
-                <span class="text-sm font-bold text-white">11ème Année</span>
+
+            <button class="btn-select-class-welcome p-3.5 text-left flex flex-col items-start gap-1.5 rounded-xl border border-cyan-500/30 bg-gradient-to-br from-cyan-950/40 to-slate-900/60 hover:border-cyan-400 hover:shadow-[0_0_20px_rgba(2,132,199,0.3)] transition-all transform hover:-translate-y-1" data-class="11eme">
+              <div class="flex items-center justify-between w-full">
+                <span class="text-sm font-bold text-white tracking-wide">11ème Année</span>
+                <span class="hardware-btn-pill text-cyan-400 border-cyan-500/40 bg-cyan-950/50">Touche 2</span>
               </div>
-              <span class="text-[11px] text-slate-400 font-normal">Sciences (S), Lettres (L), Économie (SECO)</span>
+              <span class="text-[11px] text-slate-300 font-normal">Sciences (11S), Lettres (11L), Éco (11SECO)</span>
             </button>
-            <button class="btn-select-class-welcome glass-tab-btn p-4 text-left flex flex-col items-start gap-1 rounded-xl hover:border-[#F1851F]/50 hover:bg-orange-950/30 transition-all" data-class="12eme">
-              <div class="flex items-center gap-2">
-                <span class="hardware-btn-pill text-[#F1851F] border-[#F1851F]/30">3</span>
-                <span class="text-sm font-bold text-white">12ème (Terminale)</span>
+
+            <button class="btn-select-class-welcome p-3.5 text-left flex flex-col items-start gap-1.5 rounded-xl border border-orange-500/30 bg-gradient-to-br from-orange-950/40 to-slate-900/60 hover:border-orange-400 hover:shadow-[0_0_20px_rgba(241,133,31,0.3)] transition-all transform hover:-translate-y-1" data-class="12eme">
+              <div class="flex items-center justify-between w-full">
+                <span class="text-sm font-bold text-white tracking-wide">12ème (Terminale)</span>
+                <span class="hardware-btn-pill text-[#F1851F] border-orange-500/40 bg-orange-950/50">Touche 3</span>
               </div>
-              <span class="text-[11px] text-slate-400 font-normal">Baccalauréat (TSE, TSExp, TSEco, TSS, TLL)</span>
+              <span class="text-[11px] text-slate-300 font-normal">Baccalauréat (TSE, TSExp, TSEco, TSS, TLL)</span>
             </button>
           </div>
-          <div class="flex items-center gap-2 text-xs text-slate-400 mt-3 pt-2 border-t border-white/5">
+
+          <!-- Section Défis Express Tape-à-l'œil (Missions Flash) -->
+          <div class="pt-3 border-t border-white/8">
+            <div class="flex items-center justify-between mb-2.5">
+              <h4 class="text-xs font-bold uppercase tracking-wider text-amber-300 flex items-center gap-1.5 font-mono">
+                <svg class="w-3.5 h-3.5 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                <span>Défis Express & Notions Incontournables du Bac :</span>
+              </h4>
+              <span class="text-[10px] text-slate-400 font-mono">Touche ou clique pour lancer</span>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              
+              <div class="challenge-card-glow btn-challenge-trigger" data-query="Donne la formule de De Moivre pour les nombres complexes et montre comment calculer cos(3x)." data-class="12eme">
+                <div class="flex items-center justify-between mb-1.5">
+                  <span class="badge-challenge-pill badge-challenge-orange">Objectif Bac TSE</span>
+                  <span class="text-[10px] text-slate-400 font-mono">Maths</span>
+                </div>
+                <div class="font-bold text-white text-xs tracking-tight">Formule de Moivre</div>
+                <p class="text-[11px] text-slate-300 mt-1 line-clamp-2">Puissances n & trigonométrie complexe des épreuves du Bac.</p>
+              </div>
+
+              <div class="challenge-card-glow btn-challenge-trigger" data-query="Énonce la 2ème loi de Newton et explique l'équation du mouvement pour un solide en chute libre." data-class="12eme">
+                <div class="flex items-center justify-between mb-1.5">
+                  <span class="badge-challenge-pill badge-challenge-cyan">Grand Classique</span>
+                  <span class="text-[10px] text-slate-400 font-mono">Physique</span>
+                </div>
+                <div class="font-bold text-white text-xs tracking-tight">Lois de Newton (F = m.a)</div>
+                <p class="text-[11px] text-slate-300 mt-1 line-clamp-2">Dynamique, chute libre et vecteurs accélération.</p>
+              </div>
+
+              <div class="challenge-card-glow btn-challenge-trigger" data-query="C'est quoi la photosynthèse de façon simple ? Donne l'équation bilan et les deux phases." data-class="11eme">
+                <div class="flex items-center justify-between mb-1.5">
+                  <span class="badge-challenge-pill badge-challenge-emerald">Défi SVT</span>
+                  <span class="text-[10px] text-slate-400 font-mono">Biologie</span>
+                </div>
+                <div class="font-bold text-white text-xs tracking-tight">Photosynthèse & Énergie</div>
+                <p class="text-[11px] text-slate-300 mt-1 line-clamp-2">Cycle de Calvin, équation bilan et phase photochimique.</p>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Indication Touches Physiques -->
+          <div class="flex items-center gap-2 text-xs text-slate-400 pt-2 border-t border-white/5 font-mono">
             <svg class="w-4 h-4 text-cyan-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-            <span>Tu peux également utiliser les 4 boutons physiques situés sur le boîtier pour changer de classe ou activer le micro.</span>
+            <span>Touches boîtier : [1] 10ème, [2] 11ème, [3] 12ème, [4] Parler au micro.</span>
           </div>
+
         </div>
       </div>
     `;
 
+    // Clic sur sélection de classe
     div.querySelectorAll('.btn-select-class-welcome').forEach(btn => {
       btn.onclick = () => {
         const clsId = btn.getAttribute('data-class');
         if (onSelectClass) onSelectClass(clsId);
+      };
+    });
+
+    // Clic sur un défi express
+    div.querySelectorAll('.btn-challenge-trigger').forEach(card => {
+      card.onclick = () => {
+        const query = card.getAttribute('data-query');
+        const clsId = card.getAttribute('data-class');
+        if (onChallengeClick) onChallengeClick(query, clsId);
       };
     });
 

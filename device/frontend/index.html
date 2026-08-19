@@ -42,9 +42,9 @@
               innovation: '#0284C7',
               'innovation-hover': '#0369A1',
               'innovation-light': '#F0F9FF',
-              dark: '#080C14',
-              surface: '#0E1626',
-              surface2: '#131E33',
+              dark: '#060911',
+              surface: '#0B1120',
+              surface2: '#111A2E',
               card: '#0F172A',
               border: '#1E293B',
               border2: '#334155'
@@ -151,26 +151,39 @@
   <main class="app-workspace">
 
     <!-- =======================================================================
-         PANNEAU GAUCHE FLOTTANT : AVATAR ENSEIGNANT VIRTUEL ALTA
+         PANNEAU GAUCHE FLOTTANT : CYBER-VORTEX AI EN CONTINU & MICROPHONE
          ======================================================================= -->
     <aside class="app-sidebar-avatar floating-glass-panel" id="alta-avatar-card">
 
       <!-- Haut : Statut d'état en direct -->
       <div class="w-full flex justify-center">
         <div id="status-pill" class="glass-status-badge">
-          <span id="status-dot" class="w-2 h-2 rounded-full bg-emerald-400"></span>
+          <span id="status-dot" class="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#10B981]"></span>
           <span id="status-text" class="font-semibold text-slate-200">Prêt</span>
         </div>
       </div>
 
-      <!-- Centre : Avatar Réel Alta avec Halo Chromatique et Égaliseur Audio -->
+      <!-- Centre : Cyber-Vortex AI Animé Continuellement (Plasma + Gyro + Ondes) -->
       <div class="avatar-hero-container">
         
-        <!-- Photo Avatar avec Anneau Lumineux -->
-        <div class="avatar-halo-wrapper">
-          <div class="avatar-halo-ring"></div>
-          <div class="avatar-photo-frame">
-            <img src="assets/avatar.png" alt="ALTA" id="alta-avatar-img">
+        <!-- Conteneur Vortex Interactif 60 FPS -->
+        <div class="vortex-interactive-wrapper" id="alta-vortex-hub" title="ALTA Core - Enseignant IA (Cliquez pour tester)">
+          <!-- 1. Halo plasma conique animé 24/7 -->
+          <div class="vortex-plasma-aura"></div>
+          
+          <!-- 2. Gyroscope externe à rotation inverse -->
+          <div class="vortex-gyro-outer"></div>
+          
+          <!-- 3. Gyroscope interne à rotation fluide -->
+          <div class="vortex-gyro-inner"></div>
+          
+          <!-- 4. Ondes d'énergie acoustique / radar -->
+          <div class="vortex-soundwave-ripple"></div>
+          <div class="vortex-soundwave-ripple"></div>
+          
+          <!-- 5. Cœur Alta Tri-Vortex Gem avec lévitation -->
+          <div class="vortex-core-frame">
+            <img src="assets/avatar.png" alt="ALTA Core" id="alta-avatar-img">
           </div>
         </div>
 
@@ -178,10 +191,10 @@
         <div class="flex flex-col items-center">
           <h2 class="text-lg font-bold text-white tracking-tight flex items-center gap-1.5 font-display">
             <span>ALTA</span>
-            <span class="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
+            <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_6px_#0284C7]"></span>
           </h2>
-          <p class="text-xs text-cyan-300 font-medium font-sans">Enseignant Pédagogique Virtuel</p>
-          <span class="mt-1 text-[10px] text-slate-400 font-mono bg-white/5 px-2 py-0.5 rounded border border-white/5">Qwen 2.5 • Modèle Local</span>
+          <p class="text-xs text-cyan-300 font-medium font-sans">Tuteur Pédagogique Intelligent</p>
+          <span class="mt-1 text-[10px] text-slate-400 font-mono bg-white/5 px-2 py-0.5 rounded border border-white/8">Qwen 2.5 • Modèle Local</span>
         </div>
 
         <!-- Égaliseur 12 barres réactif -->
@@ -224,7 +237,7 @@
          ======================================================================= -->
     <section class="app-main-content">
 
-      <!-- Carte Flottante 1 : Sélecteur de Classes & Matières -->
+      <!-- Carte Flottante 1 : Sélecteur de Classes & Matières avec Défis -->
       <div class="curriculum-toolbar-card floating-glass-panel">
         <!-- Ligne 1 : Choix de la classe (Boutons 1, 2, 3) -->
         <div class="flex items-center gap-2 overflow-x-auto pb-0.5" id="class-selector-tabs">
@@ -236,7 +249,7 @@
           <!-- Injecté dynamiquement par curriculum-ui.js -->
         </div>
 
-        <!-- Ligne 3 : Suggestions de notions clés -->
+        <!-- Ligne 3 : Suggestions de notions clés & badges gamifiés -->
         <div class="flex items-center gap-2 overflow-x-auto pt-0.5" id="topic-chips-container">
           <!-- Injecté dynamiquement par curriculum-ui.js -->
         </div>
@@ -266,7 +279,7 @@
               <span>Envoyer</span>
               <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="22" y1="2" x2="11" y2="13"></line>
-                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                <polygon points="22 2 15 22 11 13 2"></polygon>
               </svg>
             </button>
           </div>

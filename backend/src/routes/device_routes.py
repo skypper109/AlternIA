@@ -98,7 +98,8 @@ async def stt_endpoint(
         if not content:
             raise HTTPException(status_code=400, detail="Fichier audio vide")
 
-        text = stt.transcribe(content, language=language or "fr")
+        suffix = Path(audio.filename or "recording.wav").suffix or ".wav"
+        text = stt.transcribe(content, language=language or "fr", suffix=suffix)
         return {"text": text, "status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur STT : {str(e)}")
@@ -181,6 +182,23 @@ async def websocket_session_endpoint(websocket: WebSocket):
                 query = msg.get("query") or msg.get("text") or "Bonjour AlternIA"
                 student_class = normalize_student_class(msg.get("class", "11eme"))
                 subject = msg.get("subject", "général")
+                student_id = msg.get("student_id", "device-kiosk")
+                session_id = msg.get("session_id", "device-session")
+                series = msg.get("series")
+
+                # Récupération du contexte RAG
+                context = None
+                if orch.rag_service:
+                    try:
+                        context = orch.rag_service.retrieve(
+                            question=query,
+                            student_class=student_class,
+                            subject=subject,
+                            student_id=student_id,
+                            series=series,
+                        )
+                    except Exception:
+                        context = None
 
                 # 1. State: Thinking
                 await websocket.send_text(json.dumps({"type": "ai_state", "state": "thinking"}))
@@ -190,8 +208,12 @@ async def websocket_session_endpoint(websocket: WebSocket):
                 try:
                     res = orch.ask(
                         question=query,
+                        context=context,
                         student_class=student_class,
                         subject=subject,
+                        student_id=student_id,
+                        session_id=session_id,
+                        series=series,
                     )
                     answer = res.get("answer", "Voici l'explication demandée.")
                 except Exception as e:

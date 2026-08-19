@@ -179,6 +179,7 @@ class STTEngine:
         self,
         audio_data_or_path: str | Path | np.ndarray | bytes,
         language: Optional[str] = None,
+        suffix: str = ".wav",
     ) -> str:
         """
         Transcrit un enregistrement audio en texte français.
@@ -203,7 +204,7 @@ class STTEngine:
                 self._save_numpy_to_wav(audio_data_or_path, temp_wav_path)
                 input_source = str(temp_wav_path)
             elif isinstance(audio_data_or_path, bytes):
-                temp_file = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+                temp_file = tempfile.NamedTemporaryFile(suffix=suffix or ".wav", delete=False)
                 temp_wav_path = Path(temp_file.name)
                 temp_file.write(audio_data_or_path)
                 temp_file.close()

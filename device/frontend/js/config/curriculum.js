@@ -1,6 +1,6 @@
 /**
  * Configuration & Données Curriculaires officielles (Lycée Malien).
- * Module de configuration pour Alternia Box (Sans émojis, icônes vectorielles SVG).
+ * Module enrichi avec Défis Express du Bac, Badges Gamifiés et Notions Clés tape-à-l'œil.
  */
 
 export const API_BASE_URL = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1')
@@ -13,28 +13,51 @@ export const CURRICULUM_DATA = {
       id: "10eme",
       name: "10ème Année",
       badge: "Tronc Commun",
-      description: "Fondations scientifiques et littéraires",
+      accent: "emerald",
+      description: "Fondations scientifiques et littéraires du Lycée Malien",
       series: ["10ème Commune", "10ème Technique"],
       subjects: [
         { id: "mathematiques", name: "Mathématiques", iconType: "math" },
         { id: "physique", name: "Physique", iconType: "physics" },
         { id: "chimie", name: "Chimie", iconType: "chemistry" },
         { id: "francais", name: "Français", iconType: "literature" },
-        { id: "histoire_geo", name: "Histoire-Géographie", iconType: "history" },
+        { id: "histoire_geo", name: "Histoire-Géo", iconType: "history" },
         { id: "anglais", name: "Anglais", iconType: "languages" }
       ],
       topics: {
-        mathematiques: ["Équations du 1er degré", "Théorème de Thalès", "Trigonométrie fondamentale", "Statistiques descriptives"],
-        physique: ["Mouvement rectiligne", "Masse et Poids", "Forces et Équilibre", "Courant électrique continu"],
-        chimie: ["Structure de la matière", "Réactions chimiques", "L'eau et l'air", "Combustions et bilans"],
-        francais: ["Grammaire et Syntaxe", "Analyse de texte", "Figures de style", "Argumentation"]
-      }
+        mathematiques: [
+          { title: "Théorème de Thalès & Démonstration", tag: "Incontournable", type: "orange" },
+          { title: "Équations & Inéquations du 1er degré", tag: "Méthode", type: "cyan" },
+          { title: "Trigonométrie (Cos, Sin, Tan)", tag: "Formule Clé", type: "purple" },
+          { title: "Statistiques & Moyennes pondérées", tag: "Exercice Type", type: "emerald" }
+        ],
+        physique: [
+          { title: "Masse, Poids & Équilibre des forces", tag: "Loi Fondamentale", type: "orange" },
+          { title: "Mouvement Rectiligne Uniforme (MRU)", tag: "Cinématique", type: "cyan" },
+          { title: "Courant électrique continu & Loi d'Ohm", tag: "Circuits", type: "purple" }
+        ],
+        chimie: [
+          { title: "Structure atomique & Tableau périodique", tag: "Atomes", type: "cyan" },
+          { title: "Équilibrer une réaction chimique", tag: "Méthode Express", type: "orange" },
+          { title: "Combustions du carbone et bilans", tag: "TP Révision", type: "emerald" }
+        ],
+        francais: [
+          { title: "Figures de style & Procédés littéraires", tag: "Analyse", type: "purple" },
+          { title: "Technique de l'Argumentation", tag: "Méthode Épreuve", type: "orange" }
+        ]
+      },
+      featuredChallenges: [
+        { title: "Théorème de Thalès", subject: "Mathématiques", badge: "Défi Géométrie", color: "from-blue-600/30 to-cyan-500/20", border: "border-cyan-500/40", query: "Explique-moi le théorème de Thalès et donne un exercice d'application avec solution." },
+        { title: "Loi d'Ohm & Circuits", subject: "Physique", badge: "Formule Clé", color: "from-amber-600/30 to-orange-500/20", border: "border-orange-500/40", query: "Énonce la loi d'Ohm U = R.I et explique comment calculer la résistance d'un dipôle." },
+        { title: "Équilibrer une réaction", subject: "Chimie", badge: "Quiz Minute", color: "from-emerald-600/30 to-teal-500/20", border: "border-emerald-500/40", query: "Comment équilibrer une équation chimique facilement ? Donne la méthode pas à pas." }
+      ]
     },
     {
       id: "11eme",
       name: "11ème Année",
       badge: "Spécialisation",
-      description: "Sciences, Lettres ou Économie",
+      accent: "cyan",
+      description: "Sciences (11S), Lettres (11L), Sciences Économiques (11SECO)",
       series: ["11ème Sciences (11S)", "11ème Lettres (11L)", "11ème Sciences Économiques (11SECO)"],
       subjects: [
         { id: "mathematiques", name: "Mathématiques", iconType: "math" },
@@ -42,21 +65,43 @@ export const CURRICULUM_DATA = {
         { id: "chimie", name: "Chimie", iconType: "chemistry" },
         { id: "biologie", name: "Biologie / SVT", iconType: "biology" },
         { id: "francais", name: "Français", iconType: "literature" },
-        { id: "histoire_geo", name: "Histoire-Géographie", iconType: "history" },
+        { id: "histoire_geo", name: "Histoire-Géo", iconType: "history" },
         { id: "anglais", name: "Anglais", iconType: "languages" }
       ],
       topics: {
-        mathematiques: ["Polynômes du second degré", "Fonctions numériques", "Vecteurs et Barycentres", "Suites arithmétiques"],
-        physique: ["Travail et Énergie mécanique", "Optique géométrique", "Lois des circuits électriques", "Calorimétrie"],
-        chimie: ["Chimie organique (Alcanes)", "Oxydoréduction", "Concentration molaire", "Solutions aqueuses"],
-        biologie: ["Organisation cellulaire", "Génétique fondamentale", "Écosystèmes sahéliens"]
-      }
+        mathematiques: [
+          { title: "Polynômes du second degré & Discriminant Δ", tag: "Épreuve Type", type: "orange" },
+          { title: "Étude & Dérivation de Fonctions", tag: "Analyse", type: "cyan" },
+          { title: "Barycentres & Vecteurs du plan", tag: "Géométrie", type: "purple" },
+          { title: "Suites Arithmétiques & Géométriques", tag: "Formule", type: "emerald" }
+        ],
+        physique: [
+          { title: "Travail & Énergie Mécanique (W = F.d)", tag: "Formule Clé", type: "orange" },
+          { title: "Optique : Lentilles & Réfraction", tag: "Optique", type: "cyan" },
+          { title: "Calorimétrie & Transferts thermiques", tag: "Thermodynamique", type: "purple" }
+        ],
+        chimie: [
+          { title: "Chimie Organique : Alcanes & Alcènes", tag: "Nomenclature", type: "cyan" },
+          { title: "Oxydoréduction & Demi-équations", tag: "Méthode", type: "orange" },
+          { title: "Concentrations & Solutions aqueuses", tag: "Calculs", type: "emerald" }
+        ],
+        biologie: [
+          { title: "Photosynthèse : Phases claire & sombre", tag: "Bio Végétale", type: "emerald" },
+          { title: "Mitose, Méiose & Génétique sahélienne", tag: "Génétique", type: "purple" }
+        ]
+      },
+      featuredChallenges: [
+        { title: "Discriminant Δ & Racines", subject: "Maths 11S", badge: "Incontournable", color: "from-cyan-600/30 to-blue-500/20", border: "border-cyan-500/40", query: "Explique le calcul du discriminant delta et donne les trois cas de racines pour un polynôme du second degré." },
+        { title: "Énergie Cinétique Ec = ½mv²", subject: "Physique", badge: "Formule Star", color: "from-amber-600/30 to-orange-500/20", border: "border-orange-500/40", query: "Démontre le théorème de l'énergie cinétique et donne un exemple d'application." },
+        { title: "Photosynthèse Globale", subject: "SVT", badge: "Défi Bio", color: "from-emerald-600/30 to-teal-500/20", border: "border-emerald-500/40", query: "C'est quoi la photosynthèse de façon simple ? Donne l'équation bilan et les deux phases." }
+      ]
     },
     {
       id: "12eme",
       name: "12ème (Terminale)",
       badge: "Baccalauréat",
-      description: "Programme officiel Baccalauréat Malien",
+      accent: "orange",
+      description: "Programme Officiel Baccalauréat Malien (TSE, TSExp, TSEco, TSS, TLL)",
       series: [
         "12ème TSE (Sciences Exactes)",
         "12ème TSExp (Sciences Expérimentales)",
@@ -70,37 +115,38 @@ export const CURRICULUM_DATA = {
         { id: "chimie", name: "Chimie", iconType: "chemistry" },
         { id: "philosophie", name: "Philosophie", iconType: "philosophy" },
         { id: "biologie", name: "Biologie / SVT", iconType: "biology" },
-        { id: "histoire_geo", name: "Histoire-Géographie", iconType: "history" },
+        { id: "histoire_geo", name: "Histoire-Géo", iconType: "history" },
         { id: "francais", name: "Littérature", iconType: "literature" }
       ],
       topics: {
         mathematiques: [
-          "Nombres Complexes (Formule de Moivre & Euler)",
-          "Équations Différentielles (y' + ay = 0)",
-          "Fonctions Logarithme et Exponentielle",
-          "Calcul Intégral et Primitives",
-          "Probabilités conditionnelles"
+          { title: "Nombres Complexes : Formule de Moivre", tag: "Bac TSE/TSExp", type: "orange" },
+          { title: "Équations Différentielles (y' + ay = 0)", tag: "100% Bac", type: "cyan" },
+          { title: "Logarithme népérien (ln) & Exponentielle", tag: "Analyse", type: "purple" },
+          { title: "Intégrales, Primitives & Calcul d'aires", tag: "Calcul", type: "emerald" },
+          { title: "Probabilités Conditionnelles & Arbres", tag: "Stats", type: "orange" }
         ],
         physique: [
-          "Lois de Newton (F = m.a)",
-          "Mouvement dans un champ de pesanteur",
-          "Circuits RLC et Oscillations libres",
-          "Noyau atomique et Radioactivité",
-          "Dipôles RC et RL"
+          { title: "Lois de Newton (F = m.a) & Chute libre", tag: "Mécanique", type: "orange" },
+          { title: "Circuits RLC, Oscillations & Résonance", tag: "Électricité", type: "cyan" },
+          { title: "Radioactivité & Demi-vie nucléaire", tag: "Physique Nu", type: "purple" }
         ],
         chimie: [
-          "Couples Acides-Bases et pH",
-          "Estérification et Hydrolyse",
-          "Fonctions oxygénées (Alcools, Aldéhydes, Cétones)",
-          "Dosages acido-basiques"
+          { title: "Couples Acides-Bases, pH & Solutions", tag: "Dosages", type: "cyan" },
+          { title: "Estérification, Hydrolyse & Cinétique", tag: "Chimie Org", type: "orange" },
+          { title: "Alcools, Aldéhydes & Cétones", tag: "Nomenclature", type: "emerald" }
         ],
         philosophie: [
-          "La Conscience et l'Inconscient",
-          "La Liberté et la Nécessité",
-          "La Science et la Vérité",
-          "L'État et la Justice"
+          { title: "La Conscience, l'Inconscient & le Sujet", tag: "Dissertation", type: "purple" },
+          { title: "L'État, la Justice & la Liberté", tag: "Sujet Bac", type: "orange" }
         ]
-      }
+      },
+      featuredChallenges: [
+        { title: "Formule de Moivre (Complexes)", subject: "Maths TSE", badge: "Objectif Mention", color: "from-amber-600/35 to-orange-500/20", border: "border-orange-500/50", query: "Donne la formule de De Moivre pour les nombres complexes et montre comment calculer cos(3x)." },
+        { title: "Lois de Newton & Dynamique", subject: "Physique TSE", badge: "Grand Classique", color: "from-blue-600/35 to-cyan-500/20", border: "border-cyan-500/50", query: "Énonce la 2ème loi de Newton et explique l'équation du mouvement pour un solide en chute libre." },
+        { title: "Acides-Bases & Calcul de pH", subject: "Chimie", badge: "Épreuve Bac", color: "from-purple-600/35 to-indigo-500/20", border: "border-purple-500/50", query: "Donne la définition du pH en fonction de la concentration en H3O+ et la formule d'un dosage acido-basique." },
+        { title: "Conscience & Liberté", subject: "Philosophie", badge: "Dissertation", color: "from-emerald-600/35 to-teal-500/20", border: "border-emerald-500/50", query: "Propose un plan détaillé de dissertation sur le sujet : Sommes-nous maîtres de nos pensées ?" }
+      ]
     }
   ]
 };

@@ -196,8 +196,8 @@ class AlterniaOrchestrator:
     def ask_stream(
         self,
         question: str,
-        context: Any,
-        student_class: str,
+        context: Any = None,
+        student_class: str = "10eme",
         subject: str | None = None,
         student_id: str = "anonymous",
         session_id: str | None = None,
@@ -363,8 +363,8 @@ class AlterniaOrchestrator:
     def ask(
         self,
         question: str,
-        context: Any,
-        student_class: str,
+        context: Any = None,
+        student_class: str = "10eme",
         subject: str | None = None,
         student_id: str = "anonymous",
         session_id: str | None = None,
@@ -377,9 +377,14 @@ class AlterniaOrchestrator:
         # Si un RAG est configuré et qu'aucune source valide n'est trouvée (ou score < 0.40),
         # l'orchestrateur refuse immédiatement SANS appeler le LLM.
         if self.rag_service is not None:
+            # Bypass RAG strictness for identity or greeting questions
+            import re
+            q_clean = question.strip().lower()
+            is_identity = bool(re.search(r"^(qui es tu|qui es-tu|presente toi|présente toi|présente-toi|presente-toi|tu es qui|qui est tu|bonjour|salut)", q_clean))
+
             sources = getattr(context, "sources", []) if context else []
             max_score = max((getattr(s, "score", 0.0) for s in sources), default=0.0)
-            if not sources or max_score < 0.40:
+            if not is_identity and (not sources or max_score < 0.40):
                 subject_label = subject or "la matière sélectionnée"
                 refusal_text = (
                     f"Je n'ai pas trouvé d'information sur ce sujet dans le programme officiel "

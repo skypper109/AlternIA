@@ -1,5 +1,13 @@
+import sys
+from pathlib import Path
 import numpy as np
 import pytest
+
+ROOT_DIR = Path(__file__).resolve().parents[2]
+AI_ENGINE_SRC = ROOT_DIR / "ai-engine" / "src"
+if str(AI_ENGINE_SRC) not in sys.path:
+    sys.path.insert(0, str(AI_ENGINE_SRC))
+
 from alternia.stt.engine import STTEngine
 
 
