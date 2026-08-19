@@ -39,9 +39,9 @@ def get_orchestrator() -> AlterniaOrchestrator:
     if state.orchestrator is not None:
         return state.orchestrator
 
-    model_1_5b = PROJECT_ROOT / "ai-engine" / "models" / "llm" / "qwen2.5-1.5b-instruct-q4_k_m.gguf"
     model_3b = PROJECT_ROOT / "ai-engine" / "models" / "llm" / "qwen2.5-3b-instruct-q4_k_m.gguf"
-    model_path = model_1_5b if model_1_5b.exists() else model_3b
+    model_1_5b = PROJECT_ROOT / "ai-engine" / "models" / "llm" / "qwen2.5-1.5b-instruct-q4_k_m.gguf"
+    model_path = model_3b if model_3b.exists() else model_1_5b
 
     llm_client = LocalLLMClient(
         model_path=str(model_path),
@@ -64,7 +64,7 @@ def get_orchestrator() -> AlterniaOrchestrator:
 
     rag_service = RAGService(
         retriever=retriever,
-        top_k=2,
+        top_k=4,
     )
 
     pedagogical_engine = PedagogicalEngine()

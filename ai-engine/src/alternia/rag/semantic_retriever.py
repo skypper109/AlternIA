@@ -78,7 +78,7 @@ class SemanticRetriever:
         query_vector = self.embedding_service.encode(query_text)
 
         # 1. Recherche vectorielle large avec filtrage hiérarchique de classe & série
-        candidate_k = max(top_k * 5, 30)
+        candidate_k = max(top_k * 20, 150)
 
         results = self.vector_store.search(
             query_vector=query_vector,
@@ -123,7 +123,6 @@ class SemanticRetriever:
         definition_query = cls._is_definition_question(norm_q)
         formula_query = cls._is_formula_or_method_question(norm_q)
 
-        # Calcul des fréquences de termes pour BM25 simplifié
         ranked = []
 
         for document, semantic_score in results:
@@ -138,40 +137,51 @@ class SemanticRetriever:
                 title_tokens=set(cls._tokenize(title_norm)),
             )
 
-            # Boost pédagogique
+            # Vérification de présence des mots-clés de la question
+            has_lexical_match = any(tok in content_norm or tok in title_norm for tok in question_tokens)
+
+            # RELEVANCE GATE : Si AUCUN mot-clé substantiel n'apparaît dans le document
+            # ET que le score sémantique n'est pas exceptionnellement élevé (>= 0.65),
+            # ce document est un faux positif (bruit sémantique) -> écarté.
+            if not has_lexical_match and semantic_score < 0.65:
+                continue
+
+            # Boost pédagogique (appliqué UNIQUEMENT si au moins un mot-clé correspond)
             pedagogical_boost = 0.0
+            if has_lexical_match:
+                # Bonus définition
+                if definition_query:
+                    def_markers = [
+                        "definition", "on appelle", "est un", "est une",
+                        "designe", "signifie", "se definit", "on dit que"
+                    ]
+                    if any(m in content_norm for m in def_markers):
+                        pedagogical_boost += 0.10
 
-            # Bonus définition
-            if definition_query:
-                def_markers = [
-                    "definition", "on appelle", "est un", "est une",
-                    "designe", "signifie", "se definit", "on dit que"
-                ]
-                if any(m in content_norm for m in def_markers):
-                    pedagogical_boost += 0.15
+                # Bonus formule / calcul / théorème
+                if formula_query:
+                    form_markers = [
+                        "formule", "theoreme", "methode", "propriete",
+                        "calculer", "resolution", "regle", "enonce"
+                    ]
+                    if any(m in content_norm for m in form_markers):
+                        pedagogical_boost += 0.10
 
-            # Bonus formule / calcul / théorème
-            if formula_query:
-                form_markers = [
-                    "formule", "theoreme", "methode", "propriete",
-                    "calculer", "resolution", "regle", "enonce"
-                ]
-                if any(m in content_norm for m in form_markers):
-                    pedagogical_boost += 0.15
-
-            # Bonus si des mots-clés apparaissent dans le titre de chapitre / leçon
-            title_matches = sum(1 for tok in question_tokens if tok in title_norm)
-            if title_matches > 0:
-                pedagogical_boost += min(title_matches * 0.10, 0.25)
+                # Bonus si des mots-clés apparaissent dans le titre de chapitre / leçon
+                title_matches = sum(1 for tok in question_tokens if tok in title_norm)
+                if title_matches > 0:
+                    pedagogical_boost += min(title_matches * 0.10, 0.20)
 
             # Score final combiné
             final_score = (
-                semantic_score * 0.65
-                + lexical_score * 0.35
+                semantic_score * 0.60
+                + lexical_score * 0.40
                 + pedagogical_boost
             )
 
-            ranked.append((document, final_score))
+            # Filtrage strict des scores trop faibles (seuil de certitude curriculaire)
+            if final_score >= 0.40:
+                ranked.append((document, final_score))
 
         ranked.sort(
             key=lambda item: item[1],
@@ -227,21 +237,35 @@ class SemanticRetriever:
     # INTENTIONS PÉDAGOGIQUES
     # =========================================================
 
-    @staticmethod
-    def _is_definition_question(text: str) -> bool:
+    @classmethod
+    def _is_definition_question(cls, text: str) -> bool:
         definition_patterns = (
             "qu'est-ce que", "qu est ce que", "c'est quoi", "c est quoi",
             "definition de", "definis", "definir", "que signifie",
-            "signification de", "qu'entend-on par", "citer"
+            "signification de", "qu'entend-on par", "citer", "explique",
+            "parle-moi de", "parle moi de", "c'est-à-dire", "notion de",
+            "concept de"
         )
-        return any(p in text for p in definition_patterns)
+        if any(p in text for p in definition_patterns):
+            return True
 
-    @staticmethod
-    def _is_formula_or_method_question(text: str) -> bool:
+        # Si l'entrée est simplement un mot-clé ou syntagme nominal court (ex: "photosynthèse", "la photosynthèse", "sociologie végétale")
+        # sans mot interrogatif complexe, il s'agit intrinsèquement d'une demande de définition et d'explication de concept.
+        tokens = cls._tokenize(text)
+        if 1 <= len(tokens) <= 4:
+            non_concept_words = {"pourquoi", "combien", "quand", "ou", "exercice", "probleme", "aide"}
+            if not any(w in tokens for w in non_concept_words):
+                return True
+
+        return False
+
+    @classmethod
+    def _is_formula_or_method_question(cls, text: str) -> bool:
         formula_patterns = (
             "comment resoudre", "comment calculer", "formule",
-            "enonce", "lois de", "comment determiner", "quelles sont les",
-            "comment distinguer", "methode", "etapes"
+            "enonce", "lois de", "loi de", "comment determiner", "quelles sont les",
+            "comment distinguer", "methode", "etapes", "principe",
+            "theoreme", "calcul", "resolution", "demonstration"
         )
         return any(p in text for p in formula_patterns)
 

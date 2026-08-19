@@ -70,11 +70,7 @@ class RAGService:
             ),
             series=series,
             question=question.strip(),
-            subject=(
-                Subject(subject)
-                if subject
-                else None
-            ),
+            subject=Subject.from_str(subject),
         )
 
         # -----------------------------------------------------

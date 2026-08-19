@@ -19,15 +19,13 @@ class ExplanationStrategy:
         self,
         request: PedagogicalRequest,
     ) -> str:
-
         context = request.context.strip()
 
         instruction = (
             "EXPLICATION PÉDAGOGIQUE DIRECTE\n\n"
             "- Réponds directement et avec clarté à la question posée par l'élève.\n"
-            "- Si c'est une question générale de découverte, donne une explication claire et structurée.\n"
-            "- S'il s'agit d'une suite, précision ou application ('en quoi c'est utilisé en...', 'pourquoi...', 'donne un exemple'), réponds DIRECTEMENT sur cet aspect sans répéter les définitions déjà données dans les échanges précédents.\n"
-            "- Synthèse en 3 à 5 phrases pertinentes + formules si approprié."
+            "- Fonde ton explication sur les définitions et formules officielles du cours.\n"
+            "- Reste synthétique (2 à 4 phrases denses, claires et bienveillantes)."
         )
 
         if context:
@@ -35,7 +33,6 @@ class ExplanationStrategy:
                 instruction
                 + "\n\nContexte pédagogique :\n"
                 + context
-                + "\n\n(Utilise ces extraits uniquement s'ils répondent précisément à la question de l'élève)."
             )
 
         return (

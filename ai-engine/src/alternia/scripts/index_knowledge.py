@@ -131,28 +131,13 @@ def detect_subject(
     """
     Détecte la matière depuis le chemin du PDF.
     """
-
     for part in path.parts:
+        normalized = part.lower().strip()
+        subject = Subject.from_str(normalized)
+        if subject and subject != Subject.AUTRE:
+            return subject
 
-        normalized = (
-            part.lower().strip()
-        )
-
-        try:
-
-            subject = Subject(
-                normalized
-            )
-
-            if subject != Subject.AUTRE:
-                return subject
-
-        except ValueError:
-            continue
-
-    raise ValueError(
-        f"Matière impossible à déterminer : {path}"
-    )
+    return Subject.SCIENCES
 
 
 # =============================================================

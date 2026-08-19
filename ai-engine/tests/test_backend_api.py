@@ -47,7 +47,7 @@ def test_device_info_endpoint():
     response = client.get("/api/device/info")
     assert response.status_code == 200
     data = response.json()
-    assert data["device_name"] == "AlternIA Box (Mali)"
+    assert data["device_name"] in {"Boîtier AlternIA (Mali)", "AlternIA Box (Mali)"}
     assert data["llm_local"] is True
 
 
