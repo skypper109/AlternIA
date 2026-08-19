@@ -1,9 +1,14 @@
 /**
- * Composant de contrôle du Tri-Vortex Alternia Core (Avatar Réactif 60 FPS).
+ * Composant de contrôle de l'Avatar Pédagogique Alta (Halo Chromatique & Égaliseur Audio).
  */
 
 export class VortexUI {
-  constructor({ coreWrapperId = 'alternia-core-wrapper', statusTextId = 'status-text', statusDotId = 'status-dot', visualizerId = 'audio-visualizer' } = {}) {
+  constructor({
+    coreWrapperId = 'alta-avatar-card',
+    statusTextId = 'status-text',
+    statusDotId = 'status-dot',
+    visualizerId = 'audio-waveform-container'
+  } = {}) {
     this.coreWrapper = document.getElementById(coreWrapperId);
     this.statusText = document.getElementById(statusTextId);
     this.statusDot = document.getElementById(statusDotId);
@@ -20,25 +25,25 @@ export class VortexUI {
     switch (newState) {
       case 'IDLE':
         this.coreWrapper.classList.add('state-idle');
-        this.updateBadge('Prêt', 'status-dot');
+        this.updateBadge('Prêt', 'w-2 h-2 rounded-full bg-emerald-400');
         this.setVisualizerActive(false);
         break;
 
       case 'LISTENING':
         this.coreWrapper.classList.add('state-listening');
-        this.updateBadge(statusMessage || 'Écoute de l’élève...', 'status-dot listening');
+        this.updateBadge(statusMessage || 'Écoute au micro...', 'w-2 h-2 rounded-full bg-cyan-400 animate-pulse');
         this.setVisualizerActive(true);
         break;
 
       case 'THINKING':
         this.coreWrapper.classList.add('state-thinking');
-        this.updateBadge(statusMessage || 'Réflexion & RAG local...', 'status-dot thinking');
+        this.updateBadge(statusMessage || 'Consultation du programme...', 'w-2 h-2 rounded-full bg-amber-400 animate-spin');
         this.setVisualizerActive(false);
         break;
 
       case 'SPEAKING':
         this.coreWrapper.classList.add('state-speaking');
-        this.updateBadge(statusMessage || 'ALTA répond...', 'status-dot speaking');
+        this.updateBadge(statusMessage || 'ALTA explique...', 'w-2 h-2 rounded-full bg-purple-400');
         this.setVisualizerActive(true);
         break;
     }

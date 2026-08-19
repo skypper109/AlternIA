@@ -59,12 +59,8 @@ export class ChatRenderer {
     const div = document.createElement('div');
     div.className = 'flex items-start gap-3 mb-6 animate-fade-in';
     div.innerHTML = `
-      <div class="w-9 h-9 rounded-full bg-gradient-to-br from-[#314999] to-[#0284C7] border border-cyan-400/50 flex items-center justify-center text-white shrink-0 shadow-lg shadow-cyan-950/40">
-        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
-          <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-          <line x1="12" y1="19" x2="12" y2="22"></line>
-        </svg>
+      <div class="w-9 h-9 rounded-full overflow-hidden border border-cyan-400/50 flex items-center justify-center shrink-0 shadow-lg shadow-cyan-950/40 bg-slate-900">
+        <img src="assets/avatar.png" alt="ALTA" class="w-full h-full object-cover">
       </div>
       <div class="bubble-ai-liquid max-w-[92%] flex-1">
         <div class="flex items-center justify-between mb-2 pb-2 border-b border-white/5">
@@ -142,12 +138,8 @@ export class ChatRenderer {
     let contentHtml = `<p class="text-sm md:text-base text-slate-100 leading-relaxed selectable-text mb-2 font-sans">${this.formatMarkdown(payload.answer)}</p>`;
 
     div.innerHTML = `
-      <div class="w-9 h-9 rounded-full bg-gradient-to-br from-[#314999] to-[#0284C7] border border-cyan-400/50 flex items-center justify-center text-white shrink-0 shadow-lg shadow-cyan-950/40">
-        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
-          <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-          <line x1="12" y1="19" x2="12" y2="22"></line>
-        </svg>
+      <div class="w-9 h-9 rounded-full overflow-hidden border border-cyan-400/50 flex items-center justify-center shrink-0 shadow-lg shadow-cyan-950/40 bg-slate-900">
+        <img src="assets/avatar.png" alt="ALTA" class="w-full h-full object-cover">
       </div>
       <div class="bubble-ai-liquid max-w-[92%] flex-1">
         <div class="flex items-center justify-between mb-2 pb-2 border-b border-white/5">
@@ -202,12 +194,8 @@ export class ChatRenderer {
     const div = document.createElement('div');
     div.className = 'flex items-start gap-3 mb-6 animate-fade-in';
     div.innerHTML = `
-      <div class="w-9 h-9 rounded-full bg-gradient-to-br from-[#314999] to-[#0284C7] border border-cyan-400/50 flex items-center justify-center text-white shrink-0 shadow-lg shadow-cyan-950/40">
-        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
-          <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-          <line x1="12" y1="19" x2="12" y2="22"></line>
-        </svg>
+      <div class="w-9 h-9 rounded-full overflow-hidden border border-cyan-400/50 flex items-center justify-center shrink-0 shadow-lg shadow-cyan-950/40 bg-slate-900">
+        <img src="assets/avatar.png" alt="ALTA" class="w-full h-full object-cover">
       </div>
       <div class="liquid-glass-card p-5 max-w-[94%] flex-1 border border-white/10 shadow-2xl">
         <div class="flex items-center justify-between mb-3 pb-2 border-b border-white/5">
