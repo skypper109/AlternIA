@@ -4,6 +4,7 @@ Routes API pour l'état système, le statut santé, la synthèse vocale, l'analy
 
 import asyncio
 import json
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, File, Form, HTTPException, Response, UploadFile, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
@@ -85,6 +86,17 @@ async def tts_endpoint(text: Optional[str] = None, req: Optional[TTSRequest] = N
         raise HTTPException(status_code=500, detail=f"Erreur TTS : {str(e)}")
 
 
+_stt_engine = None
+
+
+def get_stt_engine():
+    global _stt_engine
+    if _stt_engine is None:
+        from alternia.stt.engine import STTEngine
+        _stt_engine = STTEngine(model_size="tiny", language="fr")
+    return _stt_engine
+
+
 @router.post("/api/stt")
 async def stt_endpoint(
     audio: UploadFile = File(...),
@@ -92,8 +104,7 @@ async def stt_endpoint(
 ):
     """Transcription vocale Speech-to-Text via Faster-Whisper local embarqué."""
     try:
-        from alternia.stt.engine import STTEngine
-        stt = STTEngine(model_size="base", language=language or "fr")
+        stt = get_stt_engine()
         content = await audio.read()
         if not content:
             raise HTTPException(status_code=400, detail="Fichier audio vide")
@@ -101,8 +112,12 @@ async def stt_endpoint(
         suffix = Path(audio.filename or "recording.wav").suffix or ".wav"
         text = stt.transcribe(content, language=language or "fr", suffix=suffix)
         return {"text": text, "status": "success"}
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erreur STT : {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {"text": "", "status": "error", "message": f"Erreur STT : {str(e)}"}
 
 
 @router.post("/api/rag/analyze")

@@ -22,6 +22,7 @@ import numpy as np
 
 from alternia.config.settings import PROJECT_ROOT
 
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 logger = logging.getLogger("AlternIA.STT")
 
 
@@ -34,7 +35,7 @@ class STTEngine:
 
     def __init__(
         self,
-        model_size: str = "base",
+        model_size: str = "tiny",
         language: str = "fr",
         device: str = "cpu",
         compute_type: str = "int8",
@@ -60,11 +61,17 @@ class STTEngine:
         try:
             from faster_whisper import WhisperModel
 
+            local_tiny = self.models_dir / "tiny"
+            if local_tiny.exists() and (local_tiny / "model.bin").exists():
+                model_target = str(local_tiny)
+            else:
+                model_target = self.model_size
+
             logger.info(
-                f"Chargement du modèle STT Faster-Whisper ({self.model_size}, {self.compute_type})..."
+                f"Chargement du modèle STT Faster-Whisper ({model_target}, {self.compute_type})..."
             )
             self._whisper_model = WhisperModel(
-                self.model_size,
+                model_target,
                 device=self.device,
                 compute_type=self.compute_type,
                 download_root=str(self.models_dir),

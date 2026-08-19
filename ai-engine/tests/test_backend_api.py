@@ -83,3 +83,29 @@ def test_record_learner_interaction_endpoint():
     profile_data = profile_response.json()
     assert profile_data["total_interactions"] == 1
 
+
+def test_stt_endpoint():
+    import io
+    import wave
+    import numpy as np
+
+    client = TestClient(app)
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as wf:
+        wf.setnchannels(1)
+        wf.setsampwidth(2)
+        wf.setframerate(16000)
+        wf.writeframes(np.zeros(16000, dtype=np.int16).tobytes())
+    buf.seek(0)
+
+    response = client.post(
+        "/api/stt",
+        files={"audio": ("recording.wav", buf, "audio/wav")},
+        data={"language": "fr"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "success"
+    assert "text" in data
+
+

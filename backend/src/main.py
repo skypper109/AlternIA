@@ -1,5 +1,8 @@
+import os
 import sys
 from pathlib import Path
+
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 # Résolution automatique des chemins racine et ai-engine
 ROOT_DIR = Path(__file__).resolve().parents[2]
