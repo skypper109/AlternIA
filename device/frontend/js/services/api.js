@@ -55,6 +55,28 @@ export class ApiService {
   }
 
   /**
+   * Envoie un enregistrement audio au backend pour transcription via Faster-Whisper local.
+   */
+  static async transcribeAudioBlob(audioBlob) {
+    try {
+      const formData = new FormData();
+      formData.append('audio', audioBlob, 'recording.wav');
+      formData.append('language', 'fr');
+      const res = await fetch(`${API_BASE_URL}/api/stt`, {
+        method: 'POST',
+        body: formData
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return (data.text || '').trim();
+      }
+    } catch (e) {
+      console.warn("Erreur transcription STT backend :", e);
+    }
+    return '';
+  }
+
+  /**
    * Écoute en streaming SSE la réponse pédagogique générée par ALTA.
    */
   static async streamChat({
