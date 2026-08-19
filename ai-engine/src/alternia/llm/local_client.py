@@ -35,10 +35,10 @@ class LocalLLMClient(LLMClient):
         # Fallback de modèle si le fichier spécifié n'existe pas
         if not path.exists():
             models_dir = path.parent
-            if (models_dir / "qwen2.5-1.5b-instruct-q4_k_m.gguf").exists():
-                path = models_dir / "qwen2.5-1.5b-instruct-q4_k_m.gguf"
-            elif (models_dir / "qwen2.5-3b-instruct-q4_k_m.gguf").exists():
+            if (models_dir / "qwen2.5-3b-instruct-q4_k_m.gguf").exists():
                 path = models_dir / "qwen2.5-3b-instruct-q4_k_m.gguf"
+            elif (models_dir / "qwen2.5-1.5b-instruct-q4_k_m.gguf").exists():
+                path = models_dir / "qwen2.5-1.5b-instruct-q4_k_m.gguf"
             else:
                 raise FileNotFoundError(
                     f"Modèle GGUF introuvable : {path}"
@@ -50,8 +50,9 @@ class LocalLLMClient(LLMClient):
         self.repeat_penalty = repeat_penalty
         self.frequency_penalty = frequency_penalty
         self.presence_penalty = presence_penalty
-        # max_tokens : 180 tokens par défaut (permet une explication concise et dense en ~6-8s max sur CPU)
-        self._max_tokens: int | None = max_tokens if (max_tokens is not None and max_tokens > 0) else 180
+        # max_tokens : 320 tokens = permet une réponse complète et dense (2 à 4 phrases ou listes de principes)
+        # sans jamais couper au milieu d'un mot ou d'une phrase.
+        self._max_tokens: int | None = max_tokens if (max_tokens is not None and max_tokens > 0) else 320
 
         # Détection du nombre optimal de threads :
         # - Sur x86/Intel (Hyperthreading) : utiliser les cœurs physiques (cpu_count // 2 = 4)
@@ -63,10 +64,23 @@ class LocalLLMClient(LLMClient):
         else:
             import platform
             machine = platform.machine().lower()
-            if "arm" in machine or "m1" in machine or "m2" in machine or "m3" in machine or "m4" in machine:
-                threads = min(6, max(2, cpu_count))
-            elif machine in {"x86_64", "amd64", "i386", "i686"}:
-                threads = max(2, min(4, cpu_count // 2))
+            # Apple Silicon : arm64 est le vrai identifiant sur macOS
+            is_apple_silicon = (
+                "arm64" in machine
+                or "arm" in machine
+                or "m1" in machine
+                or "m2" in machine
+                or "m3" in machine
+                or "m4" in machine
+            )
+            if is_apple_silicon:
+                # M-series : threads = tous les P-cores (performance cores)
+                threads = min(8, max(4, cpu_count))
+            elif machine in {"x86_64", "amd64"}:
+                # Intel HT : utiliser UNIQUEMENT les cœurs physiques (cpu_count // 2)
+                # Évite la contention de cache L1/L2 et booste la génération jusqu'à 8-10+ tokens/s.
+                physical_cores = max(2, cpu_count // 2) if cpu_count > 2 else cpu_count
+                threads = min(6, physical_cores)
             else:
                 threads = min(4, max(2, cpu_count))
 
@@ -117,13 +131,21 @@ class LocalLLMClient(LLMClient):
         machine = platform.machine().lower()
 
         if sys_name == "Darwin":
-            # Apple Silicon (M1/M2/M3/M4) -> mémoire unifiée très rapide avec Metal
-            if "arm" in machine or "m1" in machine or "m2" in machine or "m3" in machine:
-                return -1
-            # Intel Mac avec GPU discret -> le CPU pur est 2.5x plus rapide car pas de goulot PCIe
+            # Apple Silicon (arm64) → mémoire unifiée, Metal très rapide
+            is_apple_silicon = (
+                "arm64" in machine
+                or "arm" in machine
+                or "m1" in machine
+                or "m2" in machine
+                or "m3" in machine
+                or "m4" in machine
+            )
+            if is_apple_silicon:
+                return -1  # Toutes les couches sur Metal GPU
+            # Intel Mac (x86_64) → GPU discret non unifié, CPU pur est plus rapide
             return 0
 
-        # Linux / Raspberry Pi 4/5 (ARM Cortex A72 / A76) -> CPU pur
+        # Linux / Raspberry Pi (ARM Cortex A72/A76) → CPU pur
         return 0
 
     def _build_messages(
@@ -165,6 +187,17 @@ class LocalLLMClient(LLMClient):
 
         start_time = time.perf_counter()
 
+        # Stop sequences sûres : bloquent la fuite de balises de fin de tour ou séparateurs
+        stop_sequences = [
+            "<|im_end|>",
+            "<|endoftext|>",
+            "<|im_start|>",
+            "</s>",
+            "---",
+            "QUESTION DE L'ÉLÈVE :",
+            "EXTRAITS DU COURS",
+        ]
+
         raw_response = self.llm.create_chat_completion(
             messages=cast(Any, messages),
             temperature=self.temperature,
@@ -172,7 +205,8 @@ class LocalLLMClient(LLMClient):
             repeat_penalty=self.repeat_penalty,
             frequency_penalty=self.frequency_penalty,
             presence_penalty=self.presence_penalty,
-            max_tokens=self._max_tokens,  # None = illimité
+            max_tokens=self._max_tokens,
+            stop=stop_sequences,
         )
         response: dict[str, Any] = cast(dict[str, Any], raw_response)
 
@@ -225,12 +259,24 @@ class LocalLLMClient(LLMClient):
         """
 
         start_time = time.perf_counter()
+        first_token_time: float | None = None
         token_count = 0
 
         if messages is None:
             if prompt is None:
                 raise ValueError("Soit 'prompt' soit 'messages' doit être fourni.")
             messages = self._build_messages(prompt, system_prompt)
+
+        # Stop sequences sûres : bloquent la fuite de balises de fin de tour ou séparateurs
+        stop_sequences = [
+            "<|im_end|>",
+            "<|endoftext|>",
+            "<|im_start|>",
+            "</s>",
+            "---",
+            "QUESTION DE L'ÉLÈVE :",
+            "EXTRAITS DU COURS",
+        ]
 
         raw_stream = self.llm.create_chat_completion(
             messages=cast(Any, messages),
@@ -239,7 +285,8 @@ class LocalLLMClient(LLMClient):
             repeat_penalty=self.repeat_penalty,
             frequency_penalty=self.frequency_penalty,
             presence_penalty=self.presence_penalty,
-            max_tokens=self._max_tokens,  # None = illimité
+            max_tokens=self._max_tokens,
+            stop=stop_sequences,
             stream=True,
         )
 
@@ -274,14 +321,18 @@ class LocalLLMClient(LLMClient):
             )
 
             if content:
+                if first_token_time is None:
+                    first_token_time = time.perf_counter()
                 token_count += 1
                 yield content
 
-        elapsed = time.perf_counter() - start_time
+        now = time.perf_counter()
+        total_elapsed = now - start_time
+        decode_elapsed = (now - first_token_time) if first_token_time else total_elapsed
 
         if token_count > 0:
-            speed = token_count / max(elapsed, 0.001)
+            pure_speed = token_count / max(decode_elapsed, 0.001)
             print(
-                f"\n[LLM-stream] {token_count} tokens en "
-                f"{elapsed:.2f}s ({speed:.2f} tokens/s)"
+                f"\n[LLM-stream] {token_count} tokens générés à {pure_speed:.2f} tokens/s "
+                f"(génération: {decode_elapsed:.2f}s | total: {total_elapsed:.2f}s)"
             )

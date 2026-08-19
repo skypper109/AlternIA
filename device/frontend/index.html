@@ -3,30 +3,51 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>AlternIA - Dispositif Pédagogique Intelligent</title>
-  <meta name="description" content="Interface tactile et vocale du dispositif AlternIA pour les lycéens du Mali.">
-  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+  <title>Alternia – Dispositif Pédagogique Intelligent</title>
+  <meta name="description" content="Interface tactile et vocale Liquid Glass du dispositif Alternia pour les lycéens du Mali.">
+  <meta name="theme-color" content="#314999">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
-  <!-- Google Fonts -->
+  <!-- Favicon & Touch Icons conformes à la charte Alternia -->
+  <link rel="icon" type="image/x-icon" href="assets/icone.ico">
+  <link rel="shortcut icon" type="image/x-icon" href="assets/icone.ico">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+
+  <!-- Google Fonts officielles (Charte Alternia / Alta) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-  <!-- Tailwind CSS via CDN -->
+  <!-- Tailwind CSS via CDN avec la palette de couleurs officielle Alta -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
       darkMode: 'class',
       theme: {
         extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            display: ['Plus Jakarta Sans', 'Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
           colors: {
             alternia: {
-              orange: '#F26522',
-              cyan: '#26B7CD',
-              blue: '#214392',
-              dark: '#070D1E',
-              card: '#0E1835',
-              border: '#1E293B'
+              primaire: '#314999',
+              'primaire-hover': '#253878',
+              'primaire-light': '#EEF2FF',
+              secondaire: '#F1851F',
+              'secondaire-hover': '#D97316',
+              'secondaire-light': '#FFF7ED',
+              innovation: '#0284C7',
+              'innovation-hover': '#0369A1',
+              'innovation-light': '#F0F9FF',
+              dark: '#080C14',
+              surface: '#0E1626',
+              surface2: '#131E33',
+              card: '#0F172A',
+              border: '#1E293B',
+              border2: '#334155'
             }
           }
         }
@@ -38,209 +59,219 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
 
-  <!-- Styles personnalisés et animations 60fps -->
+  <!-- Styles personnalisés Liquid Glass et animations 60fps -->
   <link rel="stylesheet" href="styles.css">
 </head>
 
-<body class="bg-alternia-dark text-slate-100 flex flex-col h-screen w-screen overflow-hidden select-none">
+<body class="bg-alternia-dark text-slate-100 font-display">
 
   <!-- =========================================================================
-       BARRE SUPÉRIEURE DU DISPOSITIF (HEADER KIOSK)
+       ARRIÈRE-PLAN AMBIANT LIQUID GLOW (LUMIÈRES D'AMBIANCE POUR L'EFFET DE VERRE)
        ========================================================================= -->
-  <header class="h-16 px-4 md:px-6 bg-slate-950/80 border-b border-slate-800/80 backdrop-blur-md flex items-center justify-between shrink-0 z-30">
-    <!-- Logo AlternIA -->
+  <div class="ambient-glow-layer">
+    <div class="ambient-orb orb-primary"></div>
+    <div class="ambient-orb orb-innovation"></div>
+    <div class="ambient-orb orb-secondary"></div>
+  </div>
+
+  <!-- =========================================================================
+       BARRE SUPÉRIEURE DU DISPOSITIF (HEADER FLOTTANT SOULÈVEMENT LIQUID GLASS)
+       ========================================================================= -->
+  <header class="app-topbar floating-glass-panel">
+    <!-- Logo Alternia & Badge Portail -->
     <div class="flex items-center gap-3">
-      <img src="assets/logo.svg" alt="AlternIA Logo" class="h-9 w-auto object-contain">
-      <span class="hidden sm:inline-block px-2.5 py-0.5 text-[11px] font-bold tracking-wider uppercase bg-cyan-950/80 text-cyan-400 border border-cyan-500/30 rounded-full">
-        Édition Lycée Malien
-      </span>
+      <img src="assets/logo-horizontal.jpeg" alt="Alternia" class="h-9 w-auto object-contain rounded-lg shadow-sm border border-white/10">
+      <div class="hidden sm:flex items-center gap-1.5 px-3 py-1 text-[11px] font-bold tracking-wider uppercase bg-[#314999]/20 text-cyan-300 border border-cyan-500/30 rounded-full font-mono">
+        <span class="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
+        <span>Portail Lycée Malien</span>
+      </div>
+    </div>
+
+    <!-- Raccourcis Matériels (Touches 1, 2, 3, 4 du boîtier) -->
+    <div class="hidden xl:flex items-center gap-2 bg-slate-900/60 border border-white/10 rounded-full px-3 py-1 text-xs">
+      <span class="text-slate-400 font-semibold mr-1 text-[11px]">Touches Box :</span>
+      <span class="hardware-btn-pill text-emerald-400 border-emerald-500/30">[1] 10ème</span>
+      <span class="hardware-btn-pill text-cyan-400 border-cyan-500/30">[2] 11ème</span>
+      <span class="hardware-btn-pill text-purple-400 border-purple-500/30">[3] 12ème</span>
+      <span class="hardware-btn-pill text-[#F1851F] border-[#F1851F]/40 bg-[#F1851F]/15">[4] Micro</span>
     </div>
 
     <!-- Statuts & Télémétrie du dispositif physique -->
     <div class="flex items-center gap-2 md:gap-3">
       <!-- Badge RAG Local -->
-      <div id="rag-status-badge" class="status-pill text-xs text-cyan-300 border-cyan-500/30">
+      <div id="rag-status-badge" class="glass-status-badge text-cyan-300 border-cyan-500/30">
         <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
-        <span>RAG Local Prêt</span>
+        <span class="font-mono">RAG Local 100% Connecté</span>
       </div>
 
       <!-- Badge Classe & Matière Active -->
-      <div class="hidden lg:flex items-center gap-2 bg-slate-900 border border-slate-700/60 rounded-full px-3 py-1 text-xs">
-        <span id="active-class-label" class="font-bold text-orange-400">12ème (Terminale)</span>
+      <div class="hidden lg:flex items-center gap-2 bg-slate-900/70 border border-white/10 rounded-full px-3.5 py-1 text-xs">
+        <span id="active-class-label" class="font-bold text-[#F1851F]">10ème (Tronc Commun)</span>
         <span class="text-slate-500">•</span>
-        <span id="active-subject-label" class="font-medium text-cyan-300">📐 Mathématiques</span>
+        <span id="active-subject-label" class="font-medium text-cyan-300 flex items-center gap-1">Mathématiques</span>
       </div>
 
       <!-- Boutons de Contrôle Kiosk -->
-      <div class="flex items-center gap-1.5 ml-2 border-l border-slate-800 pl-2">
+      <div class="flex items-center gap-2 ml-2 border-l border-white/10 pl-2">
         <!-- Muet / Son -->
-        <button id="btn-toggle-mute" class="touch-btn p-2 rounded-full bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300" title="Activer / Désactiver la voix">
-          <svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path></svg>
+        <button id="btn-toggle-mute" class="btn-kiosk-icon" title="Activer / Désactiver la voix">
+          <svg class="w-4 h-4 text-cyan-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+            <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+          </svg>
         </button>
 
         <!-- Réinitialiser Session -->
-        <button id="btn-reset-session" class="touch-btn p-2 rounded-full bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300" title="Nouvelle session">
-          <svg class="w-5 h-5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+        <button id="btn-reset-session" class="btn-kiosk-icon" title="Nouvelle session">
+          <svg class="w-4 h-4 text-[#F1851F]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path>
+            <path d="M21 3v5h-5"></path>
+            <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path>
+            <path d="M8 16H3v5"></path>
+          </svg>
         </button>
 
         <!-- Plein Écran -->
-        <button id="btn-fullscreen" class="touch-btn p-2 rounded-full bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300" title="Plein écran">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
+        <button id="btn-fullscreen" class="btn-kiosk-icon" title="Plein écran">
+          <svg class="w-4 h-4 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <polyline points="9 21 3 21 3 15"></polyline>
+            <line x1="21" y1="3" x2="14" y2="10"></line>
+            <line x1="3" y1="21" x2="10" y2="14"></line>
+          </svg>
         </button>
       </div>
     </div>
   </header>
 
   <!-- =========================================================================
-       CORPS PRINCIPAL (LAYOUT DISPOSITIF ÉCRAN TACTILE)
+       CORPS PRINCIPAL AVEC GAPS DE SÉPARATION (WORKSPACE TACTILE FLOTTANT)
        ========================================================================= -->
-  <main class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+  <main class="app-workspace">
 
     <!-- =======================================================================
-         PANNEAU GAUCHE : ALTERNIA CORE (AVATAR VORTEX RÉACTIF 60 FPS)
+         PANNEAU GAUCHE FLOTTANT : AVATAR ENSEIGNANT VIRTUEL ALTA
          ======================================================================= -->
-    <section class="w-full md:w-[340px] lg:w-[380px] bg-slate-950/70 border-r border-slate-800/80 flex flex-col items-center justify-between p-4 md:p-6 shrink-0 relative overflow-hidden">
-      
-      <!-- Halo de fond décoratif -->
-      <div class="absolute -top-20 -left-20 w-64 h-64 bg-cyan-600/10 rounded-full blur-3xl pointer-events-none"></div>
-      <div class="absolute -bottom-20 -right-20 w-64 h-64 bg-orange-600/10 rounded-full blur-3xl pointer-events-none"></div>
+    <aside class="app-sidebar-avatar floating-glass-panel" id="alta-avatar-card">
 
       <!-- Haut : Statut d'état en direct -->
       <div class="w-full flex justify-center">
-        <div id="status-pill" class="status-pill text-xs flex items-center gap-2">
-          <span id="status-dot" class="status-dot"></span>
-          <span id="status-text" class="font-medium text-slate-200">Prêt</span>
+        <div id="status-pill" class="glass-status-badge">
+          <span id="status-dot" class="w-2 h-2 rounded-full bg-emerald-400"></span>
+          <span id="status-text" class="font-semibold text-slate-200">Prêt</span>
         </div>
       </div>
 
-      <!-- Centre : AlternIA Core Vortex Animé -->
-      <div id="alternia-core-wrapper" class="state-idle flex flex-col items-center justify-center my-auto py-4">
-        <!-- Conteneur SVG Vortex -->
-        <div class="vortex-container cursor-pointer" id="alternia-core" title="AlternIA Core - Cliquez pour tester la voix">
-          <!-- Insertion directe du symbole Tri-Vortex AlternIA avec calques animés -->
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200" fill="none" id="alternia-vortex-svg">
-            <defs>
-              <linearGradient id="coreOrange" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#FF8238"/>
-                <stop offset="100%" stop-color="#E2530F"/>
-              </linearGradient>
-              <linearGradient id="coreCyan" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#3CE0F8"/>
-                <stop offset="100%" stop-color="#19A7BA"/>
-              </linearGradient>
-              <linearGradient id="coreBlue" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#2E5DE0"/>
-                <stop offset="100%" stop-color="#18367F"/>
-              </linearGradient>
-              <radialGradient id="coreAuraGrad" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stop-color="#26B7CD" stop-opacity="0.4"/>
-                <stop offset="50%" stop-color="#214392" stop-opacity="0.15"/>
-                <stop offset="100%" stop-color="#F26522" stop-opacity="0"/>
-              </radialGradient>
-            </defs>
-
-            <!-- Aura lumineuse -->
-            <circle cx="100" cy="100" r="92" fill="url(#coreAuraGrad)" class="vortex-aura-pulse" />
-
-            <!-- Ondes acoustiques réactives -->
-            <g class="vortex-soundwaves">
-              <circle cx="100" cy="100" r="78" stroke="#26B7CD" stroke-width="1.5" stroke-dasharray="4 8" class="wave-ring wave-1" />
-              <circle cx="100" cy="100" r="88" stroke="#F26522" stroke-width="1.5" stroke-dasharray="6 12" class="wave-ring wave-2" />
-              <circle cx="100" cy="100" r="98" stroke="#214392" stroke-width="1.5" stroke-dasharray="8 16" class="wave-ring wave-3" />
-            </g>
-
-            <!-- Groupe Tri-Vortex -->
-            <g id="vortex-blades-group">
-              <!-- Pétale Orange -->
-              <path id="blade-orange" class="vortex-blade" d="M 100 12 C 146 28 186 74 192 114 C 165 96 131 87 97 87 C 76 87 58 94 42 108 C 49 67 70 30 100 12 Z" fill="url(#coreOrange)" />
-              <!-- Pétale Cyan -->
-              <path id="blade-cyan" class="vortex-blade" d="M 192 114 C 185 155 144 186 103 189 C 117 162 117 128 103 101 C 93 83 80 70 62 60 C 103 56 158 74 192 114 Z" fill="url(#coreCyan)" />
-              <!-- Pétale Bleu Royal -->
-              <path id="blade-blue" class="vortex-blade" d="M 15 121 C 12 74 49 30 97 11 C 80 38 80 75 94 102 C 103 120 117 133 135 143 C 94 150 35 146 15 121 Z" fill="url(#coreBlue)" />
-              <!-- Noyau central -->
-              <circle cx="100" cy="102" r="18" fill="#FFFFFF" class="vortex-nucleus" />
-              <circle cx="100" cy="102" r="7" fill="#214392" opacity="0.2" />
-            </g>
-          </svg>
+      <!-- Centre : Avatar Réel Alta avec Halo Chromatique et Égaliseur Audio -->
+      <div class="avatar-hero-container">
+        
+        <!-- Photo Avatar avec Anneau Lumineux -->
+        <div class="avatar-halo-wrapper">
+          <div class="avatar-halo-ring"></div>
+          <div class="avatar-photo-frame">
+            <img src="assets/avatar.png" alt="ALTA" id="alta-avatar-img">
+          </div>
         </div>
 
-        <!-- Visualiseur de spectre audio -->
-        <div id="audio-visualizer" class="audio-visualizer-bars mt-4 opacity-25">
-          <div class="audio-bar"></div>
-          <div class="audio-bar"></div>
-          <div class="audio-bar"></div>
-          <div class="audio-bar"></div>
-          <div class="audio-bar"></div>
-          <div class="audio-bar"></div>
-          <div class="audio-bar"></div>
+        <!-- Identité Enseignant IA (Charte Alta) -->
+        <div class="flex flex-col items-center">
+          <h2 class="text-lg font-bold text-white tracking-tight flex items-center gap-1.5 font-display">
+            <span>ALTA</span>
+            <span class="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
+          </h2>
+          <p class="text-xs text-cyan-300 font-medium font-sans">Enseignant Pédagogique Virtuel</p>
+          <span class="mt-1 text-[10px] text-slate-400 font-mono bg-white/5 px-2 py-0.5 rounded border border-white/5">Qwen 2.5 • Modèle Local</span>
         </div>
 
-        <p class="text-xs text-slate-400 font-medium mt-3 text-center">
-          Professeur Assistant IA • 100% Hors-Ligne
-        </p>
+        <!-- Égaliseur 12 barres réactif -->
+        <div id="audio-waveform-container" class="pp-hero-waveform opacity-20">
+          <span class="pp-hero-wave-bar"></span>
+          <span class="pp-hero-wave-bar"></span>
+          <span class="pp-hero-wave-bar"></span>
+          <span class="pp-hero-wave-bar"></span>
+          <span class="pp-hero-wave-bar"></span>
+          <span class="pp-hero-wave-bar"></span>
+          <span class="pp-hero-wave-bar"></span>
+          <span class="pp-hero-wave-bar"></span>
+          <span class="pp-hero-wave-bar"></span>
+          <span class="pp-hero-wave-bar"></span>
+          <span class="pp-hero-wave-bar"></span>
+          <span class="pp-hero-wave-bar"></span>
+        </div>
+
       </div>
 
-      <!-- Bas : Gros Bouton Microphone Tactile -->
+      <!-- Bas : Gros Bouton Microphone Tactile (Bouton 4) -->
       <div class="w-full flex flex-col items-center gap-2">
-        <button id="btn-mic-main" class="mic-btn-main" title="Toucher pour poser une question vocale">
-          <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path>
+        <button id="btn-mic-main" class="btn-mic-liquid" title="Bouton [4] : Toucher pour poser une question vocale">
+          <svg class="w-7 h-7 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+            <line x1="12" y1="19" x2="12" y2="22"></line>
           </svg>
         </button>
-        <span class="text-xs text-slate-400 font-semibold tracking-wide">
-          Appuyer pour Parler
-        </span>
+        <div class="flex items-center gap-1.5 text-xs text-slate-300 font-medium">
+          <span class="hardware-btn-pill text-[#F1851F] border-[#F1851F]/40 bg-[#F1851F]/15">Bouton 4</span>
+          <span>Parler au Micro</span>
+        </div>
       </div>
 
-    </section>
+    </aside>
 
     <!-- =======================================================================
-         PANNEAU DROIT : ESPACE DE TRAVAIL PÉDAGOGIQUE & SÉLECTEUR
+         PANNEAU DROIT SÉPARÉ : FILTRES DU COURS & ESPACE DE TRAVAIL
          ======================================================================= -->
-    <section class="flex-1 flex flex-col bg-slate-900/50 overflow-hidden">
+    <section class="app-main-content">
 
-      <!-- Sélecteur de Classes & Matières (Spécial Lycée Malien) -->
-      <div class="bg-slate-950/60 border-b border-slate-800/80 p-3 md:p-4 shrink-0 flex flex-col gap-2.5">
-        
-        <!-- Ligne 1 : Choix de la classe -->
-        <div class="flex items-center gap-2 overflow-x-auto pb-1" id="class-selector-tabs">
-          <!-- Injecté dynamiquement par app.js -->
+      <!-- Carte Flottante 1 : Sélecteur de Classes & Matières -->
+      <div class="curriculum-toolbar-card floating-glass-panel">
+        <!-- Ligne 1 : Choix de la classe (Boutons 1, 2, 3) -->
+        <div class="flex items-center gap-2 overflow-x-auto pb-0.5" id="class-selector-tabs">
+          <!-- Injecté dynamiquement par curriculum-ui.js -->
         </div>
 
         <!-- Ligne 2 : Choix de la matière -->
-        <div class="flex items-center gap-2 overflow-x-auto pb-1" id="subject-selector-tabs">
-          <!-- Injecté dynamiquement par app.js -->
+        <div class="flex items-center gap-2 overflow-x-auto pb-0.5" id="subject-selector-tabs">
+          <!-- Injecté dynamiquement par curriculum-ui.js -->
         </div>
 
-        <!-- Ligne 3 : Suggestions rapides de notions du cours -->
-        <div class="flex items-center gap-2 overflow-x-auto pt-1" id="topic-chips-container">
-          <!-- Injecté dynamiquement par app.js -->
-        </div>
-
-      </div>
-
-      <!-- Zone de conversation défilable avec formules KaTeX -->
-      <div id="chat-scroll-area" class="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
-        <div id="chat-messages-list">
-          <!-- Les messages et cartes formules sont injectés ici -->
+        <!-- Ligne 3 : Suggestions de notions clés -->
+        <div class="flex items-center gap-2 overflow-x-auto pt-0.5" id="topic-chips-container">
+          <!-- Injecté dynamiquement par curriculum-ui.js -->
         </div>
       </div>
 
-      <!-- Barre de saisie inférieure (Tactile & Clavier) -->
-      <div class="p-3 md:p-4 bg-slate-950/90 border-t border-slate-800/80 shrink-0">
-        <div class="flex items-center gap-2 bg-slate-900/90 border border-slate-700/80 rounded-2xl p-2 focus-within:border-cyan-400 transition-all shadow-lg">
-          <input 
-            type="text" 
-            id="question-input" 
-            placeholder="Pose ta question (ex: Donne-moi la formule de Moivre, Loi de Newton...)"
-            class="flex-1 bg-transparent border-none outline-none px-3 text-sm md:text-base text-white placeholder-slate-500"
-            autocomplete="off"
-          >
-          <button id="btn-send" class="touch-btn px-5 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white rounded-xl font-bold text-sm flex items-center gap-1.5 shadow-md shadow-cyan-900/30">
-            <span>Envoyer</span>
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
-          </button>
+      <!-- Carte Flottante 2 : Espace de Conversation & Saisie Tactile -->
+      <div class="chat-workspace-card floating-glass-panel">
+        
+        <!-- Zone de conversation défilable -->
+        <div id="chat-scroll-area" class="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
+          <div id="chat-messages-list">
+            <!-- Les messages et cartes formules sont injectés ici -->
+          </div>
         </div>
+
+        <!-- Barre de saisie inférieure (Liquid Glass) -->
+        <div class="p-3 md:p-4 border-t border-white/10 bg-slate-950/40">
+          <div class="flex items-center gap-2 bg-slate-900/80 border border-white/12 rounded-2xl p-2 focus-within:border-cyan-400 focus-within:shadow-[0_0_20px_rgba(2,132,199,0.25)] transition-all">
+            <input 
+              type="text" 
+              id="question-input" 
+              placeholder="Pose une question de cours (ex: Définis la photosynthèse, Formule de Moivre, Loi de Newton...)"
+              class="flex-1 bg-transparent border-none outline-none px-3 text-sm md:text-base text-white placeholder-slate-400 font-sans"
+              autocomplete="off"
+            >
+            <button id="btn-send" class="btn-action-primary" title="Envoyer la question">
+              <span>Envoyer</span>
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13"></line>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+              </svg>
+            </button>
+          </div>
+        </div>
+
       </div>
 
     </section>
@@ -248,32 +279,35 @@
   </main>
 
   <!-- =========================================================================
-       MODAL SPOTLIGHT FORMULE PLEIN ÉCRAN (ZOOM TACTILE)
+       MODAL SPOTLIGHT FORMULE PLEIN ÉCRAN (ZOOM TACTILE LIQUID GLASS)
        ========================================================================= -->
   <div id="formula-modal" class="formula-modal-overlay hidden">
     <div class="formula-modal-content">
-      <div class="flex items-center justify-between border-b border-slate-700 pb-4 mb-4">
+      <div class="flex items-center justify-between border-b border-white/10 pb-4 mb-4">
         <div class="flex items-center gap-2">
-          <span class="w-3 h-3 rounded-full bg-cyan-400"></span>
-          <h3 class="text-xl font-extrabold text-white">Formule Pédagogique Officielle</h3>
+          <span class="w-2.5 h-2.5 rounded-full bg-cyan-400"></span>
+          <h3 class="text-lg font-bold text-white tracking-wide">Formule Pédagogique Officielle</h3>
         </div>
-        <button id="btn-close-formula-modal" class="touch-btn p-2 text-slate-400 hover:text-white rounded-lg bg-slate-800">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        <button id="btn-close-formula-modal" class="btn-kiosk-icon" title="Fermer la vue plein écran">
+          <svg class="w-5 h-5 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
         </button>
       </div>
       
-      <div id="formula-modal-math" class="text-2xl md:text-3xl text-center py-6 text-cyan-300 font-bold overflow-x-auto"></div>
+      <div id="formula-modal-math" class="text-2xl md:text-3xl text-center py-6 text-cyan-300 font-bold overflow-x-auto font-mono"></div>
 
-      <div class="mt-4 pt-4 border-t border-slate-800">
-        <h4 class="text-xs uppercase font-bold text-slate-400 tracking-wider mb-2">Variables & Unités :</h4>
-        <div id="formula-modal-vars" class="flex flex-wrap gap-2"></div>
+      <div class="mt-4 pt-4 border-t border-white/10">
+        <h4 class="text-xs uppercase font-bold text-slate-400 tracking-wider mb-2 font-mono">Variables & Unités :</h4>
+        <div id="formula-modal-vars" class="flex flex-wrap gap-2 font-sans"></div>
       </div>
 
-      <div id="formula-modal-source" class="text-xs text-slate-400 mt-4 text-right italic"></div>
+      <div id="formula-modal-source" class="text-xs text-slate-400 mt-4 text-right italic font-mono"></div>
     </div>
   </div>
 
-  <!-- Logique applicative -->
-  <script src="app.js"></script>
+  <!-- Logique applicative modulaire ES6 -->
+  <script type="module" src="app.js"></script>
 </body>
 </html>

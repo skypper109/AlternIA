@@ -206,6 +206,32 @@ class AlterniaOrchestrator:
         """
         Génère progressivement la réponse du LLM.
         """
+        # GUARD PÉDAGOGIQUE CENTRALISÉ :
+        # Si un RAG est configuré et qu'aucune source valide n'est trouvée (ou score < 0.40),
+        # l'orchestrateur refuse immédiatement SANS appeler le LLM.
+        if self.rag_service is not None:
+            # Bypass RAG strictness for identity or greeting questions
+            import re
+            q_clean = question.strip().lower()
+            is_identity = bool(re.search(r"^(qui es tu|qui es-tu|presente toi|présente toi|présente-toi|presente-toi|tu es qui|qui est tu|bonjour|salut)", q_clean))
+            
+            sources = getattr(context, "sources", []) if context else []
+            max_score = max((getattr(s, "score", 0.0) for s in sources), default=0.0)
+            
+            if not is_identity and (not sources or max_score < 0.40):
+                subject_label = subject or "la matière sélectionnée"
+                refusal_text = (
+                    f"Je n'ai pas trouvé d'information sur ce sujet dans le programme officiel "
+                    f"de {student_class} pour {subject_label}. "
+                    f"Pose-moi une question sur {subject_label} conforme au programme de ta classe "
+                    f"pour que je puisse t'aider."
+                )
+
+                def refusal_generator():
+                    yield refusal_text
+
+                return refusal_generator()
+
         profile = (
             self.learner_manager
             .to_optional_pedagogical_profile(
@@ -347,6 +373,34 @@ class AlterniaOrchestrator:
         """
         Exécute le pipeline complet AlternIA.
         """
+        # GUARD PÉDAGOGIQUE CENTRALISÉ :
+        # Si un RAG est configuré et qu'aucune source valide n'est trouvée (ou score < 0.40),
+        # l'orchestrateur refuse immédiatement SANS appeler le LLM.
+        if self.rag_service is not None:
+            sources = getattr(context, "sources", []) if context else []
+            max_score = max((getattr(s, "score", 0.0) for s in sources), default=0.0)
+            if not sources or max_score < 0.40:
+                subject_label = subject or "la matière sélectionnée"
+                refusal_text = (
+                    f"Je n'ai pas trouvé d'information sur ce sujet dans le programme officiel "
+                    f"de {student_class} pour {subject_label}. "
+                    f"Pose-moi une question sur {subject_label} conforme au programme de ta classe "
+                    f"pour que je puisse t'aider."
+                )
+                return {
+                    "answer": refusal_text,
+                    "intent": "out_of_scope",
+                    "student_class": student_class,
+                    "subject": subject,
+                    "sources": [],
+                    "should_ask_followup": False,
+                    "followup_question": None,
+                    "metadata": {
+                        "rag_sources": 0,
+                        "out_of_scope": True,
+                        "llm_used": False,
+                    },
+                }
 
         # -----------------------------------------------------
         # 1. MOTEUR PÉDAGOGIQUE

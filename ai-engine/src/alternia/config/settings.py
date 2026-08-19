@@ -22,12 +22,12 @@ class Settings(BaseSettings):
         / "ai-engine"
         / "models"
         / "llm"
-        / "qwen2.5-1.5b-instruct-q4_k_m.gguf"
-        if (PROJECT_ROOT / "ai-engine" / "models" / "llm" / "qwen2.5-1.5b-instruct-q4_k_m.gguf").exists()
-        else PROJECT_ROOT / "ai-engine" / "models" / "llm" / "qwen2.5-3b-instruct-q4_k_m.gguf"
+        / "qwen2.5-3b-instruct-q4_k_m.gguf"
+        if (PROJECT_ROOT / "ai-engine" / "models" / "llm" / "qwen2.5-3b-instruct-q4_k_m.gguf").exists()
+        else PROJECT_ROOT / "ai-engine" / "models" / "llm" / "qwen2.5-1.5b-instruct-q4_k_m.gguf"
     )
 
-    local_llm_context_size: int = 2048
+    local_llm_context_size: int = 4096
     local_llm_threads: int = 4
     local_llm_batch_size: int = 512
     local_llm_gpu_layers: int = 0

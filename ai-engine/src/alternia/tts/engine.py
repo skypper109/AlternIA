@@ -100,7 +100,7 @@ class TTSEngine:
         return self.voice
 
     def _detect_best_system_voice(self) -> str:
-        """Détecte la meilleure voix système locale disponible."""
+        """Détecte la meilleure voix système locale française disponible."""
         if self.system == "Darwin":
             try:
                 result = subprocess.run(
@@ -109,12 +109,20 @@ class TTSEngine:
                     text=True,
                     check=False,
                 )
-                output = result.stdout.lower()
-                for candidate in ["audrey", "aurelie", "thomas", "amélie", "amelie", "flo"]:
-                    if candidate in output:
-                        for line in result.stdout.splitlines():
-                            if candidate in line.lower() and ("fr_" in line.lower() or "français" in line.lower() or "french" in line.lower()):
-                                return line.split()[0]
+                french_voices = []
+                for line in result.stdout.splitlines():
+                    if "fr_FR" in line or "fr_CA" in line or "français" in line.lower() or "french" in line.lower():
+                        match = re.match(r"^(.+?)\s{2,}fr_", line)
+                        if match:
+                            french_voices.append(match.group(1).strip())
+
+                # Priorités absolues pour voix françaises de haute qualité sur Mac
+                for preferred in ["Thomas", "Jacques", "Amélie", "Eddy (Français (France))", "Flo (Français (France))", "Audrey", "Aurélie"]:
+                    if preferred in french_voices:
+                        return preferred
+
+                if french_voices:
+                    return french_voices[0]
                 return "Thomas"
             except Exception:
                 return "Thomas"
@@ -271,11 +279,14 @@ class TTSEngine:
         """
         t = text.strip()
 
-        # Supprimer le code markdown brut
+        # Supprimer le code markdown brut et balises
+        t = re.sub(r"<think>[\s\S]*?</think>", "", t, flags=re.IGNORECASE)
         t = re.sub(r"```[\s\S]*?```", " , comme montré dans cette démonstration, ", t)
         t = re.sub(r"`([^`]+)`", r"\1", t)
+        t = re.sub(r"\*\*\*([^*]+)\*\*\*", r"\1", t)
         t = re.sub(r"\*\*([^*]+)\*\*", r"\1", t)
         t = re.sub(r"\*([^*]+)\*", r"\1", t)
+        t = t.replace("***", "").replace("**", "").replace("*", "")
         t = re.sub(r"^#+\s*", "", t, flags=re.MULTILINE)
 
         # Remplacement des fractions LaTeX simples : \frac{a}{b} -> a sur b
@@ -331,6 +342,14 @@ class TTSEngine:
         t = re.sub(r"\s*\?\s*", "? ", t)
         t = re.sub(r"\s*!\s*", "! ", t)
 
+        # Normalisation des niveaux et filières scolaires maliennes pour une diction parfaite
+        t = re.sub(r"\b10[eè]me\b", "dixième année", t, flags=re.IGNORECASE)
+        t = re.sub(r"\b11[eè]me\b", "onzième année", t, flags=re.IGNORECASE)
+        t = re.sub(r"\b12[eè]me\b", "douzième année", t, flags=re.IGNORECASE)
+        t = re.sub(r"\s*&\s*", " et ", t)
+        # Supprimer les parenthèses de sigles qui créent des prononciations étranges (ex: (TSExp), (11S), (TSE))
+        t = re.sub(r"\s*\([A-Za-z0-9\s-]+\)", "", t)
+
         # Nettoyer les espaces multiples
         t = re.sub(r"\s+", " ", t)
 
@@ -359,6 +378,48 @@ class TTSEngine:
         """Enfile une phrase pour lecture fluide en streaming au fil de la génération."""
         if sentence and sentence.strip():
             self._text_queue.put(sentence.strip())
+
+    def speak_sync(self, text: str) -> None:
+        """Joue un texte de façon bloquante et attend la fin de la lecture (idéal pour les adieux/sorties)."""
+        if not text or not text.strip():
+            return
+        clean_text = self._clean_for_speech(text)
+        if not clean_text:
+            return
+
+        if self.use_neural:
+            try:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                text_hash = hashlib.md5(f"{self.neural_voice}_{clean_text}_{self.rate}".encode("utf-8")).hexdigest()
+                cached_path = self.cache_dir / f"{text_hash}.mp3"
+                if not (cached_path.exists() and cached_path.stat().st_size > 0):
+                    communicate = edge_tts.Communicate(clean_text, self.neural_voice, rate="+5%")
+                    loop.run_until_complete(communicate.save(str(cached_path)))
+                loop.close()
+
+                if cached_path.exists() and cached_path.stat().st_size > 0:
+                    if self.system == "Darwin":
+                        subprocess.run(["afplay", str(cached_path)], check=False)
+                        return
+                    elif self.system == "Linux":
+                        if shutil.which("mpv"):
+                            subprocess.run(["mpv", "--no-video", "--really-quiet", str(cached_path)], check=False)
+                            return
+                        elif shutil.which("ffplay"):
+                            subprocess.run(["ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet", str(cached_path)], check=False)
+                            return
+                        elif shutil.which("paplay"):
+                            subprocess.run(["paplay", str(cached_path)], check=False)
+                            return
+                        elif shutil.which("aplay"):
+                            subprocess.run(["aplay", "-q", str(cached_path)], check=False)
+                            return
+            except Exception:
+                pass
+
+        # Repli système
+        self._play_system_speech(clean_text)
 
     def stop(self) -> None:
         """Arrête immédiatement la parole en cours et vide toutes les files d'attente."""

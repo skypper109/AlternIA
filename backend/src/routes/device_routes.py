@@ -85,6 +85,25 @@ async def tts_endpoint(text: Optional[str] = None, req: Optional[TTSRequest] = N
         raise HTTPException(status_code=500, detail=f"Erreur TTS : {str(e)}")
 
 
+@router.post("/api/stt")
+async def stt_endpoint(
+    audio: UploadFile = File(...),
+    language: Optional[str] = Form("fr")
+):
+    """Transcription vocale Speech-to-Text via Faster-Whisper local embarqué."""
+    try:
+        from alternia.stt.engine import STTEngine
+        stt = STTEngine(model_size="base", language=language or "fr")
+        content = await audio.read()
+        if not content:
+            raise HTTPException(status_code=400, detail="Fichier audio vide")
+
+        text = stt.transcribe(content, language=language or "fr")
+        return {"text": text, "status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur STT : {str(e)}")
+
+
 @router.post("/api/rag/analyze")
 async def rag_analyze_exercise(
     subject: Optional[str] = Form(None),
