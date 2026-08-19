@@ -64,7 +64,7 @@ def get_orchestrator() -> AlterniaOrchestrator:
 
     rag_service = RAGService(
         retriever=retriever,
-        top_k=4,
+        top_k=2,
     )
 
     pedagogical_engine = PedagogicalEngine()

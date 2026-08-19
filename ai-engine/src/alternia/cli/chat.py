@@ -59,7 +59,7 @@ def create_orchestrator(enable_rag: bool = True):
         )
         rag_service = RAGService(
             retriever=retriever,
-            top_k=3,
+            top_k=2,
         )
 
     pedagogical_engine = PedagogicalEngine()
@@ -92,6 +92,7 @@ def print_header(student_class: str, series_label: str, subject: str, audio_enab
     print("    /matiere <nom>             -> Changer de matière (maths, physique...)")
     print("    /audio on|off              -> Activer/Désactiver la voix")
     print("    /voix <nom>                -> Changer de voix (vivienne, remy, denise, system)")
+    print("    /modele 1.5b | 3b          -> Changer de modèle (1.5B ~16 tok/s | 3B haute précision)")
     print("    /sources                   -> Voir les sources du dernier RAG")
     print("    /profil                    -> Voir le carnet de suivi d'apprentissage")
     print("    /aide                      -> Afficher l'aide")
@@ -307,6 +308,35 @@ def main():
             print(f"  • Notions maîtrisées : {profile.mastered_topics or 'En cours d\'évaluation'}")
             print(f"  • Notions à revoir   : {profile.topics_to_review or 'Aucune difficulté majeure'}")
             print(f"  • Interactions       : {len(profile.recent_interactions)}\n")
+            continue
+
+        if cmd.startswith("/modele"):
+            parts = question.split()
+            if len(parts) >= 2:
+                target_m = parts[1].strip().lower()
+                m_path = None
+                if target_m in {"1.5b", "1.5", "fast", "rapide", "speed"}:
+                    candidate = PROJECT_ROOT / "ai-engine" / "models" / "llm" / "qwen2.5-1.5b-instruct-q4_k_m.gguf"
+                    if candidate.exists():
+                        m_path = candidate
+                elif target_m in {"3b", "3", "smart", "precision", "qualite"}:
+                    candidate = PROJECT_ROOT / "ai-engine" / "models" / "llm" / "qwen2.5-3b-instruct-q4_k_m.gguf"
+                    if candidate.exists():
+                        m_path = candidate
+
+                if m_path:
+                    print(f"⏳ Basculement vers le modèle : \033[1;36m{m_path.name}\033[0m...")
+                    new_client = LocalLLMClient(
+                        model_path=str(m_path),
+                        n_ctx=4096,
+                        n_batch=512,
+                    )
+                    orchestrator.llm_client = new_client
+                    print(f"✅ Modèle actif : \033[1;32m{m_path.name}\033[0m\n")
+                else:
+                    print("❌ Modèle indisponible. Choisis : /modele 1.5b (rapide ~16 tok/s) ou /modele 3b (précis ~8-10 tok/s)\n")
+            else:
+                print("❌ Utilisation : /modele 1.5b | /modele 3b\n")
             continue
 
         if cmd == "/aide":

@@ -77,9 +77,10 @@ class LocalLLMClient(LLMClient):
                 # M-series : threads = tous les P-cores (performance cores)
                 threads = min(8, max(4, cpu_count))
             elif machine in {"x86_64", "amd64"}:
-                # Intel HT : utiliser tous les cœurs logiques pour llama.cpp
-                # (llama.cpp gère mieux la contention que le kernel scheduler)
-                threads = min(8, max(4, cpu_count))
+                # Intel HT : utiliser UNIQUEMENT les cœurs physiques (cpu_count // 2)
+                # Évite la contention de cache L1/L2 et booste la génération jusqu'à 8-10+ tokens/s.
+                physical_cores = max(2, cpu_count // 2) if cpu_count > 2 else cpu_count
+                threads = min(6, physical_cores)
             else:
                 threads = min(4, max(2, cpu_count))
 
@@ -258,6 +259,7 @@ class LocalLLMClient(LLMClient):
         """
 
         start_time = time.perf_counter()
+        first_token_time: float | None = None
         token_count = 0
 
         if messages is None:
@@ -319,14 +321,18 @@ class LocalLLMClient(LLMClient):
             )
 
             if content:
+                if first_token_time is None:
+                    first_token_time = time.perf_counter()
                 token_count += 1
                 yield content
 
-        elapsed = time.perf_counter() - start_time
+        now = time.perf_counter()
+        total_elapsed = now - start_time
+        decode_elapsed = (now - first_token_time) if first_token_time else total_elapsed
 
         if token_count > 0:
-            speed = token_count / max(elapsed, 0.001)
+            pure_speed = token_count / max(decode_elapsed, 0.001)
             print(
-                f"\n[LLM-stream] {token_count} tokens en "
-                f"{elapsed:.2f}s ({speed:.2f} tokens/s)"
+                f"\n[LLM-stream] {token_count} tokens générés à {pure_speed:.2f} tokens/s "
+                f"(génération: {decode_elapsed:.2f}s | total: {total_elapsed:.2f}s)"
             )
