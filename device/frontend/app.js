@@ -864,9 +864,9 @@ class AlternIAApp {
       <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-700 to-cyan-500 border border-cyan-300 flex items-center justify-center text-white shrink-0 shadow-lg shadow-cyan-900/40">
         <svg class="w-6 h-6" viewBox="0 0 100 100" fill="none">
           <circle cx="50" cy="50" r="45" fill="#0C142B" />
-          <path d="M50 15 C75 25 85 50 85 70 C70 60 55 55 45 65 Z" fill="#F26522"/>
-          <path d="M85 70 C75 90 50 90 35 75 C45 60 60 60 65 45 Z" fill="#26B7CD"/>
-          <path d="M15 60 C15 35 35 20 50 15 C45 30 50 50 65 55 Z" fill="#214392"/>
+          <path d="M50 15 C75 25 85 50 85 70 C70 60 55 55 45 65 Z" fill="#F1851F"/>
+          <path d="M85 70 C75 90 50 90 35 75 C45 60 60 60 65 45 Z" fill="#0284C7"/>
+          <path d="M15 60 C15 35 35 20 50 15 C45 30 50 50 65 55 Z" fill="#314999"/>
         </svg>
       </div>
       <div class="chat-bubble-ai max-w-[90%] p-4 text-white flex-1 border border-slate-700/60">
@@ -969,9 +969,9 @@ class AlternIAApp {
       <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-700 to-cyan-500 border border-cyan-300 flex items-center justify-center text-white shrink-0 shadow-lg shadow-cyan-900/40">
         <svg class="w-6 h-6" viewBox="0 0 100 100" fill="none">
           <circle cx="50" cy="50" r="45" fill="#0C142B" />
-          <path d="M50 15 C75 25 85 50 85 70 C70 60 55 55 45 65 Z" fill="#F26522"/>
-          <path d="M85 70 C75 90 50 90 35 75 C45 60 60 60 65 45 Z" fill="#26B7CD"/>
-          <path d="M15 60 C15 35 35 20 50 15 C45 30 50 50 65 55 Z" fill="#214392"/>
+          <path d="M50 15 C75 25 85 50 85 70 C70 60 55 55 45 65 Z" fill="#F1851F"/>
+          <path d="M85 70 C75 90 50 90 35 75 C45 60 60 60 65 45 Z" fill="#0284C7"/>
+          <path d="M15 60 C15 35 35 20 50 15 C45 30 50 50 65 55 Z" fill="#314999"/>
         </svg>
       </div>
       <div class="chat-bubble-ai max-w-[90%] p-4 text-white flex-1 border border-slate-700/60">
@@ -1033,9 +1033,9 @@ class AlternIAApp {
       <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-700 to-cyan-500 border border-cyan-300 flex items-center justify-center text-white shrink-0 shadow-lg shadow-cyan-900/40">
         <svg class="w-6 h-6" viewBox="0 0 100 100" fill="none">
           <circle cx="50" cy="50" r="45" fill="#0C142B" />
-          <path d="M50 15 C75 25 85 50 85 70 C70 60 55 55 45 65 Z" fill="#F26522"/>
-          <path d="M85 70 C75 90 50 90 35 75 C45 60 60 60 65 45 Z" fill="#26B7CD"/>
-          <path d="M15 60 C15 35 35 20 50 15 C45 30 50 50 65 55 Z" fill="#214392"/>
+          <path d="M50 15 C75 25 85 50 85 70 C70 60 55 55 45 65 Z" fill="#F1851F"/>
+          <path d="M85 70 C75 90 50 90 35 75 C45 60 60 60 65 45 Z" fill="#0284C7"/>
+          <path d="M15 60 C15 35 35 20 50 15 C45 30 50 50 65 55 Z" fill="#314999"/>
         </svg>
       </div>
       <div class="chat-bubble-ai max-w-[92%] p-5 text-white flex-1 border border-slate-700/60 shadow-xl rounded-2xl bg-slate-900/90">
