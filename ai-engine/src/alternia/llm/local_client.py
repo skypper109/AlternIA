@@ -186,6 +186,8 @@ class LocalLLMClient(LLMClient):
             messages = self._build_messages(prompt, system_prompt)
 
         start_time = time.perf_counter()
+        model_name = Path(self.model_path).name
+        print(f"\033[35m⏱️  [local_client.py]\033[0m Appel LLM synchrone ({model_name})...")
 
         # Stop sequences sûres : bloquent la fuite de balises de fin de tour ou séparateurs
         stop_sequences = [
@@ -211,30 +213,14 @@ class LocalLLMClient(LLMClient):
         response: dict[str, Any] = cast(dict[str, Any], raw_response)
 
         elapsed = time.perf_counter() - start_time
-
         usage = response.get("usage", {})
+        completion_tokens = usage.get("completion_tokens", 0)
+        tokens_per_second = completion_tokens / max(elapsed, 0.001)
 
         print(
-            f"\n[LLM] génération : {elapsed:.2f}s"
+            f"\033[35m⏱️  [local_client.py]\033[0m LLM génération : \033[1;32m{completion_tokens} tokens\033[0m "
+            f"en \033[1;33m{elapsed:.2f}s\033[0m (\033[1;36m{tokens_per_second:.2f} tokens/s\033[0m)"
         )
-
-        completion_tokens = usage.get(
-            "completion_tokens",
-            0,
-        )
-
-        if completion_tokens:
-            print(
-                f"[LLM] tokens générés : {completion_tokens}"
-            )
-            tokens_per_second = (
-                completion_tokens / max(elapsed, 0.001)
-            )
-
-            print(
-                f"[LLM] vitesse : "
-                f"{tokens_per_second:.2f} tokens/s"
-            )
 
         choices = response.get("choices", [])
         if choices and isinstance(choices, list):
@@ -261,11 +247,14 @@ class LocalLLMClient(LLMClient):
         start_time = time.perf_counter()
         first_token_time: float | None = None
         token_count = 0
+        model_name = Path(self.model_path).name
 
         if messages is None:
             if prompt is None:
                 raise ValueError("Soit 'prompt' soit 'messages' doit être fourni.")
             messages = self._build_messages(prompt, system_prompt)
+
+        print(f"\033[35m⏱️  [local_client.py]\033[0m Ingestion du prompt par llama.cpp ({model_name})...")
 
         # Stop sequences sûres : bloquent la fuite de balises de fin de tour ou séparateurs
         stop_sequences = [
@@ -323,16 +312,19 @@ class LocalLLMClient(LLMClient):
             if content:
                 if first_token_time is None:
                     first_token_time = time.perf_counter()
+                    ttft = first_token_time - start_time
+                    print(f"\033[35m⏱️  [local_client.py]\033[0m Premier token émis (TTFT - Time To First Token) en \033[1;33m{ttft:.4f}s\033[0m")
                 token_count += 1
                 yield content
 
         now = time.perf_counter()
         total_elapsed = now - start_time
         decode_elapsed = (now - first_token_time) if first_token_time else total_elapsed
+        ttft = (first_token_time - start_time) if first_token_time else 0.0
 
         if token_count > 0:
             pure_speed = token_count / max(decode_elapsed, 0.001)
             print(
-                f"\n[LLM-stream] {token_count} tokens générés à {pure_speed:.2f} tokens/s "
-                f"(génération: {decode_elapsed:.2f}s | total: {total_elapsed:.2f}s)"
+                f"\n\033[35m⏱️  [local_client.py]\033[0m Stream LLM terminé : \033[1;32m{token_count} tokens\033[0m "
+                f"générés en \033[1;33m{decode_elapsed:.2f}s\033[0m (\033[1;36m{pure_speed:.2f} tokens/s\033[0m | TTFT: \033[1;33m{ttft:.4f}s\033[0m | total: \033[1;33m{total_elapsed:.2f}s\033[0m)"
             )

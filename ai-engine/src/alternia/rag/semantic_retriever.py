@@ -1,5 +1,6 @@
 import math
 import re
+import time
 import unicodedata
 from alternia.core.models import (
     KnowledgeChunk,
@@ -74,6 +75,7 @@ class SemanticRetriever:
         if top_k <= 0:
             return []
 
+        t0_search = time.perf_counter()
         query_text = self._build_query_text(question)
         query_vector = self.embedding_service.encode(query_text)
 
@@ -94,6 +96,8 @@ class SemanticRetriever:
         results = self._remove_empty_content(results)
 
         if not results:
+            dt_search = time.perf_counter() - t0_search
+            print(f"\033[36m⏱️  [semantic_retriever.py]\033[0m Aucun résultat après recherche vectorielle en \033[1;33m{dt_search:.4f}s\033[0m")
             return []
 
         # 3. Reranking hybride (Dense + BM25)
@@ -102,7 +106,12 @@ class SemanticRetriever:
             results=results,
         )
 
-        return results[:top_k]
+        final_results = results[:top_k]
+        dt_search = time.perf_counter() - t0_search
+        scores_str = ", ".join([f"{s:.3f}" for _, s in final_results])
+        print(f"\033[36m⏱️  [semantic_retriever.py]\033[0m Recherche sémantique RAG terminée ({len(final_results)} chunks qualifiés, scores: [{scores_str}]) en \033[1;33m{dt_search:.4f}s\033[0m")
+
+        return final_results
 
     # =========================================================
     # RERANKING HYBRIDE
@@ -115,6 +124,7 @@ class SemanticRetriever:
         results: list[tuple[KnowledgeChunk, float]],
     ) -> list[tuple[KnowledgeChunk, float]]:
 
+        t0_rerank = time.perf_counter()
         question_text = question.question.strip()
         norm_q = cls._normalize_text(question_text)
         question_tokens = cls._tokenize(norm_q)
@@ -187,6 +197,9 @@ class SemanticRetriever:
             key=lambda item: item[1],
             reverse=True,
         )
+
+        dt_rerank = time.perf_counter() - t0_rerank
+        print(f"\033[36m⏱️  [semantic_retriever.py]\033[0m Comparaison BM25 + Boosts didactiques ({len(results)} candidats -> {len(ranked)} retenus >= 0.40) en \033[1;33m{dt_rerank:.4f}s\033[0m")
 
         return ranked
 

@@ -1,3 +1,4 @@
+import time
 from typing import Any
 
 from alternia.llm.client import LLMClient
@@ -232,6 +233,9 @@ class AlterniaOrchestrator:
 
                 return refusal_generator()
 
+        t0_orch = time.perf_counter()
+        print(f"\033[36m⏱️  [orchestrator.py]\033[0m Préparation orchestrateur (profil, conversation, pédagogie, prompt)...")
+
         profile = (
             self.learner_manager
             .to_optional_pedagogical_profile(
@@ -259,7 +263,7 @@ class AlterniaOrchestrator:
                 student_class=student_class,
                 subject=subject,
             )
-            session_messages = session.last_messages(4)
+            session_messages = session.last_messages(2)
             conversation_context = (
                 self.conversation_context_builder
                 .build(session)
@@ -301,6 +305,9 @@ class AlterniaOrchestrator:
                 pedagogical_response.answer
             ),
         )
+
+        dt_prep = time.perf_counter() - t0_orch
+        print(f"\033[36m⏱️  [orchestrator.py]\033[0m Préparation complète terminée en \033[1;33m{dt_prep:.4f}s\033[0m -> Démarrage de la génération LLM streaming...")
 
         if not hasattr(
             self.llm_client,
@@ -410,6 +417,8 @@ class AlterniaOrchestrator:
         # -----------------------------------------------------
         # 1. MOTEUR PÉDAGOGIQUE
         # -----------------------------------------------------
+        t0_orch = time.perf_counter()
+        print(f"\033[36m⏱️  [orchestrator.py]\033[0m Préparation orchestrateur (mode synchrone ask)...")
 
         profile = (
             self.learner_manager
@@ -438,7 +447,7 @@ class AlterniaOrchestrator:
                 student_class=student_class,
                 subject=subject,
             )
-            session_messages = session.last_messages(4)
+            session_messages = session.last_messages(2)
             conversation_context = (
                 self.conversation_context_builder
                 .build(session)
@@ -488,6 +497,9 @@ class AlterniaOrchestrator:
                 pedagogical_response.answer
             ),
         )
+
+        dt_prep = time.perf_counter() - t0_orch
+        print(f"\033[36m⏱️  [orchestrator.py]\033[0m Préparation terminée en \033[1;33m{dt_prep:.4f}s\033[0m -> Appel LLM synchrone...")
 
         # -----------------------------------------------------
         # 4. GÉNÉRATION LLM

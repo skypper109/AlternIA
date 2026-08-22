@@ -1,4 +1,5 @@
 import json
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -171,6 +172,7 @@ class LocalVectorStore:
         if top_k <= 0 or not query_vector or not self.records:
             return []
 
+        t0 = time.perf_counter()
         query = np.asarray(
             query_vector,
             dtype=np.float32,
@@ -219,6 +221,8 @@ class LocalVectorStore:
                     vectors.append(record.vector)
 
         if not matched_records:
+            dt = time.perf_counter() - t0
+            print(f"\033[36m⏱️  [vector_store.py]\033[0m Aucun chunk correspondant ({len(self.records)} dans l'index) en \033[1;33m{dt:.4f}s\033[0m")
             return []
 
         matrix = np.asarray(vectors, dtype=np.float32)
@@ -234,6 +238,9 @@ class LocalVectorStore:
             (matched_records[idx], float(scores[idx]))
             for idx in top_indices
         ]
+
+        dt = time.perf_counter() - t0
+        print(f"\033[36m⏱️  [vector_store.py]\033[0m Recherche vectorielle & filtrage ({len(matched_records)}/{len(self.records)} chunks éligibles, top {len(candidates)}) en \033[1;33m{dt:.4f}s\033[0m")
 
         return candidates
 

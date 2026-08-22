@@ -78,7 +78,6 @@ app.include_router(insights_router)
 app.include_router(parent_router)
 app.include_router(rapports_router)
 app.include_router(revision_router)
-
 # ==============================================================================
 # HÉBERGEMENT DU PORTAIL ALTA (ANGULAR SPA & KIOSK DISPOSITIF)
 # ==============================================================================

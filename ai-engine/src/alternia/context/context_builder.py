@@ -1,3 +1,4 @@
+import time
 from typing import Any
 
 from alternia.context.models import (
@@ -32,7 +33,7 @@ class ContextBuilder:
         self,
         max_sources: int = 2,
         min_score: float = 0.15,
-        max_content_length: int = 800,
+        max_content_length: int = 350,
     ):
         self.max_sources = max_sources
         self.min_score = min_score
@@ -50,6 +51,7 @@ class ContextBuilder:
         subject: str | None = None,
     ) -> PedagogicalContext:
 
+        t0_ctx = time.perf_counter()
         sources: list[ContextSource] = []
 
         for result in results:
@@ -195,6 +197,9 @@ class ContextBuilder:
             sources
         )
 
+        dt_ctx = time.perf_counter() - t0_ctx
+        print(f"\033[36m⏱️  [context_builder.py]\033[0m Contexte pédagogique assemblé ({len(sources)} sources, {len(context_text)} chars) en \033[1;33m{dt_ctx:.4f}s\033[0m")
+
         return PedagogicalContext(
             query=query,
             student_class=student_class,
@@ -320,7 +325,7 @@ class ContextBuilder:
             sources,
             start=1,
         ):
-            header = f"[Source {index}"
+            header = f"[Extrait {index}"
             if source.subject:
                 header += f" - {str(source.subject).capitalize()}"
             if source.chapter and str(source.chapter).lower() not in {"non défini", "none", ""}:
@@ -328,8 +333,4 @@ class ContextBuilder:
             header += "]"
             sections.append(f"{header} : {source.content}")
 
-        return (
-            "CONTEXTE PÉDAGOGIQUE ALTERNIA\n\n"
-            + "\n".join(sections)
-            + "\n\nFIN DU CONTEXTE"
-        )
+        return "\n".join(sections)

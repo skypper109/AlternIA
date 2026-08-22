@@ -4,6 +4,7 @@ Routes API pour le chat pédagogique, streaming SSE, curriculum et profil appren
 
 import asyncio
 import json
+import time
 from pathlib import Path
 from typing import AsyncIterator
 from fastapi import APIRouter
@@ -60,9 +61,12 @@ def _make_no_context_response(
 @router.post("/api/ask", response_model=ChatResponse)
 def chat_endpoint(req: ChatRequest):
     """Endpoint principal de réponse pédagogique non-streamée."""
+    t0_req = time.perf_counter()
     orch = get_orchestrator()
     norm_class = normalize_student_class(req.student_class)
     session_id = req.session_id or f"session_{req.student_id}"
+
+    print(f"\n\033[36m⏱️  [chat_routes.py]\033[0m Requête API reçue : \"{req.question}\" (Classe: {norm_class}, Élève: {req.student_id})")
 
     # Détection automatique de matière selon le programme malien si mode général
     effective_subject = req.subject
@@ -147,6 +151,9 @@ def chat_endpoint(req: ChatRequest):
         session_id=session_id,
     )
 
+    dt_total = time.perf_counter() - t0_req
+    print(f"\033[36m⏱️  [chat_routes.py]\033[0m Réponse API synchrone générée en \033[1;32m{dt_total:.2f}s\033[0m\n")
+
     return ChatResponse(
         answer=result["answer"],
         intent=result.get("intent", "explanation"),
@@ -163,9 +170,12 @@ def chat_endpoint(req: ChatRequest):
 @router.post("/api/ask/stream")
 async def chat_stream_endpoint(req: ChatRequest):
     """Endpoint de streaming Server-Sent Events (SSE) token par token."""
+    t0_req = time.perf_counter()
     orch = get_orchestrator()
     norm_class = normalize_student_class(req.student_class)
     session_id = req.session_id or f"session_{req.student_id}"
+
+    print(f"\n\033[36m⏱️  [chat_routes.py]\033[0m Requête SSE reçue : \"{req.question}\" (Classe: {norm_class}, Élève: {req.student_id})")
 
     # Détection automatique de matière selon le programme malien si mode général
     effective_subject = req.subject
@@ -275,6 +285,9 @@ async def chat_stream_endpoint(req: ChatRequest):
             sources=formatted_sources,
             session_id=session_id,
         )
+
+        dt_total = time.perf_counter() - t0_req
+        print(f"\033[36m⏱️  [chat_routes.py]\033[0m Stream SSE terminé en \033[1;32m{dt_total:.2f}s\033[0m ({len(full_text)} caractères)\n")
 
         # Événement de fin avec métadonnées et sources RAG
         final_payload = json.dumps({

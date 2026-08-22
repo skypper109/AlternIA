@@ -254,11 +254,12 @@ class STTEngine:
         """Transcription de secours via SpeechRecognition."""
         try:
             import speech_recognition as sr  # pyrefly: ignore
-            r = sr.Recognizer()
+            r: Any = sr.Recognizer()
             if isinstance(audio_data_or_path, (str, Path)):
                 with sr.AudioFile(str(audio_data_or_path)) as source:
                     audio = r.record(source)
-                    return r.recognize_google(audio, language="fr-FR")
-        except Exception:
-            pass
+                    return str(r.recognize_google(audio, language="fr-FR"))  # pyrefly: ignore
+        except Exception as exc:
+            logger.debug(f"Erreur transcription de secours SpeechRecognition : {exc}")
         return ""
+

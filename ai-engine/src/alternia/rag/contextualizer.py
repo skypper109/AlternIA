@@ -1,4 +1,5 @@
 import re
+import time
 from typing import Any
 from alternia.pedagogical.curriculum_keywords import detect_malian_curriculum_subject
 
@@ -133,6 +134,7 @@ class QueryContextualizer:
         """
         Génère une requête RAG enrichie et adaptée à l'intention spécifique de l'élève curieux.
         """
+        t0 = time.perf_counter()
         if not past_student_messages and not current_topic:
             return current_question.strip()
 
@@ -159,34 +161,29 @@ class QueryContextualizer:
 
         # 1. Formule, calcul, équation, unité
         if re.search(r"\b(formule|calcul|calculer|calcule|equation|équation|unités?|unites?|système international|unite(s)?\s+si|unité(s)?\s+si)\b", q_lower):
-            return f"{prev_topic} formule calcul unité expression cours"
-
+            enriched = f"{prev_topic} formule calcul unité expression cours"
         # 2. Étapes, mécanisme, fonctionnement, processus
-        if re.search(r"\b(étapes?|etapes?|phases?|mécanismes?|mecanismes?|fonctionne|marche|processus)\b", q_lower):
-            return f"{prev_topic} étapes phases mécanisme processus fonctionnement"
-
+        elif re.search(r"\b(étapes?|etapes?|phases?|mécanismes?|mecanismes?|fonctionne|marche|processus)\b", q_lower):
+            enriched = f"{prev_topic} étapes phases mécanisme processus fonctionnement"
         # 3. Rôle, utilité, importance, but, fonction
-        if re.search(r"\b(importance|rôle|role|fonction|but|utilité|utilite|sert)\b", q_lower):
-            return f"{prev_topic} rôle importance utilité but fonction"
-
+        elif re.search(r"\b(importance|rôle|role|fonction|but|utilité|utilite|sert)\b", q_lower):
+            enriched = f"{prev_topic} rôle importance utilité but fonction"
         # 4. Exemples, vie réelle, applications pratiques
-        if re.search(r"\b(exemples?|vie|réel|reel|pratique|analogie|quotidien)\b", q_lower):
-            return f"{prev_topic} exemple concret application pratique vie courante"
-
+        elif re.search(r"\b(exemples?|vie|réel|reel|pratique|analogie|quotidien)\b", q_lower):
+            enriched = f"{prev_topic} exemple concret application pratique vie courante"
         # 5. Causes, conséquences, conditions
-        if re.search(r"\b(causes?|conséquences?|consequences?|provoque|impact|effet|conditions?)\b", q_lower):
-            return f"{prev_topic} causes conséquences effets impact conditions"
-
+        elif re.search(r"\b(causes?|conséquences?|consequences?|provoque|impact|effet|conditions?)\b", q_lower):
+            enriched = f"{prev_topic} causes conséquences effets impact conditions"
         # 6. Caractéristiques, propriétés, types, classification
-        if re.search(r"\b(propriétés?|proprietes?|caractéristiques?|caracteristiques?|types?|limites?)\b", q_lower):
-            return f"{prev_topic} caractéristiques propriétés types classification"
-
+        elif re.search(r"\b(propriétés?|proprietes?|caractéristiques?|caracteristiques?|types?|limites?)\b", q_lower):
+            enriched = f"{prev_topic} caractéristiques propriétés types classification"
         # 7. Réexplication, simplification, vulgarisation, concision, résumé
-        if re.search(r"\b(reexplique|réexplique|détails?|details?|bref|court|résume|resume|simple|simplement|simplifie|vulgarise|vulgariser|compris|capté|capte)\b", q_lower):
-            return f"{prev_topic} explication cours définition essentiel résumé"
+        elif re.search(r"\b(reexplique|réexplique|détails?|details?|bref|court|résume|resume|simple|simplement|simplifie|vulgarise|vulgariser|compris|capté|capte)\b", q_lower):
+            enriched = f"{prev_topic} explication cours définition essentiel résumé"
+        else:
+            curr_clean = cls.clean_core_terms(current_question)
+            enriched = f"{prev_topic} {curr_clean}".strip() if curr_clean else prev_topic
 
-        curr_clean = cls.clean_core_terms(current_question)
-        if curr_clean:
-            return f"{prev_topic} {curr_clean}".strip()
-
-        return prev_topic
+        dt = time.perf_counter() - t0
+        print(f"\033[36m⏱️  [contextualizer.py]\033[0m Requête contextualisée : '{enriched}' (auparavant: '{current_question}') en \033[1;33m{dt:.4f}s\033[0m")
+        return enriched

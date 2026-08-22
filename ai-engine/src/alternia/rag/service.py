@@ -1,3 +1,4 @@
+import time
 from alternia.context.context_builder import ContextBuilder
 from alternia.context.models import PedagogicalContext
 from alternia.core.models import (
@@ -62,6 +63,9 @@ class RAGService:
             raise ValueError(
                 "La classe de l'élève est obligatoire."
             )
+
+        t0_rag = time.perf_counter()
+        print(f"\033[36m⏱️  [service.py]\033[0m Lancement RAGService.retrieve(classe={student_class}, série={series or 'N/A'}, matière={subject or 'générale'})...")
 
         student_question = StudentQuestion(
             student_id=student_id,
@@ -132,12 +136,17 @@ class RAGService:
         # Construction du contexte pédagogique
         # -----------------------------------------------------
 
-        return self.context_builder.build(
+        pedagogical_context = self.context_builder.build(
             query=question.strip(),
             results=context_results,
             student_class=student_class,
             subject=subject,
         )
+
+        dt_rag = time.perf_counter() - t0_rag
+        print(f"\033[36m⏱️  [service.py]\033[0m Pipeline RAG complet terminé en \033[1;32m{dt_rag:.4f}s\033[0m ({len(pedagogical_context.sources)} sources retenues)")
+
+        return pedagogical_context
 
 
 class _RetrievalResult:
