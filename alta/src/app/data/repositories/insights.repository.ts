@@ -33,10 +33,23 @@ export class InsightsRepository {
   obtenirQuestionsFrequentes(): Observable<QuestionFrequente[]> {
     return this.http.get<any>(`${environment.apiUrl}/insights`).pipe(
       map(data => {
+        const topQ: any[] = data?.topQuestions || [];
+        if (topQ.length > 0) {
+          return topQ.map((q, idx) => ({
+            id: q.id || `qf-${idx + 1}`,
+            question: q.question,
+            matiere: parseMatiere(q.matiere),
+            chapitre: q.chapitre || 'Programme Malien',
+            nombreOccurrences: q.nombreOccurrences || 1,
+            evolutionPct: q.evolutionPct || 0,
+            niveauPriorite: (q.niveauPriorite || 'moyenne') as 'haute' | 'moyenne' | 'basse',
+          }));
+        }
+
         const notions: any[] = data?.notionsCritiques || [];
         return notions.map((nc, idx) => ({
           id: `qf-${idx + 1}`,
-          question: `Comment résoudre les exercices sur ${nc.notion} ?`,
+          question: `Comment maîtriser la notion : ${nc.notion} ?`,
           matiere: parseMatiere(nc.matiere),
           chapitre: nc.classe || 'Programme Malien',
           nombreOccurrences: nc.nombreQuestions || 15 + idx * 5,
@@ -71,10 +84,10 @@ export class InsightsRepository {
           id: `nr-${idx + 1}`,
           notion: nc.notion,
           matiere: parseMatiere(nc.matiere),
-          chapitre: nc.classe || 'Programme officiel',
-          nombreRequetes: nc.nombreQuestions || 24,
+          chapitre: nc.classe || '11ème Sciences',
+          nombreRequetes: nc.nombreQuestions || 12,
           tauxAssistanceIA: Math.round(100 - (nc.tauxReussite || 65)),
-          priorite: (nc.tauxReussite < 60 ? 'haute' : 'moyenne') as 'haute' | 'moyenne',
+          priorite: (nc.tauxReussite < 65 ? 'haute' : 'moyenne') as 'haute' | 'moyenne',
           actionRecommandee: nc.recommandation || 'Approfondir les exercices types.',
         }));
       })

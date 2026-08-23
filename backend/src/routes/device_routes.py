@@ -21,7 +21,6 @@ from backend.src.services.orchestrator_service import (
 router = APIRouter(tags=["Système & Dispositif"])
 
 
-@router.get("/")
 @router.get("/health")
 @router.get("/api/health")
 def health():

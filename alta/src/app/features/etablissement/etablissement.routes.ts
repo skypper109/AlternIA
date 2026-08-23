@@ -13,11 +13,20 @@ export const etablissementRoutes: Routes = [
         loadComponent: () => import('./tableau-de-bord/tableau-de-bord-etablissement.composant').then(m => m.TableauDeBordEtablissementComposant),
         title: 'Tableau de bord – Alternia Établissement',
       },
-
+      {
+        path: 'pilotage',
+        loadComponent: () => import('./pilotage/centre-pilotage.composant').then(m => m.CentrePilotageComposant),
+        title: 'Centre de Pilotage & Télémétrie – Alternia',
+      },
       {
         path: 'insights',
         loadComponent: () => import('./insights/alternia-insights.composant').then(m => m.AlternIAInsightsComposant),
         title: 'AlternIA Insights – Intelligence Pédagogique',
+      },
+      {
+        path: 'apprenants',
+        loadComponent: () => import('./apprenants/gestion-apprenants.composant').then(m => m.GestionApprenantsComposant),
+        title: 'Gestion des Apprenants – Alternia',
       },
       {
         path: 'supervision-boitiers',
