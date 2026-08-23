@@ -16,7 +16,6 @@ export class AvatarAnimatorService {
   private analyser: AnalyserNode | null = null;
   private audioSource: MediaElementAudioSourceNode | null = null;
   private currentAudioElement: HTMLAudioElement | null = null;
-
   private dataArray: Uint8Array | null = null;
 
   createInstance(canvas: HTMLCanvasElement, options: AvatarAnimOptions = {}) {
@@ -53,7 +52,7 @@ export class AvatarAnimatorService {
         this.analyser.connect(ctx.destination);
         this.currentAudioElement = audio;
       } catch (e) {
-        // Déjà connecté ou fallback direct
+        // Déjà connecté
       }
     }
     return this.analyser;
@@ -79,16 +78,16 @@ export class AvatarAnimatorService {
     for (let i = 0; i < len; i++) {
       const v = this.dataArray[i];
       sum += v;
-      if (i < len * 0.2) bass += v;
-      else if (i < len * 0.6) mid += v;
+      if (i < len * 0.25) bass += v;
+      else if (i < len * 0.65) mid += v;
       else high += v;
     }
 
     return {
       volume: sum / (len * 255),
-      bass: bass / (len * 0.2 * 255),
+      bass: bass / (len * 0.25 * 255),
       mid: mid / (len * 0.4 * 255),
-      high: high / (len * 0.4 * 255),
+      high: high / (len * 0.35 * 255),
     };
   }
 }
@@ -104,7 +103,7 @@ export class CanvasAvatarInstance {
 
   // Mimiques
   private blinkTimer = 0;
-  private nextBlink = 3000;
+  private nextBlink = 2800;
   private blinkProgress = 0;
   private isBlinking = false;
 
@@ -119,6 +118,7 @@ export class CanvasAvatarInstance {
   // Lip-sync smoothing
   private mouthOpen = 0;
   private mouthWidth = 1;
+  private jawDrop = 0;
 
   themeColor = '#314999';
 
@@ -159,7 +159,6 @@ export class CanvasAvatarInstance {
       this.isLoaded = true;
     };
     img.onerror = () => {
-      // Fallback direct sans crossOrigin si refusé
       const fallback = new Image();
       fallback.src = imageUrl;
       fallback.onload = () => {
@@ -202,24 +201,25 @@ export class CanvasAvatarInstance {
     const delta = timestamp - (this.time || timestamp);
     this.time = timestamp;
 
-    // 1. Audio Energy & Lip-Sync analysis
+    // 1. Analyse audio & Lip-Sync forcé
     const audio = this.service.getAudioEnergy();
     let targetMouthOpen = 0;
     let targetMouthWidth = 1.0;
 
-    if (this.state === 'SPEAKING' || audio.volume > 0.02) {
-      const simulatedEnergy = this.state === 'SPEAKING' && audio.volume <= 0.02
-        ? Math.abs(Math.sin(timestamp * 0.015)) * 0.7 + Math.sin(timestamp * 0.008) * 0.3
-        : audio.volume * 2.5;
+    if (this.state === 'SPEAKING' || audio.volume > 0.015) {
+      const simulatedEnergy = (this.state === 'SPEAKING' && audio.volume <= 0.015)
+        ? Math.abs(Math.sin(timestamp * 0.018)) * 0.85 + Math.sin(timestamp * 0.009) * 0.35
+        : audio.volume * 3.2;
 
-      targetMouthOpen = Math.min(1.0, simulatedEnergy);
-      targetMouthWidth = 1.0 + (audio.high || 0) * 0.4 - (audio.bass || 0) * 0.2;
+      targetMouthOpen = Math.min(1.0, Math.max(0.15, simulatedEnergy));
+      targetMouthWidth = 1.0 + (audio.high || 0) * 0.5 - (audio.bass || 0) * 0.3;
     }
 
-    this.mouthOpen += (targetMouthOpen - this.mouthOpen) * 0.35;
-    this.mouthWidth += (targetMouthWidth - this.mouthWidth) * 0.2;
+    this.mouthOpen += (targetMouthOpen - this.mouthOpen) * 0.4;
+    this.mouthWidth += (targetMouthWidth - this.mouthWidth) * 0.25;
+    this.jawDrop += (this.mouthOpen * 14 - this.jawDrop) * 0.35;
 
-    // 2. Gestion des Clignements d'yeux naturels
+    // 2. Clignements naturels
     this.blinkTimer += delta;
     if (this.blinkTimer > this.nextBlink && !this.isBlinking) {
       this.isBlinking = true;
@@ -227,12 +227,12 @@ export class CanvasAvatarInstance {
     }
 
     if (this.isBlinking) {
-      this.blinkProgress += delta / 140;
+      this.blinkProgress += delta / 130;
       if (this.blinkProgress >= 1) {
         this.isBlinking = false;
         this.blinkProgress = 0;
         this.blinkTimer = 0;
-        this.nextBlink = 2500 + Math.random() * 4000;
+        this.nextBlink = 2200 + Math.random() * 3800;
       }
     }
 
@@ -240,14 +240,14 @@ export class CanvasAvatarInstance {
       ? Math.sin(this.blinkProgress * Math.PI)
       : 0;
 
-    // 3. Calcul de la posture, respiration et inclinaison
-    let breathY = Math.sin(timestamp * 0.002) * 3;
-    let swayAngle = Math.sin(timestamp * 0.001) * 0.015;
+    // 3. Posture, inclinaison 3D et respiration
+    let breathY = Math.sin(timestamp * 0.002) * 3.0;
+    let swayAngle = Math.sin(timestamp * 0.001) * 0.02;
     let nodY = 0;
 
     if (this.state === 'SPEAKING') {
-      nodY = Math.sin(timestamp * 0.008) * 4 * this.mouthOpen;
-      swayAngle += Math.sin(timestamp * 0.004) * 0.03;
+      nodY = Math.sin(timestamp * 0.01) * 5.0 * this.mouthOpen;
+      swayAngle += Math.sin(timestamp * 0.005) * 0.035;
     } else if (this.state === 'THINKING') {
       this.targetHeadX = 0.25;
       this.targetHeadY = -0.3;
@@ -266,37 +266,50 @@ export class CanvasAvatarInstance {
 
     const cx = width / 2;
     const cy = height / 2;
-    const size = Math.min(width, height) * 0.85;
+    const size = Math.min(width, height) * 0.88;
 
-    // 4. Rendu du Halo Holographique dynamique (Aura autour de l'avatar)
-    this.drawHolographicAura(cx, cy, size, audio.volume, timestamp);
+    // 4. Halo holographique
+    this.drawHolographicAura(cx, cy, size, audio.volume || (this.state === 'SPEAKING' ? 0.3 : 0), timestamp);
 
-    // 5. Rendu du Portrait 2.5D avec Déformation Labiale & Mimiques
+    // 5. Rendu du Portrait 2.5D Déformé
     this.ctx.save();
-    this.ctx.translate(cx + this.currentHeadX * 15, cy + breathY + nodY + this.currentHeadY * 10);
+    this.ctx.translate(cx + this.currentHeadX * 14, cy + breathY + nodY + this.currentHeadY * 10);
     this.ctx.rotate(swayAngle);
 
-    // Fond de base pour éviter tout écran noir
+    // Fond de sécurité sombre
     this.ctx.beginPath();
     this.ctx.arc(0, 0, size / 2, 0, Math.PI * 2);
     this.ctx.fillStyle = '#0F172A';
     this.ctx.fill();
 
-    // Masque circulaire élégant
+    // Masque circulaire
     this.ctx.beginPath();
     this.ctx.arc(0, 0, size / 2, 0, Math.PI * 2);
     this.ctx.closePath();
     this.ctx.clip();
 
     if (this.isLoaded && this.image) {
+      this.ctx.save();
       this.ctx.drawImage(this.image, -size / 2, -size / 2, size, size);
+      this.ctx.restore();
 
-      // Morphing Labial sur l'image
-      if (this.mouthOpen > 0.05) {
+      // Déformation 2.5D de la Mâchoire (Jaw Drop)
+      if (this.jawDrop > 1.0) {
+        this.ctx.save();
+        this.ctx.beginPath();
+        this.ctx.rect(-size / 2, size * 0.12, size, size * 0.38);
+        this.ctx.clip();
+        this.ctx.translate(0, this.jawDrop * 0.6);
+        this.ctx.drawImage(this.image, -size / 2, -size / 2, size, size);
+        this.ctx.restore();
+      }
+
+      // Morphing Labial & Ouverture Buccale Lumineuse
+      if (this.mouthOpen > 0.08) {
         this.renderLipSyncOnFace(size, this.mouthOpen, this.mouthWidth);
       }
 
-      // Clignements naturels sur l'image
+      // Clignements naturels
       if (blinkValue > 0.05) {
         this.renderEyeBlinkOnFace(size, blinkValue);
       }
@@ -306,7 +319,7 @@ export class CanvasAvatarInstance {
 
     this.ctx.restore();
 
-    // 6. Bordure lumineuse externe
+    // 6. Contour lumineux réactif
     this.ctx.save();
     this.ctx.translate(cx + this.currentHeadX * 8, cy + breathY + nodY + this.currentHeadY * 5);
     this.ctx.beginPath();
@@ -314,15 +327,15 @@ export class CanvasAvatarInstance {
     this.ctx.lineWidth = 3;
     this.ctx.strokeStyle = this.themeColor;
     this.ctx.shadowColor = this.themeColor;
-    this.ctx.shadowBlur = 12 + audio.volume * 20;
+    this.ctx.shadowBlur = 12 + (audio.volume || (this.state === 'SPEAKING' ? 0.4 : 0)) * 22;
     this.ctx.stroke();
     this.ctx.restore();
   }
 
   private drawHolographicAura(cx: number, cy: number, size: number, energy: number, timestamp: number) {
-    const auraRadius = (size / 2) * (1.08 + energy * 0.15 + Math.sin(timestamp * 0.003) * 0.02);
+    const auraRadius = (size / 2) * (1.08 + energy * 0.18 + Math.sin(timestamp * 0.003) * 0.02);
 
-    const grad = this.ctx.createRadialGradient(cx, cy, size * 0.4, cx, cy, auraRadius);
+    const grad = this.ctx.createRadialGradient(cx, cy, size * 0.38, cx, cy, auraRadius);
     grad.addColorStop(0, 'transparent');
     grad.addColorStop(0.7, `${this.themeColor}33`);
     grad.addColorStop(1, `${this.themeColor}00`);
@@ -333,16 +346,16 @@ export class CanvasAvatarInstance {
     this.ctx.arc(cx, cy, auraRadius, 0, Math.PI * 2);
     this.ctx.fill();
 
-    if (this.state === 'SPEAKING' || energy > 0.05) {
+    if (this.state === 'SPEAKING' || energy > 0.03) {
       const bars = 32;
       this.ctx.strokeStyle = this.themeColor;
-      this.ctx.lineWidth = 2;
+      this.ctx.lineWidth = 2.2;
       this.ctx.lineCap = 'round';
 
       for (let i = 0; i < bars; i++) {
-        const angle = (i / bars) * Math.PI * 2 + timestamp * 0.001;
-        const wave = Math.sin(i * 0.5 + timestamp * 0.01) * energy * 18 + 4;
-        const r1 = size / 2 + 6;
+        const angle = (i / bars) * Math.PI * 2 + timestamp * 0.0015;
+        const wave = Math.sin(i * 0.5 + timestamp * 0.015) * (energy * 22 + 5);
+        const r1 = size / 2 + 5;
         const r2 = r1 + wave;
 
         const x1 = cx + Math.cos(angle) * r1;
@@ -360,44 +373,52 @@ export class CanvasAvatarInstance {
   }
 
   private renderLipSyncOnFace(size: number, openFactor: number, widthFactor: number) {
-    const mouthY = size * 0.22;
-    const mouthWidth = size * 0.18 * widthFactor;
-    const mouthHeight = size * 0.12 * openFactor;
+    const mouthY = size * 0.20;
+    const mouthWidth = size * 0.22 * widthFactor;
+    const mouthHeight = size * 0.16 * openFactor;
 
     this.ctx.save();
 
     this.ctx.beginPath();
     this.ctx.ellipse(0, mouthY, mouthWidth / 2, mouthHeight / 2, 0, 0, Math.PI * 2);
     const mouthGrad = this.ctx.createRadialGradient(0, mouthY, 2, 0, mouthY, mouthHeight);
-    mouthGrad.addColorStop(0, '#3A0D15');
-    mouthGrad.addColorStop(0.7, '#671D28');
-    mouthGrad.addColorStop(1, '#22080D');
+    mouthGrad.addColorStop(0, '#22050A');
+    mouthGrad.addColorStop(0.65, '#5A1420');
+    mouthGrad.addColorStop(1, '#1A0407');
     this.ctx.fillStyle = mouthGrad;
     this.ctx.fill();
 
-    if (openFactor > 0.3) {
+    if (openFactor > 0.25) {
       this.ctx.beginPath();
-      this.ctx.ellipse(0, mouthY - mouthHeight * 0.22, mouthWidth * 0.32, mouthHeight * 0.18, 0, 0, Math.PI);
-      this.ctx.fillStyle = '#F8FAFC';
+      this.ctx.ellipse(0, mouthY - mouthHeight * 0.22, mouthWidth * 0.36, mouthHeight * 0.2, 0, 0, Math.PI);
+      this.ctx.fillStyle = '#FFFFFF';
+      this.ctx.fill();
+    }
+
+    if (openFactor > 0.4) {
+      this.ctx.beginPath();
+      this.ctx.ellipse(0, mouthY + mouthHeight * 0.25, mouthWidth * 0.25, mouthHeight * 0.18, 0, 0, Math.PI * 2);
+      this.ctx.fillStyle = '#E11D48';
       this.ctx.fill();
     }
 
     this.ctx.beginPath();
-    this.ctx.ellipse(0, mouthY + mouthHeight * 0.4, mouthWidth * 0.45, mouthHeight * 0.15, 0, 0, Math.PI);
-    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.18)';
-    this.ctx.fill();
+    this.ctx.ellipse(0, mouthY, mouthWidth * 0.54, mouthHeight * 0.55, 0, 0, Math.PI * 2);
+    this.ctx.lineWidth = 2.5;
+    this.ctx.strokeStyle = 'rgba(80, 20, 30, 0.45)';
+    this.ctx.stroke();
 
     this.ctx.restore();
   }
 
   private renderEyeBlinkOnFace(size: number, blinkAmount: number) {
-    const eyeY = -size * 0.08;
-    const eyeSpacing = size * 0.18;
-    const eyeWidth = size * 0.14;
-    const eyeHeight = size * 0.08 * blinkAmount;
+    const eyeY = -size * 0.09;
+    const eyeSpacing = size * 0.19;
+    const eyeWidth = size * 0.16;
+    const eyeHeight = size * 0.10 * blinkAmount;
 
     this.ctx.save();
-    this.ctx.fillStyle = 'rgba(28, 28, 35, 0.75)';
+    this.ctx.fillStyle = 'rgba(20, 20, 28, 0.85)';
 
     this.ctx.beginPath();
     this.ctx.ellipse(-eyeSpacing, eyeY, eyeWidth / 2, eyeHeight, 0, 0, Math.PI * 2);
@@ -411,12 +432,12 @@ export class CanvasAvatarInstance {
   }
 
   private drawStylizedFacePlaceholder(size: number, mouthOpen: number, blink: number) {
-    this.ctx.fillStyle = '#1E293B';
+    this.ctx.fillStyle = '#0F172A';
     this.ctx.fillRect(-size / 2, -size / 2, size, size);
 
     const eyeY = -size * 0.08;
     const eyeSpacing = size * 0.18;
-    const eyeRadius = size * 0.05 * (1 - blink * 0.8);
+    const eyeRadius = size * 0.06 * (1 - blink * 0.85);
 
     this.ctx.fillStyle = '#38BDF8';
     this.ctx.beginPath();
@@ -424,11 +445,11 @@ export class CanvasAvatarInstance {
     this.ctx.arc(eyeSpacing, eyeY, eyeRadius, 0, Math.PI * 2);
     this.ctx.fill();
 
-    const mouthY = size * 0.22;
-    const mouthH = size * 0.04 + mouthOpen * size * 0.08;
+    const mouthY = size * 0.20;
+    const mouthH = size * 0.04 + mouthOpen * size * 0.10;
     this.ctx.fillStyle = '#F43F5E';
     this.ctx.beginPath();
-    this.ctx.ellipse(0, mouthY, size * 0.12, mouthH, 0, 0, Math.PI * 2);
+    this.ctx.ellipse(0, mouthY, size * 0.14, mouthH, 0, 0, Math.PI * 2);
     this.ctx.fill();
   }
 }
