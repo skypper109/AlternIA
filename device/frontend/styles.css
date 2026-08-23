@@ -1,5 +1,6 @@
 /* ==========================================================================
    AlternIA Device UI - Interface Tactile & Vocale Épurée (Mali Kiosk)
+   Vanilla CSS 100% Standard Compatible
    ========================================================================== */
 
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap');
@@ -11,7 +12,7 @@
   --bg-deep: #060911;
   --bg-surface: #0B1120;
   --bg-card: #0F172A;
-  --color-border: rgba(255, 255, 255, 0.1);
+  --color-border: rgba(255, 255, 255, 0.12);
 }
 
 * {
@@ -21,13 +22,15 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-body {
-  background-color: var(--bg-deep);
+html, body {
+  background-color: #060911;
   color: #F8FAFC;
-  font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   height: 100vh;
   width: 100vw;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 /* ── Ambiance Lumineuse Délicate ──────────────────────────── */
@@ -42,24 +45,24 @@ body {
 .ambient-orb {
   position: absolute;
   border-radius: 50%;
-  filter: blur(90px);
+  filter: blur(100px);
   opacity: 0.15;
 }
 
 .orb-primary {
   width: 500px;
   height: 500px;
-  background: var(--color-primary);
-  top: -100px;
-  left: -100px;
+  background: #314999;
+  top: -120px;
+  left: -120px;
 }
 
 .orb-innovation {
   width: 450px;
   height: 450px;
-  background: var(--color-innovation);
-  bottom: -100px;
-  right: -100px;
+  background: #0284C7;
+  bottom: -120px;
+  right: -120px;
 }
 
 /* ── 1. Topbar Épurée ─────────────────────────────────────── */
@@ -69,10 +72,12 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 24px;
-  background: rgba(11, 17, 32, 0.75);
+  padding: 14px 28px;
+  background: rgba(11, 17, 32, 0.85);
   backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
 }
 
 /* Sélecteur de Classe Minimaliste */
@@ -80,10 +85,11 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: rgba(15, 23, 42, 0.8);
+  background: rgba(15, 23, 42, 0.9);
   border: 1px solid var(--color-border);
-  padding: 4px;
+  padding: 5px 8px;
   border-radius: 9999px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .class-tab-btn {
@@ -91,25 +97,26 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 6px 18px;
+  padding: 6px 20px;
   border-radius: 9999px;
-  border: none;
+  border: 1px solid transparent;
   background: transparent;
   color: #94A3B8;
   cursor: pointer;
   transition: all 0.2s ease;
+}
 
-  &:hover {
-    color: #F8FAFC;
-    background: rgba(255, 255, 255, 0.05);
-  }
+.class-tab-btn:hover {
+  color: #F8FAFC;
+  background: rgba(255, 255, 255, 0.06);
+}
 
-  &.class-tab--active {
-    background: linear-gradient(135deg, #314999 0%, #0284C7 100%);
-    color: #FFFFFF;
-    box-shadow: 0 4px 14px rgba(2, 132, 199, 0.4);
-    transform: scale(1.02);
-  }
+.class-tab-btn.class-tab--active {
+  background: linear-gradient(135deg, #314999 0%, #0284C7 100%);
+  color: #FFFFFF;
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.4);
+  transform: scale(1.02);
 }
 
 .class-tab-badge {
@@ -120,7 +127,7 @@ body {
 
 .class-tab-sub {
   font-size: 10px;
-  opacity: 0.8;
+  opacity: 0.85;
   font-weight: 500;
 }
 
@@ -135,10 +142,11 @@ body {
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s;
+}
 
-  &:hover {
-    background: rgba(255, 255, 255, 0.12);
-  }
+.kiosk-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  transform: scale(1.05);
 }
 
 /* ── 2. Corps Principal Kiosk (Voice-First) ────────────────── */
@@ -147,15 +155,20 @@ body {
   z-index: 10;
   flex: 1;
   display: grid;
-  grid-template-columns: 340px 1fr;
+  grid-template-columns: 320px 1fr;
   gap: 24px;
-  padding: 24px 32px;
-  height: calc(100vh - 80px);
+  padding: 20px 28px;
+  height: calc(100vh - 75px);
+  min-height: 0;
+}
 
-  @media (max-width: 900px) {
+@media (max-width: 900px) {
+  .kiosk-body {
     grid-template-columns: 1fr;
     grid-template-rows: auto 1fr;
     padding: 16px;
+    height: auto;
+    overflow-y: auto;
   }
 }
 
@@ -165,27 +178,29 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: rgba(15, 23, 42, 0.7);
+  background: rgba(15, 23, 42, 0.75);
   backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--color-border);
   border-radius: 28px;
-  padding: 28px 20px;
+  padding: 24px 20px;
   box-shadow: 0 16px 36px rgba(0, 0, 0, 0.4);
 }
 
 .avatar-canvas-wrapper {
   position: relative;
-  width: 220px;
-  height: 220px;
+  width: 200px;
+  height: 200px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .avatar-canvas {
-  width: 220px;
-  height: 220px;
+  width: 200px;
+  height: 200px;
   border-radius: 50%;
+  filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.5));
 }
 
 .status-live-pill {
@@ -194,9 +209,9 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
-  background: rgba(11, 17, 32, 0.9);
+  background: rgba(11, 17, 32, 0.95);
   backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   padding: 4px 14px;
   border-radius: 9999px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
@@ -215,18 +230,18 @@ body {
   justify-content: center;
   cursor: pointer;
   transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
 
-  &:hover {
-    transform: scale(1.08);
-    box-shadow: 0 12px 32px rgba(241, 133, 31, 0.6);
-  }
+.kiosk-mic-btn:hover {
+  transform: scale(1.08);
+  box-shadow: 0 12px 32px rgba(241, 133, 31, 0.6);
+}
 
-  &:active,
-  &.is-recording {
-    background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%);
-    box-shadow: 0 0 0 8px rgba(239, 68, 68, 0.25), 0 8px 30px rgba(239, 68, 68, 0.6);
-    animation: micPulse 1.2s infinite;
-  }
+.kiosk-mic-btn:active,
+.kiosk-mic-btn.is-recording {
+  background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%);
+  box-shadow: 0 0 0 8px rgba(239, 68, 68, 0.25), 0 8px 30px rgba(239, 68, 68, 0.6);
+  animation: micPulse 1.2s infinite;
 }
 
 @keyframes micPulse {
@@ -241,12 +256,14 @@ body {
   flex-direction: column;
   gap: 16px;
   height: 100%;
+  min-height: 0;
 }
 
 .speech-bubble-card {
   flex: 1;
-  background: rgba(15, 23, 42, 0.7);
+  background: rgba(15, 23, 42, 0.75);
   backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--color-border);
   border-radius: 28px;
   padding: 24px 28px;
@@ -254,6 +271,7 @@ body {
   flex-direction: column;
   overflow: hidden;
   box-shadow: 0 16px 36px rgba(0, 0, 0, 0.4);
+  min-height: 0;
 }
 
 .speech-card-header {
@@ -263,6 +281,7 @@ body {
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   padding-bottom: 14px;
   margin-bottom: 16px;
+  flex-shrink: 0;
 }
 
 .icon-indicator {
@@ -277,11 +296,12 @@ body {
 }
 
 .student-query-box {
-  background: rgba(2, 132, 199, 0.1);
-  border: 1px solid rgba(2, 132, 199, 0.25);
-  border-radius: 12px;
-  padding: 10px 14px;
+  background: rgba(2, 132, 199, 0.12);
+  border: 1px solid rgba(2, 132, 199, 0.3);
+  border-radius: 14px;
+  padding: 10px 16px;
   margin-bottom: 16px;
+  flex-shrink: 0;
 }
 
 .speech-content-area {
@@ -308,15 +328,16 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
-  background: rgba(15, 23, 42, 0.85);
+  background: rgba(15, 23, 42, 0.9);
   border: 1px solid var(--color-border);
   border-radius: 18px;
   padding: 6px 10px;
+  flex-shrink: 0;
+}
 
-  &:focus-within {
-    border-color: #0284C7;
-    box-shadow: 0 0 16px rgba(2, 132, 199, 0.25);
-  }
+.kiosk-input-bar:focus-within {
+  border-color: #0284C7;
+  box-shadow: 0 0 16px rgba(2, 132, 199, 0.3);
 }
 
 .kiosk-input {
@@ -327,15 +348,16 @@ body {
   padding: 10px 12px;
   color: #F8FAFC;
   font-size: 15px;
+  font-family: inherit;
+}
 
-  &::placeholder {
-    color: #64748B;
-  }
+.kiosk-input::placeholder {
+  color: #64748B;
 }
 
 .kiosk-send-btn {
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
   border-radius: 12px;
   background: #314999;
   border: none;
@@ -344,18 +366,20 @@ body {
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s;
+}
 
-  &:hover {
-    background: #0284C7;
-  }
+.kiosk-send-btn:hover {
+  background: #0284C7;
+  transform: scale(1.05);
 }
 
 /* Modal Formule */
 .formula-modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.8);
+  background: rgba(0, 0, 0, 0.85);
   backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   z-index: 100;
   display: flex;
   align-items: center;
