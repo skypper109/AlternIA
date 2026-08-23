@@ -1,7 +1,6 @@
 import {
   Component,
   OnInit,
-  AfterViewInit,
   OnDestroy,
   signal,
   inject,
@@ -12,7 +11,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AvatarRepository, VOIX_DISPONIBLES } from '../../../data/repositories/avatar.repository';
-import { AvatarPedagogique, VoixPedagogique } from '../../../domain/entites/avatar-pedagogique.entite';
+import { AvatarPedagogique } from '../../../domain/entites/avatar-pedagogique.entite';
 import { Matiere, MatiereLabels, MatiereCouleurs } from '../../../core/enums';
 import { NotificationService } from '../../../core/services/notification.service';
 import { AvatarAnimatorService, CanvasAvatarInstance, AvatarState } from '../../../core/services/avatar-animator.service';
@@ -24,14 +23,31 @@ import { AvatarAnimatorService, CanvasAvatarInstance, AvatarState } from '../../
   templateUrl: './gestion-avatars.composant.html',
   styleUrl: './gestion-avatars.composant.scss',
 })
-export class GestionAvatarsComposant implements OnInit, AfterViewInit, OnDestroy {
+export class GestionAvatarsComposant implements OnInit, OnDestroy {
   private readonly repo = inject(AvatarRepository);
   private readonly notifService = inject(NotificationService);
   private readonly animatorService = inject(AvatarAnimatorService);
 
-  @ViewChild('heroCanvas') heroCanvasRef?: ElementRef<HTMLCanvasElement>;
-  @ViewChild('previewCanvas') previewCanvasRef?: ElementRef<HTMLCanvasElement>;
+  private heroCanvasEl?: HTMLCanvasElement;
+  private previewCanvasEl?: HTMLCanvasElement;
+
   @ViewChild('fileInputPhoto') fileInputPhoto?: ElementRef<HTMLInputElement>;
+
+  // Setter réactif pour le Canvas Hero (garantit l'initialisation dès le rendu DOM)
+  @ViewChild('heroCanvas') set heroCanvas(canvasRef: ElementRef<HTMLCanvasElement> | undefined) {
+    if (canvasRef && canvasRef.nativeElement !== this.heroCanvasEl) {
+      this.heroCanvasEl = canvasRef.nativeElement;
+      this.initHeroAnimator(canvasRef.nativeElement);
+    }
+  }
+
+  // Setter réactif pour le Canvas Preview dans la modale
+  @ViewChild('previewCanvas') set previewCanvas(canvasRef: ElementRef<HTMLCanvasElement> | undefined) {
+    if (canvasRef && canvasRef.nativeElement !== this.previewCanvasEl) {
+      this.previewCanvasEl = canvasRef.nativeElement;
+      this.initPreviewAnimator(canvasRef.nativeElement);
+    }
+  }
 
   readonly MatiereLabels = MatiereLabels;
   readonly MatiereCouleurs = MatiereCouleurs;
@@ -48,8 +64,8 @@ export class GestionAvatarsComposant implements OnInit, AfterViewInit, OnDestroy
   });
 
   // Instances d'animation Canvas 2.5D
-  private heroAnimator: CanvasAvatarInstance | null = null;
-  private previewAnimator: CanvasAvatarInstance | null = null;
+  heroAnimator: CanvasAvatarInstance | null = null;
+  previewAnimator: CanvasAvatarInstance | null = null;
 
   // Audio Playback & Lip-Sync
   audioEnCours: HTMLAudioElement | null = null;
@@ -75,10 +91,6 @@ export class GestionAvatarsComposant implements OnInit, AfterViewInit, OnDestroy
     this.chargerAvatars();
   }
 
-  ngAfterViewInit(): void {
-    this.initHeroAnimator();
-  }
-
   ngOnDestroy(): void {
     this.arreterAudio();
     if (this.heroAnimator) this.heroAnimator.destroy();
@@ -91,15 +103,16 @@ export class GestionAvatarsComposant implements OnInit, AfterViewInit, OnDestroy
       next: (list) => {
         this.avatars.set(list);
         this.chargement.set(false);
-        setTimeout(() => this.updateHeroAvatarImage(), 100);
+        this.updateHeroAvatarImage();
       },
       error: () => this.chargement.set(false),
     });
   }
 
-  private initHeroAnimator(): void {
-    if (!this.heroCanvasRef) return;
-    const canvas = this.heroCanvasRef.nativeElement;
+  private initHeroAnimator(canvas: HTMLCanvasElement): void {
+    if (this.heroAnimator) {
+      this.heroAnimator.destroy();
+    }
     const vedette = this.avatarVedette();
     const color = vedette ? this.getCouleurMatiere(vedette.matiere) : '#40BBCC';
 
@@ -107,8 +120,25 @@ export class GestionAvatarsComposant implements OnInit, AfterViewInit, OnDestroy
       themeColor: color,
       enableMouseTracking: true,
     });
-    this.updateHeroAvatarImage();
+
+    if (vedette) {
+      this.heroAnimator.setImage(vedette.imageUrl || 'assets/avatars/vivienne.svg');
+    }
     this.heroAnimator.start();
+  }
+
+  private initPreviewAnimator(canvas: HTMLCanvasElement): void {
+    if (this.previewAnimator) {
+      this.previewAnimator.destroy();
+    }
+    this.previewAnimator = this.animatorService.createInstance(canvas, {
+      themeColor: '#40BBCC',
+      enableMouseTracking: false,
+    });
+    if (this.formImageUrl()) {
+      this.previewAnimator.setImage(this.formImageUrl()!);
+    }
+    this.previewAnimator.start();
   }
 
   private updateHeroAvatarImage(): void {
@@ -160,16 +190,17 @@ export class GestionAvatarsComposant implements OnInit, AfterViewInit, OnDestroy
     if (this.heroAnimator) {
       this.heroAnimator.setImage(avatar.imageUrl || 'assets/avatars/vivienne.svg');
       this.heroAnimator.themeColor = this.getCouleurMatiere(avatar.matiere);
+      this.heroAnimator.setState('SPEAKING');
     }
 
-    const phrase = `Bonjour ! Je suis ${avatar.nom}. Je t'accompagne dans tes révisions de ${this.getLibelleMatiere(avatar.matiere)} au programme du Mali.`;
+    const phrase = `Bonjour ! Je suis ${avatar.nom}. Je t'accompagne dans tes révisions de ${this.getLibelleMatiere(avatar.matiere)} au programme du lycée malien.`;
     this.repo.testerAudio(phrase, avatar.voixId || 'vivienne').subscribe({
       next: (blob) => {
         const audioUrl = URL.createObjectURL(blob);
         const audio = new Audio(audioUrl);
         this.audioEnCours = audio;
 
-        // Connexion au moteur d'animation
+        // Connexion au moteur d'analyse FFT Web Audio
         this.animatorService.connectAudioElement(audio);
 
         audio.onended = () => {
@@ -180,7 +211,10 @@ export class GestionAvatarsComposant implements OnInit, AfterViewInit, OnDestroy
           URL.revokeObjectURL(audioUrl);
           this.arreterAudio();
         };
-        audio.play().catch(() => this.arreterAudio());
+        audio.play().catch((err) => {
+          console.warn("Autoplay audio blocked or completed:", err);
+          this.arreterAudio();
+        });
       },
       error: () => {
         this.notifService.erreur('Erreur Audio', 'Impossible de générer la synthèse vocale.');
@@ -221,15 +255,6 @@ export class GestionAvatarsComposant implements OnInit, AfterViewInit, OnDestroy
     };
     this.formImageUrl.set(null);
     this.modalAvatarOuverte.set(true);
-
-    setTimeout(() => {
-      if (this.previewCanvasRef && !this.previewAnimator) {
-        this.previewAnimator = this.animatorService.createInstance(this.previewCanvasRef.nativeElement, {
-          themeColor: '#40BBCC',
-        });
-        this.previewAnimator.start();
-      }
-    }, 150);
   }
 
   fermerModal(): void {

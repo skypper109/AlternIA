@@ -74,14 +74,33 @@
 
             <p class="hero-avatar-desc">{{ vedette.description }}</p>
 
-            <!-- Testeur d'Expressions & Mimiques Interactives -->
+            <!-- Testeur d'Expressions & Mimiques Interactives avec Icônes Vectorielles (Pas d'emojis) -->
             <div class="state-tester-bar">
               <span class="text-xs text-secondary fw-semibold">Tester les mimiques :</span>
               <div class="state-buttons">
-                <button class="btn btn-ghost btn-xs state-btn" [class.state-btn--active]="etatAnimation() === 'IDLE'" (click)="setEtatManuel('IDLE')">😊 Prêt</button>
-                <button class="btn btn-ghost btn-xs state-btn" [class.state-btn--active]="etatAnimation() === 'LISTENING'" (click)="setEtatManuel('LISTENING')">👂 Écoute</button>
-                <button class="btn btn-ghost btn-xs state-btn" [class.state-btn--active]="etatAnimation() === 'THINKING'" (click)="setEtatManuel('THINKING')">🤔 Réflexion</button>
-                <button class="btn btn-ghost btn-xs state-btn" [class.state-btn--active]="etatAnimation() === 'SPEAKING'" (click)="setEtatManuel('SPEAKING')">🗣️ Parole</button>
+                <!-- État Prêt (IDLE) -->
+                <button class="btn btn-ghost btn-xs state-btn" [class.state-btn--active]="etatAnimation() === 'IDLE'" (click)="setEtatManuel('IDLE')">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+                  <span>Prêt</span>
+                </button>
+
+                <!-- État Écoute (LISTENING) -->
+                <button class="btn btn-ghost btn-xs state-btn" [class.state-btn--active]="etatAnimation() === 'LISTENING'" (click)="setEtatManuel('LISTENING')">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+                  <span>Écoute</span>
+                </button>
+
+                <!-- État Réflexion (THINKING) -->
+                <button class="btn btn-ghost btn-xs state-btn" [class.state-btn--active]="etatAnimation() === 'THINKING'" (click)="setEtatManuel('THINKING')">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+                  <span>Réflexion</span>
+                </button>
+
+                <!-- État Parole (SPEAKING) -->
+                <button class="btn btn-ghost btn-xs state-btn" [class.state-btn--active]="etatAnimation() === 'SPEAKING'" (click)="setEtatManuel('SPEAKING')">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+                  <span>Parole</span>
+                </button>
               </div>
             </div>
 
@@ -132,7 +151,9 @@
                 <div class="avatar-portrait-wrapper">
                   <img [src]="avatar.imageUrl" [alt]="avatar.nom" class="avatar-portrait-img" (error)="$any($event.target).src = 'assets/avatars/vivienne.svg'"/>
                   @if (avatar.actif) {
-                    <div class="avatar-active-badge" title="Avatar actif en production">✓</div>
+                    <div class="avatar-active-badge" title="Avatar actif en production">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5"><polyline points="20 6 9 17 4 12"/></svg>
+                    </div>
                   }
                 </div>
                 <div class="avatar-card__info">
@@ -155,9 +176,11 @@
                     title="Tester la voix avec animation"
                   >
                     @if (avatarEnLecture() === avatar.id) {
-                      ■ Stop
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>
+                      <span>Stop</span>
                     } @else {
-                      ▶ Tester voix
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                      <span>Tester voix</span>
                     }
                   </button>
 
@@ -169,7 +192,7 @@
                 </div>
 
                 <button class="btn-icon-danger" (click)="demanderSuppression(avatar, $event)" title="Supprimer cet avatar">
-                  ✕
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </button>
               </div>
             </div>
@@ -181,7 +204,7 @@
 
   <!-- Modale d'Upload & Création d'Avatar -->
   @if (modalAvatarOuverte()) {
-    <div class="modal-backdrop animate-fade-in" (click)="fermerModal()">
+    <div class="modal-overlay animate-fade-in" (click)="fermerModal()">
       <div class="modal-card modal-card-lg animate-scale-up" (click)="$event.stopPropagation()">
         <div class="modal-header">
           <div style="display:flex;align-items:center;gap:10px;">
@@ -193,7 +216,7 @@
               <p class="text-xs text-secondary">L'image sera automatiquement animée en 2.5D avec synchronisation labiale</p>
             </div>
           </div>
-          <button class="modal-close" (click)="fermerModal()">✕</button>
+          <button class="btn-icon-danger" (click)="fermerModal()" style="font-size:16px;">✕</button>
         </div>
 
         <div class="modal-body">
@@ -221,8 +244,9 @@
                 }
               </div>
 
-              <div class="text-xs text-center text-secondary" style="margin-top: 8px;">
-                💡 Conseil : Un portrait cadré de face offre le meilleur rendu d'animation faciale.
+              <div class="text-xs text-center text-secondary" style="margin-top: 8px; display:flex; align-items:center; gap:6px; justify-content:center;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                <span>Un portrait cadré de face offre le meilleur rendu.</span>
               </div>
             </div>
 
@@ -280,11 +304,11 @@
 
   <!-- Modale de Confirmation de Suppression -->
   @if (avatarASupprimer(); as aSupprimer) {
-    <div class="modal-backdrop animate-fade-in" (click)="avatarASupprimer.set(null)">
+    <div class="modal-overlay animate-fade-in" (click)="avatarASupprimer.set(null)">
       <div class="modal-card animate-scale-up" (click)="$event.stopPropagation()">
         <div class="modal-header">
           <h2 class="modal-title" style="color:var(--color-danger);">Supprimer l'avatar</h2>
-          <button class="modal-close" (click)="avatarASupprimer.set(null)">✕</button>
+          <button class="btn-icon-danger" (click)="avatarASupprimer.set(null)">✕</button>
         </div>
         <div class="modal-body">
           <p>Êtes-vous sûr de vouloir supprimer l'avatar <strong>{{ aSupprimer.nom }}</strong> ? Cette action est irréversible.</p>

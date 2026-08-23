@@ -58,7 +58,11 @@ def api_serve_avatar_image(filename: str):
     elif ext == ".svg":
         media_type = "image/svg+xml"
 
-    return FileResponse(str(path), media_type=media_type)
+    headers = {
+        "Access-Control-Allow-Origin": "*",
+        "Cache-Control": "public, max-age=86400",
+    }
+    return FileResponse(str(path), media_type=media_type, headers=headers)
 
 
 @router.post("")

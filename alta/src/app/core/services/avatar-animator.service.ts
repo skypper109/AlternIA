@@ -45,12 +45,15 @@ export class AvatarAnimatorService {
 
     if (this.currentAudioElement !== audio) {
       try {
+        if (ctx.state === 'suspended') {
+          ctx.resume();
+        }
         this.audioSource = ctx.createMediaElementSource(audio);
         this.audioSource.connect(this.analyser);
         this.analyser.connect(ctx.destination);
         this.currentAudioElement = audio;
-      } catch {
-        // Déjà connecté
+      } catch (e) {
+        // Déjà connecté ou fallback direct
       }
     }
     return this.analyser;
@@ -61,7 +64,12 @@ export class AvatarAnimatorService {
       return { volume: 0, bass: 0, mid: 0, high: 0 };
     }
 
-    this.analyser.getByteFrequencyData(this.dataArray);
+    try {
+      this.analyser.getByteFrequencyData(this.dataArray);
+    } catch {
+      return { volume: 0, bass: 0, mid: 0, high: 0 };
+    }
+
     let sum = 0;
     let bass = 0;
     let mid = 0;
@@ -139,13 +147,25 @@ export class CanvasAvatarInstance {
   }
 
   setImage(imageUrl: string) {
+    if (!imageUrl) return;
     this.isLoaded = false;
     const img = new Image();
-    img.crossOrigin = 'anonymous';
+    if (imageUrl.startsWith('http')) {
+      img.crossOrigin = 'anonymous';
+    }
     img.src = imageUrl;
     img.onload = () => {
       this.image = img;
       this.isLoaded = true;
+    };
+    img.onerror = () => {
+      // Fallback direct sans crossOrigin si refusé
+      const fallback = new Image();
+      fallback.src = imageUrl;
+      fallback.onload = () => {
+        this.image = fallback;
+        this.isLoaded = true;
+      };
     };
   }
 
@@ -188,7 +208,6 @@ export class CanvasAvatarInstance {
     let targetMouthWidth = 1.0;
 
     if (this.state === 'SPEAKING' || audio.volume > 0.02) {
-      // Simulation dynamique si pas d'audio actif mais en train de parler
       const simulatedEnergy = this.state === 'SPEAKING' && audio.volume <= 0.02
         ? Math.abs(Math.sin(timestamp * 0.015)) * 0.7 + Math.sin(timestamp * 0.008) * 0.3
         : audio.volume * 2.5;
@@ -197,7 +216,6 @@ export class CanvasAvatarInstance {
       targetMouthWidth = 1.0 + (audio.high || 0) * 0.4 - (audio.bass || 0) * 0.2;
     }
 
-    // Lissage inertiel de l'ouverture de bouche (interpolation)
     this.mouthOpen += (targetMouthOpen - this.mouthOpen) * 0.35;
     this.mouthWidth += (targetMouthWidth - this.mouthWidth) * 0.2;
 
@@ -209,12 +227,12 @@ export class CanvasAvatarInstance {
     }
 
     if (this.isBlinking) {
-      this.blinkProgress += delta / 140; // 140ms pour un clignement complet
+      this.blinkProgress += delta / 140;
       if (this.blinkProgress >= 1) {
         this.isBlinking = false;
         this.blinkProgress = 0;
         this.blinkTimer = 0;
-        this.nextBlink = 2500 + Math.random() * 4000; // Entre 2.5s et 6.5s
+        this.nextBlink = 2500 + Math.random() * 4000;
       }
     }
 
@@ -223,7 +241,7 @@ export class CanvasAvatarInstance {
       : 0;
 
     // 3. Calcul de la posture, respiration et inclinaison
-    let breathY = Math.sin(timestamp * 0.002) * 3; // Respiration douce
+    let breathY = Math.sin(timestamp * 0.002) * 3;
     let swayAngle = Math.sin(timestamp * 0.001) * 0.015;
     let nodY = 0;
 
@@ -258,27 +276,31 @@ export class CanvasAvatarInstance {
     this.ctx.translate(cx + this.currentHeadX * 15, cy + breathY + nodY + this.currentHeadY * 10);
     this.ctx.rotate(swayAngle);
 
-    // Masque circulaire élégant avec bordure lumineuse
+    // Fond de base pour éviter tout écran noir
+    this.ctx.beginPath();
+    this.ctx.arc(0, 0, size / 2, 0, Math.PI * 2);
+    this.ctx.fillStyle = '#0F172A';
+    this.ctx.fill();
+
+    // Masque circulaire élégant
     this.ctx.beginPath();
     this.ctx.arc(0, 0, size / 2, 0, Math.PI * 2);
     this.ctx.closePath();
     this.ctx.clip();
 
     if (this.isLoaded && this.image) {
-      // Dessin de l'image de base (Portrait)
       this.ctx.drawImage(this.image, -size / 2, -size / 2, size, size);
 
-      // Animation dynamique de la bouche (Lip-Sync Morphing sur l'image uploadée)
+      // Morphing Labial sur l'image
       if (this.mouthOpen > 0.05) {
         this.renderLipSyncOnFace(size, this.mouthOpen, this.mouthWidth);
       }
 
-      // Animation dynamique des yeux (Clignements naturels)
+      // Clignements naturels sur l'image
       if (blinkValue > 0.05) {
         this.renderEyeBlinkOnFace(size, blinkValue);
       }
     } else {
-      // Placeholder stylisé avant chargement
       this.drawStylizedFacePlaceholder(size, this.mouthOpen, blinkValue);
     }
 
@@ -311,7 +333,6 @@ export class CanvasAvatarInstance {
     this.ctx.arc(cx, cy, auraRadius, 0, Math.PI * 2);
     this.ctx.fill();
 
-    // Anneau d'égaliseur vocal animé quand l'avatar parle
     if (this.state === 'SPEAKING' || energy > 0.05) {
       const bars = 32;
       this.ctx.strokeStyle = this.themeColor;
@@ -338,17 +359,13 @@ export class CanvasAvatarInstance {
     this.ctx.restore();
   }
 
-  /**
-   * Applique un morphing réaliste de bouche sur n'importe quelle photo/image uploadée.
-   */
   private renderLipSyncOnFace(size: number, openFactor: number, widthFactor: number) {
-    const mouthY = size * 0.22; // Emplacement anatomique standard de la bouche
+    const mouthY = size * 0.22;
     const mouthWidth = size * 0.18 * widthFactor;
     const mouthHeight = size * 0.12 * openFactor;
 
     this.ctx.save();
 
-    // 1. Cavité buccale intérieure naturelle
     this.ctx.beginPath();
     this.ctx.ellipse(0, mouthY, mouthWidth / 2, mouthHeight / 2, 0, 0, Math.PI * 2);
     const mouthGrad = this.ctx.createRadialGradient(0, mouthY, 2, 0, mouthY, mouthHeight);
@@ -358,7 +375,6 @@ export class CanvasAvatarInstance {
     this.ctx.fillStyle = mouthGrad;
     this.ctx.fill();
 
-    // 2. Dents supérieures subtiles
     if (openFactor > 0.3) {
       this.ctx.beginPath();
       this.ctx.ellipse(0, mouthY - mouthHeight * 0.22, mouthWidth * 0.32, mouthHeight * 0.18, 0, 0, Math.PI);
@@ -366,7 +382,6 @@ export class CanvasAvatarInstance {
       this.ctx.fill();
     }
 
-    // 3. Lèvre inférieure et ombre labiale
     this.ctx.beginPath();
     this.ctx.ellipse(0, mouthY + mouthHeight * 0.4, mouthWidth * 0.45, mouthHeight * 0.15, 0, 0, Math.PI);
     this.ctx.fillStyle = 'rgba(0, 0, 0, 0.18)';
@@ -375,9 +390,6 @@ export class CanvasAvatarInstance {
     this.ctx.restore();
   }
 
-  /**
-   * Applique un clignement d'yeux organique sur n'importe quel portrait uploadé.
-   */
   private renderEyeBlinkOnFace(size: number, blinkAmount: number) {
     const eyeY = -size * 0.08;
     const eyeSpacing = size * 0.18;
@@ -387,12 +399,10 @@ export class CanvasAvatarInstance {
     this.ctx.save();
     this.ctx.fillStyle = 'rgba(28, 28, 35, 0.75)';
 
-    // Paupière œil gauche
     this.ctx.beginPath();
     this.ctx.ellipse(-eyeSpacing, eyeY, eyeWidth / 2, eyeHeight, 0, 0, Math.PI * 2);
     this.ctx.fill();
 
-    // Paupière œil droit
     this.ctx.beginPath();
     this.ctx.ellipse(eyeSpacing, eyeY, eyeWidth / 2, eyeHeight, 0, 0, Math.PI * 2);
     this.ctx.fill();
@@ -404,7 +414,6 @@ export class CanvasAvatarInstance {
     this.ctx.fillStyle = '#1E293B';
     this.ctx.fillRect(-size / 2, -size / 2, size, size);
 
-    // Yeux
     const eyeY = -size * 0.08;
     const eyeSpacing = size * 0.18;
     const eyeRadius = size * 0.05 * (1 - blink * 0.8);
@@ -415,7 +424,6 @@ export class CanvasAvatarInstance {
     this.ctx.arc(eyeSpacing, eyeY, eyeRadius, 0, Math.PI * 2);
     this.ctx.fill();
 
-    // Bouche
     const mouthY = size * 0.22;
     const mouthH = size * 0.04 + mouthOpen * size * 0.08;
     this.ctx.fillStyle = '#F43F5E';

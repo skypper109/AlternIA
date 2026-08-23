@@ -118,15 +118,28 @@
 }
 
 .state-btn {
-  padding: 4px 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
   border-radius: var(--radius-full);
-  font-size: 11px;
-  border: 1px solid transparent;
+  font-size: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--color-text-secondary);
+  transition: all var(--transition-fast);
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--color-text-primary);
+  }
 
   &--active {
     background: var(--color-primary);
+    border-color: var(--color-primary);
     color: white;
     font-weight: var(--fw-bold);
+    box-shadow: 0 0 10px rgba(49, 73, 153, 0.4);
   }
 }
 
@@ -229,16 +242,67 @@
   padding: 6px;
   border-radius: var(--radius-sm);
   transition: all var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 
   &:hover {
     background: rgba(239, 68, 68, 0.1);
   }
 }
 
-// Modale Upload
-.modal-card-lg {
-  max-width: 720px;
+/* ── Modales Spécifiques ──────────────────────────────────── */
+.modal-overlay,
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.modal-card {
+  background: #0B1120;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-xl);
+  padding: 24px;
+  max-width: 540px;
   width: 100%;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+  color: var(--color-text-primary);
+  position: relative;
+  z-index: 10000;
+  max-height: 90vh;
+  overflow-y: auto;
+
+  &-lg {
+    max-width: 720px;
+  }
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 14px;
+}
+
+.modal-body {
+  padding: 18px 0;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 14px;
 }
 
 .upload-modal-grid {
