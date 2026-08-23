@@ -1,25 +1,12 @@
 /**
- * Alternia Device Interface - Contrôleur Principal (Architecture Modulaire ES6).
- *
- * Modules :
- * - js/config/curriculum.js   : Données officielles des classes & matières (Mali)
- * - js/services/api.js        : Client API FastAPI & Streaming SSE
- * - js/services/audio.js      : Moteur audio, streaming TTS & bruitages SFX
- * - js/services/speech.js     : Reconnaissance vocale (Speech-to-Text)
- * - js/ui/vortex.js           : Avatar Tri-Vortex réactif 60 FPS
- * - js/ui/katex-renderer.js   : Rendu KaTeX des formules & zoom modal
- * - js/ui/chat-renderer.js    : Rendu des messages et bulles interactives
- * - js/ui/curriculum-ui.js    : Sélecteur de classes, matières et notions
+ * AlternIA Device Interface - Contrôleur Kiosk Épuré (Voice-First & Avatar 2.5D).
  */
 
-import { CURRICULUM_DATA, KNOWLEDGE_FALLBACK } from './js/config/curriculum.js';
 import { ApiService } from './js/services/api.js';
 import { AudioService } from './js/services/audio.js';
 import { SpeechService } from './js/services/speech.js';
 import { VortexUI } from './js/ui/vortex.js';
 import { KaTeXRenderer } from './js/ui/katex-renderer.js';
-import { ChatRenderer } from './js/ui/chat-renderer.js';
-import { CurriculumUI } from './js/ui/curriculum-ui.js';
 
 export class AlternIAApp {
   constructor() {
@@ -30,8 +17,7 @@ export class AlternIAApp {
     this.initDOM();
     this.initModules();
     this.bindEvents();
-    this.checkHealth();
-    this.welcome();
+    this.loadActiveAvatar();
   }
 
   initDOM() {
@@ -40,14 +26,23 @@ export class AlternIAApp {
     this.micBtn = document.getElementById('btn-mic-main');
     this.btnReset = document.getElementById('btn-reset-session');
     this.btnMute = document.getElementById('btn-toggle-mute');
-    this.btnFullscreen = document.getElementById('btn-fullscreen');
-    this.ragStatusBadge = document.getElementById('rag-status-badge');
-    this.btnCloseModal = document.getElementById('btn-close-formula-modal');
+
+    this.speechContentArea = document.getElementById('speech-content-area');
+    this.studentQueryPreview = document.getElementById('student-query-preview');
+    this.studentQueryText = document.getElementById('student-query-text');
+    this.ragSourceBadge = document.getElementById('rag-source-badge');
+    this.classSublabel = document.getElementById('alta-class-sublabel');
+
+    this.classTabs = document.querySelectorAll('.class-tab-btn');
   }
 
   initModules() {
-    // 1. UI Vortex 60 FPS
-    this.vortex = new VortexUI();
+    // 1. UI Vortex & Avatar 2.5D
+    this.vortex = new VortexUI({
+      canvasId: 'alta-avatar-canvas',
+      statusTextId: 'status-text',
+      statusDotId: 'status-dot',
+    });
 
     // 2. Moteur KaTeX
     this.katex = new KaTeXRenderer();
@@ -56,9 +51,9 @@ export class AlternIAApp {
     this.audio = new AudioService({
       onSpeakingChange: (isSpeaking) => {
         if (isSpeaking) {
-          this.vortex.setState('SPEAKING', 'ALTA répond vocalement...');
+          this.vortex.setState('SPEAKING', 'Enseignant explique...');
         } else if (this.vortex.currentState === 'SPEAKING') {
-          this.vortex.setState('IDLE');
+          this.vortex.setState('IDLE', 'Prêt à répondre');
         }
       },
       onAnalyserReady: (analyser) => {
@@ -66,74 +61,85 @@ export class AlternIAApp {
       }
     });
 
-    this.loadActiveAvatar();
-
-    // 4. Moteur de Chat & Bulles
-    this.chat = new ChatRenderer({
-      katexRenderer: this.katex
-    });
-
-    // 5. Moteur Speech-To-Text (Microphone)
+    // 4. Moteur Speech-To-Text (Microphone)
     this.speech = new SpeechService({
       onStart: () => {
         if (this.micBtn) this.micBtn.classList.add('is-recording');
-        this.vortex.setState('LISTENING', 'Parle maintenant dans le micro...');
+        this.vortex.setState('LISTENING', 'Je vous écoute...');
         this.audio.playBeep(440, 0.1);
+        if (this.studentQueryPreview) {
+          this.studentQueryPreview.classList.remove('hidden');
+          if (this.studentQueryText) this.studentQueryText.textContent = "Écoute en cours...";
+        }
       },
       onResult: (transcript) => {
+        if (this.studentQueryText) this.studentQueryText.textContent = transcript;
         if (this.questionInput) this.questionInput.value = transcript;
       },
-      onEnd: () => {
+      onEnd: (finalText) => {
         if (this.micBtn) this.micBtn.classList.remove('is-recording');
-        const text = this.questionInput ? this.questionInput.value.trim() : '';
+        const text = finalText || (this.questionInput ? this.questionInput.value.trim() : '');
         if (text) {
-          this.submitQuestion();
+          if (this.studentQueryText) this.studentQueryText.textContent = text;
+          this.submitQuestion(text);
         } else {
-          this.vortex.setState('IDLE');
+          this.vortex.setState('IDLE', 'Prêt à répondre');
         }
       },
       onError: () => {
         if (this.micBtn) this.micBtn.classList.remove('is-recording');
-        this.vortex.setState('IDLE');
+        this.vortex.setState('IDLE', 'Prêt à répondre');
       }
     });
-
-    // 6. UI Curriculaire (Classes & Matières)
-    this.curriculum = new CurriculumUI({
-      onClassSelect: (classId) => this.selectClass(classId),
-      onSubjectSelect: (subjectId) => this.selectSubject(subjectId),
-      onTopicClick: (topic) => this.askQuestion(topic)
-    });
-
-    this.curriculum.render(this.currentClass, this.currentSubject);
   }
 
   bindEvents() {
-    // Bouton d'envoi & Entrée
-    if (this.sendBtn) this.sendBtn.onclick = () => this.submitQuestion();
+    // Boutons de sélection de classe
+    this.classTabs.forEach(btn => {
+      btn.onclick = () => {
+        const cls = btn.getAttribute('data-class');
+        this.selectClass(cls);
+      };
+    });
+
+    // Bouton Microphone
+    if (this.micBtn) {
+      this.micBtn.onclick = () => this.speech.toggle();
+    }
+
+    // Envoi par bouton ou Entrée
+    if (this.sendBtn) {
+      this.sendBtn.onclick = () => {
+        const text = this.questionInput ? this.questionInput.value.trim() : '';
+        if (text) this.submitQuestion(text);
+      };
+    }
     if (this.questionInput) {
       this.questionInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
           e.preventDefault();
-          this.submitQuestion();
+          const text = this.questionInput.value.trim();
+          if (text) this.submitQuestion(text);
         }
       });
     }
 
-    // Bouton Microphone
-    if (this.micBtn) this.micBtn.onclick = () => this.speech.toggle();
-
     // Réinitialiser la session
     if (this.btnReset) {
       this.btnReset.onclick = async () => {
-        const oldId = this.sessionId;
         this.sessionId = 'kiosk_session_' + Date.now();
-        this.chat.clear();
         this.audio.stop();
-        await ApiService.resetSession(oldId);
-        this.vortex.setState('IDLE');
-        this.welcome();
-        this.chat.addSystemNotification("Session réinitialisée. Nouvelle conversation active.");
+        if (this.studentQueryPreview) this.studentQueryPreview.classList.add('hidden');
+        if (this.speechContentArea) {
+          this.speechContentArea.innerHTML = `
+            <div class="speech-welcome-text">
+              <p class="text-base text-slate-200 leading-relaxed">
+                Session réinitialisée. Posez une nouvelle question au micro ou par écrit.
+              </p>
+            </div>
+          `;
+        }
+        this.vortex.setState('IDLE', 'Prêt à répondre');
       };
     }
 
@@ -142,90 +148,88 @@ export class AlternIAApp {
       this.btnMute.onclick = () => {
         const isMuted = this.audio.toggleMute();
         this.btnMute.innerHTML = isMuted
-          ? '<svg class="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"></path></svg>'
-          : '<svg class="w-5 h-5 text-cyan-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path></svg>';
+          ? '<svg class="w-5 h-5 text-red-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="1" y1="1" x2="23" y2="23"></line><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"></path><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"></path></svg>'
+          : '<svg class="w-5 h-5 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>';
       };
-    }
-
-    // Plein écran
-    if (this.btnFullscreen) {
-      this.btnFullscreen.onclick = () => {
-        if (!document.fullscreenElement) {
-          document.documentElement.requestFullscreen().catch(() => { });
-        } else {
-          document.exitFullscreen().catch(() => { });
-        }
-      };
-    }
-
-    // Fermeture Modal KaTeX
-    if (this.btnCloseModal) {
-      this.btnCloseModal.onclick = () => this.katex.closeFormulaModal();
     }
   }
 
   selectClass(classId) {
     this.currentClass = classId;
-    this.curriculum.render(this.currentClass, this.currentSubject);
-    const clsObj = this.curriculum.getClassObj(classId);
-    this.chat.addSystemNotification(`Classe changée en : ${clsObj.name}`);
-  }
+    this.classTabs.forEach(btn => {
+      if (btn.getAttribute('data-class') === classId) {
+        btn.classList.add('class-tab--active');
+      } else {
+        btn.classList.remove('class-tab--active');
+      }
+    });
 
-  selectSubject(subjectId) {
-    this.currentSubject = subjectId;
-    this.curriculum.render(this.currentClass, this.currentSubject);
-
-    const colors = {
-      mathematiques: '#38BDF8',
-      physique: '#F59E0B',
-      chimie: '#10B981',
-      biologie: '#14B8A6',
-      svt: '#14B8A6',
-      francais: '#A855F7',
-      histoire_geo: '#F43F5E',
-      philosophie: '#8B5CF6',
-      anglais: '#06B6D4',
-      economie: '#EAB308',
+    const labels = {
+      '10eme': '10ème Année (Tronc Commun)',
+      '11eme': '11ème Année (Sciences & Lettres)',
+      '12eme': 'Terminale (Baccalauréat Mali)'
     };
-    if (this.vortex && colors[subjectId]) {
-      this.vortex.setThemeColor(colors[subjectId]);
+    if (this.classSublabel) {
+      this.classSublabel.textContent = labels[classId] || 'Programme Lycée Mali';
     }
   }
 
-  askQuestion(text) {
-    if (!text || !text.trim()) return;
-    if (this.questionInput) this.questionInput.value = text;
-    this.submitQuestion();
+  async loadActiveAvatar() {
+    try {
+      const res = await fetch('/api/avatars/actif');
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.photoUrl) {
+          this.vortex.setAvatarImage(data.photoUrl, data.nom);
+        }
+      }
+    } catch (e) {
+      console.warn("Avatar chargé par défaut :", e);
+    }
   }
 
-  async submitQuestion() {
-    const question = this.questionInput ? this.questionInput.value.trim() : '';
+  async submitQuestion(questionText) {
+    const question = questionText || (this.questionInput ? this.questionInput.value.trim() : '');
     if (!question) return;
 
-    this.questionInput.value = '';
+    if (this.questionInput) this.questionInput.value = '';
     this.audio.stop();
-    const classObj = this.curriculum.getClassObj(this.currentClass);
-    this.chat.appendUserMessage(question, classObj.name);
-    this.vortex.setState('THINKING', 'Consultation du programme officiel malien...');
 
-    const streamingMessage = this.chat.createStreamingAIMessage((followup) => this.askQuestion(followup));
+    if (this.studentQueryPreview) {
+      this.studentQueryPreview.classList.remove('hidden');
+      if (this.studentQueryText) this.studentQueryText.textContent = question;
+    }
+
+    this.vortex.setState('THINKING', 'Consultation du RAG malien...');
+
+    // Préparation de la zone d'explication
+    if (this.speechContentArea) {
+      this.speechContentArea.innerHTML = `
+        <div class="flex items-center gap-3 text-cyan-300 py-4">
+          <div class="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin"></div>
+          <span class="text-sm font-medium">Recherche dans les manuels officiels et génération...</span>
+        </div>
+      `;
+    }
 
     let fullText = "";
     let sentenceBuffer = "";
     let firstSent = false;
     const clauseDelim = /([,;:\.!?…]\s+|\n+)/;
     const sentDelim = /([\.!?…]\s+|\n+)/;
-    let streamSuccess = false;
-    let sources = [];
 
-    streamSuccess = await ApiService.streamChat({
+    const streamSuccess = await ApiService.streamChat({
       question,
       studentClass: this.currentClass,
       subject: this.currentSubject,
       sessionId: this.sessionId,
       onChunk: (chunk) => {
         fullText += chunk;
-        streamingMessage.updateText(fullText);
+        if (this.speechContentArea) {
+          this.speechContentArea.innerHTML = `<div class="formatted-text">${this.formatMarkdownText(fullText)}</div>`;
+          this.katex.renderFormulasInElement(this.speechContentArea);
+        }
+
         sentenceBuffer += chunk;
 
         // Découpage et émission vocale TTS fluide
@@ -257,8 +261,14 @@ export class AlternIAApp {
         }
       },
       onDone: (data) => {
-        sources = data.sources || [];
+        if (data.sources && data.sources.length > 0 && this.ragSourceBadge) {
+          this.ragSourceBadge.textContent = data.sources[0].document;
+        }
         if (data.full_text) fullText = data.full_text;
+        if (this.speechContentArea) {
+          this.speechContentArea.innerHTML = `<div class="formatted-text">${this.formatMarkdownText(fullText)}</div>`;
+          this.katex.renderFormulasInElement(this.speechContentArea);
+        }
       }
     });
 
@@ -266,94 +276,24 @@ export class AlternIAApp {
       if (sentenceBuffer.trim().length > 2) {
         this.audio.enqueueSentence(sentenceBuffer.trim());
       }
-      streamingMessage.finalize({
-        answer: fullText,
-        sources,
-        source: sources.length > 0 ? sources[0].document : null,
-        followup: "Veux-tu un exemple d'application ou un exercice type Bac ?"
-      });
     } else {
-      if (streamingMessage && streamingMessage.element) {
-        streamingMessage.element.remove();
-      }
-      this.handleFallback(question);
-    }
-  }
-
-  handleFallback(question) {
-    const qLower = question.toLowerCase();
-    const matchKey = Object.keys(KNOWLEDGE_FALLBACK).find(k => qLower.includes(k));
-
-    if (matchKey) {
-      const item = KNOWLEDGE_FALLBACK[matchKey];
-      this.chat.appendAIMessage({
-        answer: item.text,
-        formula: item.formula,
-        formulaSpeech: item.formulaSpeech,
-        variables: item.variables,
-        source: item.source,
-        followup: item.followup
-      }, (f) => this.askQuestion(f));
-      this.audio.speakText(item.text, item.formulaSpeech);
-    } else {
-      const clsObj = this.curriculum.getClassObj(this.currentClass);
-      const subjObj = this.curriculum.getSubjectObj(this.currentClass, this.currentSubject);
-      const answer = `Pour la classe de **${clsObj.name}** en **${subjObj.name}** :\n\nVoici les notions clés concernant : *"${question}"*.\n\nAssure-toi d'appliquer les formules et démarches officielles du lycée malien.`;
-      this.chat.appendAIMessage({
-        answer,
-        source: `Manuel ${subjObj.name} ${clsObj.name}`,
-        followup: "Veux-tu que nous résolvions un exemple concret étape par étape ?"
-      }, (f) => this.askQuestion(f));
-      this.audio.speakText(answer);
-    }
-  }
-
-  async loadActiveAvatar() {
-    try {
-      const res = await fetch('/api/avatars/actif');
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.photoUrl) {
-          this.vortex.setAvatarImage(data.photoUrl, data.nom);
-        }
-      }
-    } catch (e) {
-      console.warn("Avatar par défaut conservé :", e);
-    }
-  }
-
-  async checkHealth() {
-    const health = await ApiService.checkHealth();
-    if (this.ragStatusBadge) {
-      if (health) {
-        this.ragStatusBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> <span>RAG Local Connecté (${health.rag_chunks_count || 'OK'})</span>`;
-        this.ragStatusBadge.className = 'status-pill text-xs text-emerald-300 border-emerald-500/30';
-      } else {
-        this.ragStatusBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-400"></span> <span>Mode Embarqué Autonome</span>`;
-        this.ragStatusBadge.className = 'status-pill text-xs text-amber-300 border-amber-500/30';
+      if (this.speechContentArea) {
+        this.speechContentArea.innerHTML = `
+          <p class="text-slate-200">
+            Pour la classe de <strong>${this.currentClass}</strong> : voici les éléments clés concernant votre question.
+          </p>
+        `;
       }
     }
   }
 
-  welcome() {
-    this.chat.renderInitialWelcome(
-      (clsId) => {
-        this.selectClass(clsId, true);
-        const clsObj = this.curriculum.getClassObj(clsId);
-        const subjObj = this.curriculum.getSubjectObj(clsId, this.currentSubject);
-        this.chat.appendAIMessage({
-          answer: `Parfait ! Tu es configuré en **${clsObj.name}** (${clsObj.badge}).\n\nChoisis ta matière ou lance un Défi Express du Bac au micro ou par écrit !`,
-          followup: `Quelles sont les notions clés en ${subjObj.name} ?`
-        }, (f) => this.askQuestion(f));
-      },
-      (challengeQuery, clsId) => {
-        if (clsId && clsId !== this.currentClass) {
-          this.selectClass(clsId, false);
-        }
-        this.askQuestion(challengeQuery);
-      }
-    );
-    this.audio.speakText("Bonjour ! Je suis ALTA, ton tuteur pédagogique. Choisis ta classe ou lance un défi du Bac pour commencer !");
+  formatMarkdownText(text) {
+    if (!text) return '';
+    return text
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.*?)\*/g, '<em>$1</em>')
+      .replace(/\n\n/g, '<br><br>')
+      .replace(/\n/g, '<br>');
   }
 }
 

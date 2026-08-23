@@ -67,15 +67,17 @@ class STTEngine:
             else:
                 model_target = self.model_size
 
+            import sys
+            safe_compute = "float32" if sys.platform == "darwin" else self.compute_type
             logger.info(
-                f"Chargement du modèle STT Faster-Whisper ({model_target}, {self.compute_type})..."
+                f"Chargement du modèle STT Faster-Whisper ({model_target}, {safe_compute})..."
             )
             self._whisper_model = WhisperModel(
                 model_target,
                 device=self.device,
-                compute_type=self.compute_type,
+                compute_type=safe_compute,
                 download_root=str(self.models_dir),
-                cpu_threads=4,
+                cpu_threads=2,
             )
             return self._whisper_model
         except Exception as exc:
@@ -222,9 +224,8 @@ class STTEngine:
             segments, info = model.transcribe(
                 input_source,
                 language=lang,
-                beam_size=5,
-                vad_filter=True,
-                vad_parameters=dict(min_silence_duration_ms=400),
+                beam_size=1,
+                vad_filter=False,
             )
 
             text_parts = [segment.text.strip() for segment in segments]
