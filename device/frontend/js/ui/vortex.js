@@ -1,25 +1,66 @@
 /**
- * Composant de contrôle de l'Avatar Pédagogique Alta (Halo Chromatique & Égaliseur Audio).
+/**
+ * Composant de contrôle de l'Avatar Pédagogique Alta (Halo Chromatique, Égaliseur & Moteur 2.5D).
  */
+
+import { DeviceAvatarAnimator } from './avatar-animator.js';
 
 export class VortexUI {
   constructor({
     coreWrapperId = 'alta-avatar-card',
     statusTextId = 'status-text',
     statusDotId = 'status-dot',
-    visualizerId = 'audio-waveform-container'
+    visualizerId = 'audio-waveform-container',
+    canvasId = 'alta-avatar-canvas',
+    defaultImageUrl = 'assets/avatars/vivienne.svg'
   } = {}) {
     this.coreWrapper = document.getElementById(coreWrapperId);
     this.statusText = document.getElementById(statusTextId);
     this.statusDot = document.getElementById(statusDotId);
     this.visualizer = document.getElementById(visualizerId);
     this.currentState = 'IDLE';
+
+    // Initialisation du Moteur d'Animation Faciale 2.5D
+    const canvas = document.getElementById(canvasId);
+    if (canvas) {
+      this.animator = new DeviceAvatarAnimator(canvas, {
+        themeColor: '#40BBCC',
+      });
+      this.animator.setImage(defaultImageUrl);
+    } else {
+      this.animator = null;
+    }
+  }
+
+  setAudioAnalyser(analyser) {
+    if (this.animator) {
+      this.animator.setAudioAnalyser(analyser);
+    }
+  }
+
+  setAvatarImage(imageUrl, name = null) {
+    if (this.animator && imageUrl) {
+      this.animator.setImage(imageUrl);
+    }
+    const nameEl = document.getElementById('alta-avatar-name');
+    if (nameEl && name) {
+      nameEl.textContent = name;
+    }
+  }
+
+  setThemeColor(color) {
+    if (this.animator && color) {
+      this.animator.setThemeColor(color);
+    }
   }
 
   setState(newState, statusMessage = null) {
     this.currentState = newState;
-    if (!this.coreWrapper) return;
+    if (this.animator) {
+      this.animator.setState(newState);
+    }
 
+    if (!this.coreWrapper) return;
     this.coreWrapper.classList.remove('state-idle', 'state-listening', 'state-thinking', 'state-speaking');
 
     switch (newState) {

@@ -1,14 +1,17 @@
 /**
- * Service de gestion audio, synthèse vocale et effets sonores (SFX).
+/**
+ * Service de gestion audio, synthèse vocale et analyseur de fréquences pour le Lip-Sync.
  */
 
 import { ApiService } from './api.js';
 
 export class AudioService {
-  constructor({ onSpeakingChange } = {}) {
+  constructor({ onSpeakingChange, onAnalyserReady } = {}) {
     this.onSpeakingChange = onSpeakingChange;
+    this.onAnalyserReady = onAnalyserReady;
     this.speechSynthesis = window.speechSynthesis;
     this.audioCtx = null;
+    this.analyser = null;
     this.isMuted = false;
     this.audioQueue = [];
     this.isPlayingQueue = false;
@@ -20,10 +23,22 @@ export class AudioService {
   initAudioContext() {
     try {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (AudioCtx) this.audioCtx = new AudioCtx();
+      if (AudioCtx) {
+        this.audioCtx = new AudioCtx();
+        this.analyser = this.audioCtx.createAnalyser();
+        this.analyser.fftSize = 256;
+        this.analyser.smoothingTimeConstant = 0.8;
+        if (this.onAnalyserReady) {
+          this.onAnalyserReady(this.analyser);
+        }
+      }
     } catch (e) {
       console.warn("AudioContext non disponible :", e);
     }
+  }
+
+  getAnalyser() {
+    return this.analyser;
   }
 
   playBeep(freq = 520, duration = 0.15) {
@@ -106,6 +121,20 @@ export class AudioService {
           const audioUrl = URL.createObjectURL(audioBlob);
           const player = new Audio(audioUrl);
           this.currentPlayer = player;
+
+          // Connexion au flux Web Audio pour le Lip-Sync
+          if (this.audioCtx && this.analyser) {
+            try {
+              if (this.audioCtx.state === 'suspended') {
+                await this.audioCtx.resume();
+              }
+              const source = this.audioCtx.createMediaElementSource(player);
+              source.connect(this.analyser);
+              this.analyser.connect(this.audioCtx.destination);
+            } catch (mediaErr) {
+              // Ignore si déjà routé
+            }
+          }
 
           await new Promise((resolve) => {
             player.onended = () => {

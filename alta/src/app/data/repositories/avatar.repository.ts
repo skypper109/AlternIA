@@ -6,9 +6,10 @@ import { CategorieMatiere, Matiere } from '../../core/enums';
 import { environment } from '../../../environments/environment';
 
 export const VOIX_DISPONIBLES: VoixPedagogique[] = [
-  { id: 'vivienne', nom: 'Vivienne (Neurale)', langue: 'Français', description: 'Voix chaleureuse, bienveillante et pédagogique', genre: 'feminin', audioPreviewUrl: '/api/studio-vocal/test-audio', actif: true, dateCreation: new Date() },
-  { id: 'remy', nom: 'Rémy', langue: 'Français', description: 'Voix posée, méthodique et scientifique', genre: 'masculin', audioPreviewUrl: '/api/studio-vocal/test-audio', actif: true, dateCreation: new Date() },
-  { id: 'denise', nom: 'Denise', langue: 'Français', description: 'Voix dynamique, littéraire et interactive', genre: 'feminin', audioPreviewUrl: '/api/studio-vocal/test-audio', actif: true, dateCreation: new Date() },
+  { id: 'vivienne', nom: 'Vivienne (Neurale Féminine)', langue: 'Français', description: 'Voix chaleureuse, posée et très explicite', genre: 'feminin', audioPreviewUrl: '/api/studio-vocal/test-audio', actif: true, dateCreation: new Date() },
+  { id: 'remy', nom: 'Dr. Rémy (Masculin)', langue: 'Français', description: 'Voix méthodique, scientifique et bienveillante', genre: 'masculin', audioPreviewUrl: '/api/studio-vocal/test-audio', actif: true, dateCreation: new Date() },
+  { id: 'denise', nom: 'Denise (Littéraire)', langue: 'Français', description: 'Voix dynamique, interactive et éloquente', genre: 'feminin', audioPreviewUrl: '/api/studio-vocal/test-audio', actif: true, dateCreation: new Date() },
+  { id: 'henri', nom: 'Henri (Académique)', langue: 'Français', description: 'Voix posée et solennelle pour les sciences humaines', genre: 'masculin', audioPreviewUrl: '/api/studio-vocal/test-audio', actif: true, dateCreation: new Date() },
 ];
 
 function parseMatiere(name: string): Matiere {
@@ -30,23 +31,31 @@ function parseMatiere(name: string): Matiere {
 export class AvatarRepository {
   private readonly http = inject(HttpClient);
 
+  private mapDtoToAvatar(item: any, index: number = 0): AvatarPedagogique {
+    return {
+      id: item.id,
+      nom: item.nom,
+      description: item.stylePedagogique || 'Tuteur pédagogique AlternIA',
+      matiere: parseMatiere(item.matiere),
+      categorie: CategorieMatiere.SCIENTIFIQUE,
+      imageUrl: item.photoUrl || `assets/avatars/${item.voixTts || 'vivienne'}.svg`,
+      voixId: item.voixTts || 'vivienne',
+      personnalite: item.stylePedagogique || 'Bienveillante et explicative',
+      actif: item.parDefaut ?? item.actif ?? true,
+      dateCreation: item.dateCreation ? new Date(item.dateCreation) : new Date(),
+      utilisations: 120 + index * 45,
+    };
+  }
+
   obtenirTousAvatars(): Observable<AvatarPedagogique[]> {
     return this.http.get<any[]>(`${environment.apiUrl}/avatars`).pipe(
-      map(list => {
-        return (list || []).map((item, index) => ({
-          id: item.id,
-          nom: item.nom,
-          description: item.stylePedagogique || 'Tuteur pédagogique AlternIA',
-          matiere: parseMatiere(item.matiere),
-          categorie: CategorieMatiere.SCIENTIFIQUE,
-          imageUrl: item.photoUrl || `assets/avatars/${item.voixTts || 'vivienne'}.svg`,
-          voixId: item.voixTts || 'vivienne',
-          personnalite: item.stylePedagogique || 'Bienveillante et explicative',
-          actif: item.actif ?? true,
-          dateCreation: new Date(),
-          utilisations: 120 + index * 45,
-        }));
-      })
+      map(list => (list || []).map((item, index) => this.mapDtoToAvatar(item, index)))
+    );
+  }
+
+  obtenirAvatarActif(): Observable<AvatarPedagogique> {
+    return this.http.get<any>(`${environment.apiUrl}/avatars/actif`).pipe(
+      map(item => this.mapDtoToAvatar(item, 0))
     );
   }
 
@@ -56,7 +65,48 @@ export class AvatarRepository {
     );
   }
 
+  uploaderPhotoAvatar(file: File): Observable<{ photoUrl: string; fileName: string }> {
+    const formData = new FormData();
+    formData.append('file', file, file.name);
+    return this.http.post<{ photoUrl: string; fileName: string }>(`${environment.apiUrl}/avatars/upload`, formData);
+  }
+
+  creerAvatar(data: {
+    nom: string;
+    matiere: string;
+    stylePedagogique?: string;
+    voixTts?: string;
+    photoUrl?: string;
+    parDefaut?: boolean;
+  }): Observable<AvatarPedagogique> {
+    return this.http.post<any>(`${environment.apiUrl}/avatars`, {
+      nom: data.nom,
+      matiere: data.matiere,
+      style_pedagogique: data.stylePedagogique || 'Bienveillant et interactif',
+      voix_tts: data.voixTts || 'vivienne',
+      photo_url: data.photoUrl || null,
+      par_defaut: data.parDefaut || false,
+    }).pipe(map(item => this.mapDtoToAvatar(item, 0)));
+  }
+
+  activerAvatar(avatarId: string): Observable<AvatarPedagogique> {
+    return this.http.put<any>(`${environment.apiUrl}/avatars/${avatarId}/activer`, {}).pipe(
+      map(item => this.mapDtoToAvatar(item, 0))
+    );
+  }
+
+  supprimerAvatar(avatarId: string): Observable<any> {
+    return this.http.delete<any>(`${environment.apiUrl}/avatars/${avatarId}`);
+  }
+
   obtenirToutesVoix(): Observable<VoixPedagogique[]> {
     return of(VOIX_DISPONIBLES);
+  }
+
+  testerAudio(phrase: string, voix: string): Observable<Blob> {
+    return this.http.post(`${environment.apiUrl}/studio-vocal/test-audio`, {
+      phrase,
+      voix,
+    }, { responseType: 'blob' });
   }
 }

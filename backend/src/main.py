@@ -33,6 +33,7 @@ from backend.src.routes import (
     parent_router,
     rapports_router,
     revision_router,
+    vocal_router,
 )
 
 
@@ -73,6 +74,7 @@ app.include_router(auth_router)
 app.include_router(boitiers_router)
 app.include_router(apprenants_router)
 app.include_router(avatars_router)
+app.include_router(vocal_router)
 app.include_router(alertes_router)
 app.include_router(insights_router)
 app.include_router(parent_router)

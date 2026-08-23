@@ -52,7 +52,7 @@ export class AlternIAApp {
     // 2. Moteur KaTeX
     this.katex = new KaTeXRenderer();
 
-    // 3. Moteur Audio & Synthèse Vocale
+    // 3. Moteur Audio & Synthèse Vocale avec analyseur FFT pour Lip-Sync
     this.audio = new AudioService({
       onSpeakingChange: (isSpeaking) => {
         if (isSpeaking) {
@@ -60,8 +60,13 @@ export class AlternIAApp {
         } else if (this.vortex.currentState === 'SPEAKING') {
           this.vortex.setState('IDLE');
         }
+      },
+      onAnalyserReady: (analyser) => {
+        this.vortex.setAudioAnalyser(analyser);
       }
     });
+
+    this.loadActiveAvatar();
 
     // 4. Moteur de Chat & Bulles
     this.chat = new ChatRenderer({
@@ -169,6 +174,22 @@ export class AlternIAApp {
   selectSubject(subjectId) {
     this.currentSubject = subjectId;
     this.curriculum.render(this.currentClass, this.currentSubject);
+
+    const colors = {
+      mathematiques: '#38BDF8',
+      physique: '#F59E0B',
+      chimie: '#10B981',
+      biologie: '#14B8A6',
+      svt: '#14B8A6',
+      francais: '#A855F7',
+      histoire_geo: '#F43F5E',
+      philosophie: '#8B5CF6',
+      anglais: '#06B6D4',
+      economie: '#EAB308',
+    };
+    if (this.vortex && colors[subjectId]) {
+      this.vortex.setThemeColor(colors[subjectId]);
+    }
   }
 
   askQuestion(text) {
@@ -284,6 +305,20 @@ export class AlternIAApp {
         followup: "Veux-tu que nous résolvions un exemple concret étape par étape ?"
       }, (f) => this.askQuestion(f));
       this.audio.speakText(answer);
+    }
+  }
+
+  async loadActiveAvatar() {
+    try {
+      const res = await fetch('/api/avatars/actif');
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.photoUrl) {
+          this.vortex.setAvatarImage(data.photoUrl, data.nom);
+        }
+      }
+    } catch (e) {
+      console.warn("Avatar par défaut conservé :", e);
     }
   }
 
