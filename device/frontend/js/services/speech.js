@@ -1,24 +1,32 @@
 /**
  * Service de reconnaissance vocale Speech-to-Text (STT) haute fidélité.
- * Mode continu interactif : Touchez pour parler, touchez pour terminer et poser la question.
+ * Hybride & 100% Résilient :
+ * 1. Web Speech API (transcription temps réel continue)
+ * 2. MediaRecorder local automatique vers /api/stt (si Web Speech indisponible ou hors-ligne)
+ * 3. Feedback visuel réactif en direct (VU-mètre vocal).
  */
 
 import { ApiService } from './api.js';
 
 export class SpeechService {
-  constructor({ onStart, onResult, onEnd, onError } = {}) {
+  constructor({ onStart, onResult, onEnd, onError, onAudioLevel } = {}) {
     this.onStart = onStart;
     this.onResult = onResult;
     this.onEnd = onEnd;
     this.onError = onError;
+    this.onAudioLevel = onAudioLevel;
 
     this.recognition = null;
     this.isRecording = false;
     this.currentTranscript = '';
     this.finalTranscriptAccumulated = '';
+
     this.mediaRecorder = null;
     this.audioChunks = [];
     this.stream = null;
+    this.audioCtx = null;
+    this.analyser = null;
+    this.animFrameId = null;
 
     this.initWebSpeech();
   }
@@ -29,48 +37,49 @@ export class SpeechService {
       try {
         this.recognition = new SpeechRecognition();
         this.recognition.lang = 'fr-FR';
-        this.recognition.continuous = true; // Permet de parler en continu
-        this.recognition.interimResults = true; // Transcription en temps réel
+        this.recognition.continuous = true;
+        this.recognition.interimResults = true;
+        this.recognition.maxAlternatives = 1;
 
         this.recognition.onstart = () => {
           this.isRecording = true;
-          this.currentTranscript = '';
-          this.finalTranscriptAccumulated = '';
-          if (this.onStart) this.onStart();
         };
 
         this.recognition.onresult = (event) => {
           let interimTranscript = '';
           let finalChunk = '';
           for (let i = event.resultIndex; i < event.results.length; ++i) {
+            const transcript = event.results[i][0].transcript;
             if (event.results[i].isFinal) {
-              finalChunk += event.results[i][0].transcript + ' ';
+              finalChunk += transcript + ' ';
             } else {
-              interimTranscript += event.results[i][0].transcript;
+              interimTranscript += transcript;
             }
           }
           if (finalChunk) {
             this.finalTranscriptAccumulated += finalChunk;
           }
           this.currentTranscript = (this.finalTranscriptAccumulated + interimTranscript).trim();
-          if (this.onResult) this.onResult(this.currentTranscript);
+          if (this.onResult && this.currentTranscript) {
+            this.onResult(this.currentTranscript);
+          }
         };
 
         this.recognition.onerror = (event) => {
-          console.warn('Web Speech status:', event.error);
-          if (event.error !== 'no-speech') {
-            if (this.onError) this.onError(event.error);
-          }
+          console.warn('Statut Web Speech :', event.error);
+          // Si Web Speech échoue (ex: Brave ou pas d'accès réseau), on continue l'enregistrement MediaRecorder
         };
 
-        this.recognition.onend = async () => {
+        this.recognition.onend = () => {
           if (this.isRecording) {
-            this.isRecording = false;
-            await this.finalizeRecording();
+            // Tentative de redémarrage si toujours en cours
+            try {
+              this.recognition.start();
+            } catch (e) {}
           }
         };
       } catch (e) {
-        console.warn("SpeechRecognition init error:", e);
+        console.warn("Web Speech API non disponible :", e);
       }
     }
   }
@@ -91,34 +100,90 @@ export class SpeechService {
 
     if (this.onStart) this.onStart();
 
-    // 1. Démarre Web Speech API
+    // 1. Toujours démarrer le micro matériel MediaRecorder + VU-mètre
+    try {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        this.stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            channelCount: 1,
+            sampleRate: 16000,
+            echoCancellation: true,
+            noiseSuppression: true
+          }
+        });
+
+        // VU-mètre audio en direct
+        this.setupAudioAnalyser(this.stream);
+
+        // Enregistreur audio matériel
+        let mimeType = 'audio/webm';
+        if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+          mimeType = 'audio/webm;codecs=opus';
+        } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+          mimeType = 'audio/mp4';
+        }
+
+        this.mediaRecorder = new MediaRecorder(this.stream, { mimeType });
+        this.mediaRecorder.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0) {
+            this.audioChunks.push(e.data);
+          }
+        };
+        this.mediaRecorder.start(250); // morceaux de 250ms
+      }
+    } catch (err) {
+      console.warn("Accès microphone refusé ou non supporté :", err);
+      if (this.onError) this.onError("Accès au microphone requis. Veuillez autoriser le micro dans le navigateur.");
+      this.isRecording = false;
+      return;
+    }
+
+    // 2. Démarrer Web Speech en parallèle pour le streaming texte instantané
     if (this.recognition) {
       try {
         this.recognition.start();
-        return;
       } catch (err) {
-        // Déjà démarré
+        // Déjà actif
       }
     }
+  }
 
-    // 2. Fallback MediaRecorder si Web Speech absent
+  setupAudioAnalyser(stream) {
     try {
-      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        this.mediaRecorder = new MediaRecorder(this.stream);
-        this.mediaRecorder.ondataavailable = (e) => {
-          if (e.data && e.data.size > 0) this.audioChunks.push(e.data);
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtx) {
+        this.audioCtx = new AudioCtx();
+        if (this.audioCtx.state === 'suspended') {
+          this.audioCtx.resume();
+        }
+        const source = this.audioCtx.createMediaStreamSource(stream);
+        this.analyser = this.audioCtx.createAnalyser();
+        this.analyser.fftSize = 256;
+        source.connect(this.analyser);
+
+        const dataArray = new Uint8Array(this.analyser.frequencyBinCount);
+        const checkLevel = () => {
+          if (!this.isRecording) return;
+          this.analyser.getByteFrequencyData(dataArray);
+          let sum = 0;
+          for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+          const avg = sum / dataArray.length / 255;
+          if (this.onAudioLevel) this.onAudioLevel(avg);
+          this.animFrameId = requestAnimationFrame(checkLevel);
         };
-        this.mediaRecorder.start();
+        this.animFrameId = requestAnimationFrame(checkLevel);
       }
-    } catch (err) {
-      console.warn("Microphone access:", err);
-    }
+    } catch (e) {}
   }
 
   async stop() {
     if (!this.isRecording) return;
     this.isRecording = false;
+
+    if (this.animFrameId) {
+      cancelAnimationFrame(this.animFrameId);
+      this.animFrameId = null;
+    }
 
     if (this.recognition) {
       try {
@@ -127,12 +192,21 @@ export class SpeechService {
     }
 
     if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
-      this.mediaRecorder.stop();
+      try {
+        this.mediaRecorder.stop();
+      } catch (e) {}
     }
 
     if (this.stream) {
       this.stream.getTracks().forEach(t => t.stop());
       this.stream = null;
+    }
+
+    if (this.audioCtx) {
+      try {
+        this.audioCtx.close();
+      } catch (e) {}
+      this.audioCtx = null;
     }
 
     await this.finalizeRecording();
@@ -141,15 +215,15 @@ export class SpeechService {
   async finalizeRecording() {
     let text = (this.finalTranscriptAccumulated + ' ' + this.currentTranscript).trim();
 
-    // Si Web Speech n'a rien renvoyé mais qu'on a des chunks MediaRecorder
+    // Si Web Speech n'a rien capté mais qu'on a des chunks MediaRecorder audio, envoyer au STT local
     if (!text && this.audioChunks.length > 0) {
       try {
-        const audioBlob = new Blob(this.audioChunks, { type: 'audio/wav' });
+        const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
         if (audioBlob.size > 2000) {
           text = await ApiService.transcribeAudioBlob(audioBlob);
         }
       } catch (e) {
-        console.warn("STT backend fallback error:", e);
+        console.warn("Erreur transcription locale :", e);
       }
     }
 
