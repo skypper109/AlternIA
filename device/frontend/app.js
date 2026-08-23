@@ -11,7 +11,7 @@ import { KaTeXRenderer } from './js/ui/katex-renderer.js';
 export class AlternIAApp {
   constructor() {
     this.currentClass = '10eme';
-    this.currentSubject = 'mathematiques';
+    this.currentSubject = null; // Auto-détection de matière par le RAG
     this.sessionId = 'kiosk_session_' + Date.now();
 
     this.initDOM();
@@ -61,15 +61,15 @@ export class AlternIAApp {
       }
     });
 
-    // 4. Moteur Speech-To-Text (Microphone)
+    // 4. Moteur Speech-To-Text (Microphone) avec mode interactif clic-pour-parler / clic-pour-finir
     this.speech = new SpeechService({
       onStart: () => {
         if (this.micBtn) this.micBtn.classList.add('is-recording');
-        this.vortex.setState('LISTENING', 'Je vous écoute...');
+        this.vortex.setState('LISTENING', 'Écoute en cours... (Touchez pour envoyer)');
         this.audio.playBeep(440, 0.1);
         if (this.studentQueryPreview) {
           this.studentQueryPreview.classList.remove('hidden');
-          if (this.studentQueryText) this.studentQueryText.textContent = "Écoute en cours...";
+          if (this.studentQueryText) this.studentQueryText.textContent = "Je vous écoute... Parlez au micro";
         }
       },
       onResult: (transcript) => {
@@ -102,7 +102,7 @@ export class AlternIAApp {
       };
     });
 
-    // Bouton Microphone
+    // Bouton Microphone : Touchez pour parler, retouchez pour envoyer la question
     if (this.micBtn) {
       this.micBtn.onclick = () => this.speech.toggle();
     }
@@ -184,7 +184,7 @@ export class AlternIAApp {
         }
       }
     } catch (e) {
-      console.warn("Avatar chargé par défaut :", e);
+      console.warn("Avatar actif chargé :", e);
     }
   }
 
@@ -221,7 +221,7 @@ export class AlternIAApp {
     const streamSuccess = await ApiService.streamChat({
       question,
       studentClass: this.currentClass,
-      subject: this.currentSubject,
+      subject: this.currentSubject, // null => auto-détection multi-matières (SVT, Maths, Physique, etc.)
       sessionId: this.sessionId,
       onChunk: (chunk) => {
         fullText += chunk;

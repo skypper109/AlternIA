@@ -1,8 +1,6 @@
 /**
-/**
  * Service de reconnaissance vocale Speech-to-Text (STT) haute fidélité.
- * Utilise la Web Speech API native du navigateur (Chrome / Safari / Edge / Android)
- * pour une réactivité instantanée à latence zéro, avec fallback local sécurisé.
+ * Mode continu interactif : Touchez pour parler, touchez pour terminer et poser la question.
  */
 
 import { ApiService } from './api.js';
@@ -17,6 +15,7 @@ export class SpeechService {
     this.recognition = null;
     this.isRecording = false;
     this.currentTranscript = '';
+    this.finalTranscriptAccumulated = '';
     this.mediaRecorder = null;
     this.audioChunks = [];
     this.stream = null;
@@ -30,21 +29,30 @@ export class SpeechService {
       try {
         this.recognition = new SpeechRecognition();
         this.recognition.lang = 'fr-FR';
-        this.recognition.continuous = false;
-        this.recognition.interimResults = true;
+        this.recognition.continuous = true; // Permet de parler en continu
+        this.recognition.interimResults = true; // Transcription en temps réel
 
         this.recognition.onstart = () => {
           this.isRecording = true;
           this.currentTranscript = '';
+          this.finalTranscriptAccumulated = '';
           if (this.onStart) this.onStart();
         };
 
         this.recognition.onresult = (event) => {
-          let transcript = '';
+          let interimTranscript = '';
+          let finalChunk = '';
           for (let i = event.resultIndex; i < event.results.length; ++i) {
-            transcript += event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+              finalChunk += event.results[i][0].transcript + ' ';
+            } else {
+              interimTranscript += event.results[i][0].transcript;
+            }
           }
-          this.currentTranscript = transcript.trim();
+          if (finalChunk) {
+            this.finalTranscriptAccumulated += finalChunk;
+          }
+          this.currentTranscript = (this.finalTranscriptAccumulated + interimTranscript).trim();
           if (this.onResult) this.onResult(this.currentTranscript);
         };
 
@@ -78,17 +86,18 @@ export class SpeechService {
   async start() {
     this.isRecording = true;
     this.currentTranscript = '';
+    this.finalTranscriptAccumulated = '';
     this.audioChunks = [];
 
     if (this.onStart) this.onStart();
 
-    // 1. Démarre Web Speech si disponible
+    // 1. Démarre Web Speech API
     if (this.recognition) {
       try {
         this.recognition.start();
         return;
       } catch (err) {
-        // Déjà démarré ou fallback
+        // Déjà démarré
       }
     }
 
@@ -130,9 +139,9 @@ export class SpeechService {
   }
 
   async finalizeRecording() {
-    let text = this.currentTranscript.trim();
+    let text = (this.finalTranscriptAccumulated + ' ' + this.currentTranscript).trim();
 
-    // Si Web Speech n'a pas capté et qu'on a des chunks MediaRecorder
+    // Si Web Speech n'a rien renvoyé mais qu'on a des chunks MediaRecorder
     if (!text && this.audioChunks.length > 0) {
       try {
         const audioBlob = new Blob(this.audioChunks, { type: 'audio/wav' });
@@ -140,7 +149,7 @@ export class SpeechService {
           text = await ApiService.transcribeAudioBlob(audioBlob);
         }
       } catch (e) {
-        console.warn("STT backend error:", e);
+        console.warn("STT backend fallback error:", e);
       }
     }
 
