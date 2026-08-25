@@ -77,7 +77,7 @@ class ContextBuilder:
 
             result_subject = str(payload.get("subject", "")).strip().lower()
 
-            # Compatibilité étendue des matières (les manuels de 10ème sont souvent catégorisés 'sciences')
+            # Compatibilité étendue des matières
             if subject is not None:
                 subj_norm = str(subject).strip().lower()
                 subject_compatibility = {
@@ -89,10 +89,10 @@ class ContextBuilder:
                     "biologie": {"biologie", "svt", "sciences", "autre", ""},
                     "svt": {"biologie", "svt", "sciences", "autre", ""},
                     "sciences": {"sciences", "mathematiques", "physique", "chimie", "biologie", "svt", "autre", ""},
-                    "francais": {"francais", "lettres", "litterature", "linguistique", "autre", ""},
-                    "philosophie": {"philosophie", "lettres", "autre", ""},
-                    "histoire": {"histoire", "geographie", "histoire-geo", "autre", ""},
-                    "geographie": {"geographie", "histoire", "histoire-geo", "geologie", "autre", ""},
+                    "francais": {"francais", "lettres", "litterature", "linguistique", "histoire", "philosophie", "autre", ""},
+                    "philosophie": {"philosophie", "lettres", "francais", "autre", ""},
+                    "histoire": {"histoire", "geographie", "histoire-geo", "francais", "autre", ""},
+                    "geographie": {"geographie", "histoire", "histoire-geo", "geologie", "sciences", "autre", ""},
                     "economie": {"economie", "seco", "comptabilite", "autre", ""},
                     "comptabilite": {"comptabilite", "economie", "seco", "autre", ""},
                     "linguistique": {"linguistique", "francais", "lettres", "autre", ""},
@@ -100,8 +100,8 @@ class ContextBuilder:
                     "anglais": {"anglais", "langues", "autre", ""},
                 }
 
-                allowed_subj = subject_compatibility.get(subj_norm, {subj_norm, "sciences", "autre", ""})
-                if result_subject and result_subject not in allowed_subj:
+                allowed_subj = subject_compatibility.get(subj_norm, {subj_norm, "sciences", "francais", "autre", ""})
+                if result_subject and result_subject not in allowed_subj and float(getattr(result, "score", 0.0)) < 0.60:
                     continue
 
             score = float(

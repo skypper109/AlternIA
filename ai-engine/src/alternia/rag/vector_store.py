@@ -94,6 +94,28 @@ def is_chunk_allowed(
     return False
 
 
+SUBJECT_SYNONYMS = {
+    "biologie": {"biologie", "svt", "sciences"},
+    "svt": {"biologie", "svt", "sciences"},
+    "physique": {"physique", "chimie", "physique-chimie", "sciences"},
+    "chimie": {"physique", "chimie", "physique-chimie", "sciences"},
+    "physique-chimie": {"physique", "chimie", "physique-chimie", "sciences"},
+    "mathematiques": {"mathematiques", "maths", "sciences"},
+    "maths": {"mathematiques", "maths", "sciences"},
+    "francais": {"francais", "lettres", "litterature", "linguistique"},
+    "lettres": {"francais", "lettres", "litterature", "linguistique"},
+    "litterature": {"francais", "lettres", "litterature", "linguistique"},
+    "histoire": {"histoire", "geographie", "histoire-geo", "ecm"},
+    "geographie": {"histoire", "geographie", "histoire-geo"},
+    "histoire-geo": {"histoire", "geographie", "histoire-geo"},
+    "economie": {"economie", "comptabilite"},
+    "comptabilite": {"economie", "comptabilite"},
+    "philosophie": {"philosophie", "lettres"},
+    "anglais": {"anglais", "langues"},
+    "droit": {"droit", "ecm", "economie"},
+}
+
+
 class LocalVectorStore:
     """
     Stockage vectoriel local persistant d'AlternIA avec partitionnement hiérarchique de classe.
@@ -196,18 +218,19 @@ class LocalVectorStore:
             ):
                 continue
 
-            # 2. Filtrage matière
+            # 2. Filtrage matière tolérant
             if subject is not None:
-                s_subj = getattr(subject, "value", str(subject)).lower()
-                c_subj = getattr(document.subject, "value", str(document.subject)).lower() if document.subject else ""
-                if s_subj != c_subj:
+                s_subj = getattr(subject, "value", str(subject)).lower().strip()
+                c_subj = getattr(document.subject, "value", str(document.subject)).lower().strip() if document.subject else ""
+                allowed_subjects = SUBJECT_SYNONYMS.get(s_subj, {s_subj})
+                if c_subj and c_subj not in allowed_subjects and s_subj not in {"general", "generale", "toutes", "all", "autre", "none", ""}:
                     continue
 
             matched_records.append(document)
             vectors.append(record.vector)
 
-        # Si aucun chunk ne correspond à la matière exacte, chercher dans les autres matières
-        # autorisées de la même classe ou inférieure (JAMAIS dans une classe supérieure)
+        # Si aucun chunk ne correspond avec le filtre strict de matière,
+        # fallback sur la même classe/série sans filtre de matière
         if allow_fallback and len(matched_records) == 0:
             for record in self.records:
                 doc = record.document
@@ -219,6 +242,13 @@ class LocalVectorStore:
                 ):
                     matched_records.append(doc)
                     vectors.append(record.vector)
+
+        # Si toujours aucun chunk (ex: notion transversale présente dans une autre classe),
+        # fallback sur l'ensemble de la base documentaire pour ne jamais bloquer l'élève
+        if allow_fallback and len(matched_records) == 0:
+            for record in self.records:
+                matched_records.append(record.document)
+                vectors.append(record.vector)
 
         if not matched_records:
             dt = time.perf_counter() - t0

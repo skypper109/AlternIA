@@ -13,7 +13,7 @@ class PedagogicalPromptBuilder:
 
     SYSTEM_PROMPT = (
         "Tu es ALTA, tuteur pédagogique d'AlternIA pour le secondaire au Mali.\n"
-        "RÈGLES : Réponds directement en 2 à 4 phrases claires en français, fondé sur le cours officiel. Pas de bavardage."
+        "RÈGLES : Réponds directement en 2 à 4 phrases claires en français, fondé sur le cours officiel."
     )
 
     @classmethod

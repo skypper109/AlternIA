@@ -95,22 +95,12 @@ def chat_endpoint(req: ChatRequest):
         except Exception:
             context = None
 
-    # ----------------------------------------------------------------
-    # DOUBLE GUARD hors-programme :
-    #   1. Aucune source trouvée
-    #   2. Sources trouvées mais score max trop faible (mauvaise matière)
-    # ----------------------------------------------------------------
-    if req.enable_rag and orch.rag_service:
-        sources_list = getattr(context, "sources", []) if context else []
-        _max_score = max(
-            (getattr(s, "score", 0.0) for s in sources_list),
-            default=0.0,
-        )
-        if len(sources_list) == 0 or _max_score < 0.40:
-            return _make_no_context_response(
-                subject=effective_subject,
-                student_class=norm_class,
-            )
+    # Filtrage des sources RAG non pertinentes
+    if context and hasattr(context, "sources"):
+        sources_list = getattr(context, "sources", [])
+        _max_score = max((getattr(s, "score", 0.0) for s in sources_list), default=0.0)
+        if len(sources_list) == 0 or _max_score < 0.35:
+            context = None
 
     # Exécution du pipeline
     result = orch.ask(
@@ -217,46 +207,13 @@ async def chat_stream_endpoint(req: ChatRequest):
                 "score": float(getattr(s, "score", 0.0)),
             })
 
-    # ----------------------------------------------------------------
-    # DOUBLE GUARD hors-programme (stream) : identique à l'endpoint non-streamé.
-    # ----------------------------------------------------------------
-    if req.enable_rag and orch.rag_service:
-        sources_list = getattr(context, "sources", []) if context else []
-        _max_score = max(
-            (getattr(s, "score", 0.0) for s in sources_list),
-            default=0.0,
-        )
-        if len(sources_list) == 0 or _max_score < 0.40:
-            subject_label = effective_subject or "la matière sélectionnée"
-            refusal_text = (
-                f"Je n'ai pas trouvé d'information sur ce sujet dans le programme officiel "
-                f"de {norm_class} pour {subject_label}. "
-                f"Pose-moi une question sur {subject_label} conforme au programme de ta classe "
-                f"pour que je puisse t'aider."
-            )
-
-            async def refusal_sse() -> AsyncIterator[str]:
-                payload = json.dumps({"chunk": refusal_text, "done": False}, ensure_ascii=False)
-                yield f"data: {payload}\n\n"
-                final = json.dumps({
-                    "chunk": "",
-                    "done": True,
-                    "full_text": refusal_text,
-                    "student_class": norm_class,
-                    "sources": [],
-                    "out_of_scope": True,
-                }, ensure_ascii=False)
-                yield f"data: {final}\n\n"
-
-            return StreamingResponse(
-                refusal_sse(),
-                media_type="text/event-stream",
-                headers={
-                    "Cache-Control": "no-cache",
-                    "Connection": "keep-alive",
-                    "X-Accel-Buffering": "no",
-                },
-            )
+    # Filtrage des sources RAG non pertinentes
+    if context and hasattr(context, "sources"):
+        sources_list = getattr(context, "sources", [])
+        _max_score = max((getattr(s, "score", 0.0) for s in sources_list), default=0.0)
+        if len(sources_list) == 0 or _max_score < 0.35:
+            context = None
+            formatted_sources = []
 
     generator = orch.ask_stream(
         question=req.question,
