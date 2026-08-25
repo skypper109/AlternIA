@@ -66,22 +66,25 @@ def chat_endpoint(req: ChatRequest):
     norm_class = normalize_student_class(req.student_class)
     session_id = req.session_id or f"session_{req.student_id}"
 
-    print(f"\n\033[36m⏱️  [chat_routes.py]\033[0m Requête API reçue : \"{req.question}\" (Classe: {norm_class}, Élève: {req.student_id})")
+    # Extraction de la véritable question coeur débarrassée des préambules oraux/conversationnels
+    core_question = QueryContextualizer.extract_core_question(req.question)
+
+    print(f"\n\033[36m⏱️  [chat_routes.py]\033[0m Requête API reçue : \"{req.question}\" -> Question coeur : \"{core_question}\" (Classe: {norm_class})")
 
     # Détection automatique de matière selon le programme malien si mode général
     effective_subject = req.subject
     if effective_subject in {None, "", "général", "general", "toutes", "tous"}:
-        effective_subject = detect_malian_curriculum_subject(req.question)
+        effective_subject = detect_malian_curriculum_subject(core_question)
 
     # Contexte RAG avec contextualisation multi-tours
     context = None
     if req.enable_rag and orch.rag_service:
-        rag_query = req.question
+        rag_query = core_question
         session = orch.conversation_manager.get(session_id)
         if session and session.messages:
             student_past_msgs = [m.content for m in session.messages if m.role == "student"]
             rag_query = QueryContextualizer.contextualize(
-                current_question=req.question,
+                current_question=core_question,
                 past_student_messages=student_past_msgs,
                 current_topic=getattr(session, "current_topic", None),
             )
@@ -104,7 +107,7 @@ def chat_endpoint(req: ChatRequest):
 
     # Exécution du pipeline
     result = orch.ask(
-        question=req.question,
+        question=core_question,
         context=context,
         student_class=norm_class,
         subject=effective_subject,
@@ -165,22 +168,25 @@ async def chat_stream_endpoint(req: ChatRequest):
     norm_class = normalize_student_class(req.student_class)
     session_id = req.session_id or f"session_{req.student_id}"
 
-    print(f"\n\033[36m⏱️  [chat_routes.py]\033[0m Requête SSE reçue : \"{req.question}\" (Classe: {norm_class}, Élève: {req.student_id})")
+    # Extraction de la véritable question coeur débarrassée des préambules oraux/conversationnels
+    core_question = QueryContextualizer.extract_core_question(req.question)
+
+    print(f"\n\033[36m⏱️  [chat_routes.py]\033[0m Requête SSE reçue : \"{req.question}\" -> Question coeur : \"{core_question}\" (Classe: {norm_class})")
 
     # Détection automatique de matière selon le programme malien si mode général
     effective_subject = req.subject
     if effective_subject in {None, "", "général", "general", "toutes", "tous"}:
-        effective_subject = detect_malian_curriculum_subject(req.question)
+        effective_subject = detect_malian_curriculum_subject(core_question)
 
     # Contexte RAG avec contextualisation multi-tours
     context = None
     if req.enable_rag and orch.rag_service:
-        rag_query = req.question
+        rag_query = core_question
         session = orch.conversation_manager.get(session_id)
         if session and session.messages:
             student_past_msgs = [m.content for m in session.messages if m.role == "student"]
             rag_query = QueryContextualizer.contextualize(
-                current_question=req.question,
+                current_question=core_question,
                 past_student_messages=student_past_msgs,
                 current_topic=getattr(session, "current_topic", None),
             )
@@ -216,7 +222,7 @@ async def chat_stream_endpoint(req: ChatRequest):
             formatted_sources = []
 
     generator = orch.ask_stream(
-        question=req.question,
+        question=core_question,
         context=context,
         student_class=norm_class,
         subject=effective_subject,
