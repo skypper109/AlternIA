@@ -54,7 +54,8 @@ export class AlternIAApp {
       canvasId: 'main-animated-logo-canvas',
       statusTextId: 'status-text',
       statusDotId: 'status-dot',
-      defaultImageUrl: 'assets/logo-icon.jpeg'
+      defaultImageUrl: 'assets/logo-icon.jpeg',
+      isLogoMode: true
     });
 
     // 2. Moteur KaTeX

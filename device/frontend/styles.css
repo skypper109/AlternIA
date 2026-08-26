@@ -33,36 +33,58 @@ html, body {
   flex-direction: column;
 }
 
-/* ── Ambiance Lumineuse Délicate ──────────────────────────── */
+/* ── Ambiance Lumineuse Délicate (Premium Gradient) ──────────── */
 .ambient-glow-layer {
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: 0;
   overflow: hidden;
+  background: radial-gradient(circle at center, transparent 0%, rgba(253, 251, 247, 0.4) 100%);
 }
 
 .ambient-orb {
   position: absolute;
   border-radius: 50%;
-  filter: blur(100px);
-  opacity: 0.15;
+  filter: blur(120px);
+  opacity: 0.18;
+  animation: orbFloat 20s infinite alternate ease-in-out;
+}
+
+@keyframes orbFloat {
+  0% { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(30px, 40px) scale(1.1); }
 }
 
 .orb-primary {
-  width: 500px;
-  height: 500px;
-  background: #314999;
-  top: -120px;
-  left: -120px;
+  width: 600px;
+  height: 600px;
+  background: linear-gradient(135deg, #314999 0%, rgba(49,73,153,0.3) 100%);
+  top: -150px;
+  left: -150px;
 }
 
 .orb-innovation {
-  width: 450px;
-  height: 450px;
-  background: #0284C7;
-  bottom: -120px;
-  right: -120px;
+  width: 550px;
+  height: 550px;
+  background: linear-gradient(135deg, #0284C7 0%, rgba(2,132,199,0.3) 100%);
+  bottom: -150px;
+  right: -150px;
+}
+
+/* Scrollbar Stylisée (App-like) */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(49, 73, 153, 0.15);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(49, 73, 153, 0.3);
 }
 
 /* ── 1. Topbar Épurée ─────────────────────────────────────── */
@@ -97,18 +119,19 @@ html, body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 6px 20px;
+  padding: 8px 24px;
   border-radius: 9999px;
   border: 1px solid transparent;
   background: transparent;
   color: #64748B;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .class-tab-btn:hover {
   color: #1E293B;
-  background: rgba(0, 0, 0, 0.03);
+  background: rgba(49, 73, 153, 0.04);
+  transform: translateY(-2px);
 }
 
 .class-tab-btn.class-tab--active {
@@ -178,13 +201,13 @@ html, body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--color-border);
-  border-radius: 28px;
-  padding: 24px 20px;
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.05);
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 36px;
+  padding: 32px 24px;
+  box-shadow: 0 20px 40px -10px rgba(49, 73, 153, 0.08), inset 0 0 0 1px rgba(255, 255, 255, 0.5);
 }
 
 .logo-animation-wrapper {
@@ -238,24 +261,31 @@ html, body {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
-/* Gros Bouton Microphone Tactile */
+/* Gros Bouton Microphone Tactile (Appealing) */
 .kiosk-mic-btn {
-  width: 76px;
-  height: 76px;
+  width: 84px;
+  height: 84px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #F1851F 0%, #D97316 100%);
-  border: 3px solid rgba(255, 255, 255, 0.25);
-  box-shadow: 0 8px 24px rgba(241, 133, 31, 0.45);
+  background: linear-gradient(135deg, #F1851F 0%, #E06C0C 100%);
+  border: 4px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 12px 28px rgba(241, 133, 31, 0.4), 0 0 0 0 rgba(241, 133, 31, 0.2);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation: micIdlePulse 3s infinite;
+}
+
+@keyframes micIdlePulse {
+  0% { box-shadow: 0 12px 28px rgba(241, 133, 31, 0.4), 0 0 0 0 rgba(241, 133, 31, 0.2); }
+  50% { box-shadow: 0 12px 28px rgba(241, 133, 31, 0.4), 0 0 0 16px rgba(241, 133, 31, 0); }
+  100% { box-shadow: 0 12px 28px rgba(241, 133, 31, 0.4), 0 0 0 0 rgba(241, 133, 31, 0); }
 }
 
 .kiosk-mic-btn:hover {
   transform: scale(1.08);
-  box-shadow: 0 12px 32px rgba(241, 133, 31, 0.6);
+  box-shadow: 0 16px 36px rgba(241, 133, 31, 0.6);
 }
 
 .kiosk-mic-btn:active,
@@ -282,16 +312,16 @@ html, body {
 
 .speech-bubble-card {
   flex: 1;
-  background: rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--color-border);
-  border-radius: 28px;
-  padding: 24px 28px;
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 36px;
+  padding: 32px 36px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 20px 40px -10px rgba(49, 73, 153, 0.06), inset 0 0 0 1px rgba(255, 255, 255, 0.5);
   min-height: 0;
 }
 
@@ -317,21 +347,23 @@ html, body {
 }
 
 .student-query-box {
-  background: rgba(241, 133, 31, 0.08);
+  background: linear-gradient(135deg, rgba(241, 133, 31, 0.08) 0%, rgba(241, 133, 31, 0.12) 100%);
   border: 1px solid rgba(241, 133, 31, 0.2);
-  border-radius: 14px;
-  padding: 10px 16px;
-  margin-bottom: 16px;
+  border-radius: 16px;
+  padding: 12px 20px;
+  margin-bottom: 24px;
   flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(241, 133, 31, 0.05);
 }
 
 .speech-content-area {
   flex: 1;
   overflow-y: auto;
-  padding-right: 8px;
-  font-size: 17px;
-  line-height: 1.7;
-  color: #1E293B;
+  padding-right: 12px;
+  font-size: 1.15rem; /* Slightly larger, more readable */
+  line-height: 1.8;
+  color: #0F172A;
+  font-weight: 500;
 }
 
 .speech-welcome-text {

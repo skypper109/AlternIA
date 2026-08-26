@@ -13,6 +13,7 @@ export class DeviceAvatarAnimator {
 
     this.ctx = this.canvas.getContext('2d', { alpha: true });
     this.themeColor = options.themeColor || '#0284C7';
+    this.isLogoMode = options.isLogoMode || false;
     this.state = 'IDLE'; // 'IDLE' | 'LISTENING' | 'THINKING' | 'SPEAKING'
 
     // Image principale (fallback si pas de visèmes)
@@ -324,7 +325,7 @@ export class DeviceAvatarAnimator {
       this.drawPlaceholder(size);
     }
 
-    if (blinkValue > 0.04) {
+    if (!this.isLogoMode && blinkValue > 0.04) {
       this.renderNaturalBlink(size, blinkValue);
     }
 
@@ -368,7 +369,7 @@ export class DeviceAvatarAnimator {
     const img = this.image;
     const half = size / 2;
     const breathScale = 1.0 + Math.sin(this.breathCycle) * 0.005;
-    const speechScale = 1.0 + this.mouthOpenness * 0.008;
+    const speechScale = this.isLogoMode ? 1.0 : (1.0 + this.mouthOpenness * 0.008);
     const totalScale = breathScale * speechScale;
 
     this.ctx.save();
@@ -410,7 +411,7 @@ export class DeviceAvatarAnimator {
     this.ctx.arc(cx, cy, r, 0, Math.PI * 2);
     this.ctx.fill();
 
-    if (this.state === 'SPEAKING' || energy > 0.03) {
+    if (!this.isLogoMode && (this.state === 'SPEAKING' || energy > 0.03)) {
       const bars = 28;
       this.ctx.strokeStyle = this.themeColor;
       this.ctx.lineWidth = 2.2;
