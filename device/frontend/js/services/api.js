@@ -60,7 +60,8 @@ export class ApiService {
   static async transcribeAudioBlob(audioBlob) {
     try {
       const formData = new FormData();
-      formData.append('audio', audioBlob, 'recording.wav');
+      const ext = (audioBlob.type && audioBlob.type.includes('webm')) ? 'webm' : ((audioBlob.type && audioBlob.type.includes('mp4')) ? 'mp4' : 'wav');
+      formData.append('audio', audioBlob, `recording.${ext}`);
       formData.append('language', 'fr');
       const res = await fetch(`${API_BASE_URL}/api/stt`, {
         method: 'POST',

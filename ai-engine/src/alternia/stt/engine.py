@@ -52,6 +52,7 @@ class STTEngine:
         self._is_recording = False
         self._audio_frames: list[np.ndarray] = []
         self._record_thread: Optional[threading.Thread] = None
+        self._lock = threading.Lock()
 
     def _get_whisper_model(self):
         """Initialise de façon paresseuse le modèle Faster-Whisper."""
@@ -221,17 +222,18 @@ class STTEngine:
             else:
                 return ""
 
-            segments, info = model.transcribe(
-                input_source,
-                language=lang,
-                beam_size=1,
-                vad_filter=False,
-            )
+            with self._lock:
+                segments, info = model.transcribe(
+                    input_source,
+                    language=lang,
+                    beam_size=1,
+                    vad_filter=False,
+                )
 
-            text_parts = [segment.text.strip() for segment in segments]
-            full_text = " ".join(text_parts).strip()
-            logger.info(f"📝 Transcription STT : '{full_text}' (prob={info.language_probability:.2f})")
-            return full_text
+                text_parts = [segment.text.strip() for segment in segments]
+                full_text = " ".join(text_parts).strip()
+                logger.info(f"📝 Transcription STT : '{full_text}' (prob={info.language_probability:.2f})")
+                return full_text
 
         except Exception as exc:
             logger.error(f"Erreur transcription Whisper : {exc}")
