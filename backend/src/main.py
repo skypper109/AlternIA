@@ -67,6 +67,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.middleware("http")
+async def disable_cache_for_kiosk(request, call_next):
+    """Désactive le cache navigateur pour l'interface de développement Kiosk."""
+    response = await call_next(request)
+    if request.url.path.startswith(("/device", "/app", "/kiosk")):
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
+
 # Inclusion des routeurs modulaires
 app.include_router(device_router)
 app.include_router(chat_router)
