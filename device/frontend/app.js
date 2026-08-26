@@ -34,14 +34,27 @@ export class AlternIAApp {
     this.classSublabel = document.getElementById('alta-class-sublabel');
 
     this.classTabs = document.querySelectorAll('.class-tab-btn');
+
+    this.btnShowAvatar = document.getElementById('btn-show-avatar');
+    this.btnCloseAvatar = document.getElementById('btn-close-avatar');
+    this.avatarModal = document.getElementById('avatar-fullscreen-modal');
+    this.avatarTranscription = document.getElementById('avatar-fullscreen-transcription');
   }
 
   initModules() {
-    // 1. UI Vortex & Avatar 2.5D
+    // 1. UI Vortex & Avatar 2.5D (Modal)
     this.vortex = new VortexUI({
       canvasId: 'alta-avatar-canvas',
+      statusTextId: null, // Le modal n'a pas besoin du texte de statut
+      statusDotId: null,
+    });
+
+    // 1b. UI Vortex & Avatar 2.5D (Logo Principal)
+    this.logoVortex = new VortexUI({
+      canvasId: 'main-animated-logo-canvas',
       statusTextId: 'status-text',
       statusDotId: 'status-dot',
+      defaultImageUrl: 'assets/logo-icon.jpeg'
     });
 
     // 2. Moteur KaTeX
@@ -52,12 +65,15 @@ export class AlternIAApp {
       onSpeakingChange: (isSpeaking) => {
         if (isSpeaking) {
           this.vortex.setState('SPEAKING', 'Enseignant explique...');
+          this.logoVortex.setState('SPEAKING', 'Enseignant explique...');
         } else if (this.vortex.currentState === 'SPEAKING') {
           this.vortex.setState('IDLE', 'Prêt à répondre');
+          this.logoVortex.setState('IDLE', 'Prêt à répondre');
         }
       },
       onAnalyserReady: (analyser) => {
         this.vortex.setAudioAnalyser(analyser);
+        this.logoVortex.setAudioAnalyser(analyser);
       }
     });
 
@@ -65,7 +81,8 @@ export class AlternIAApp {
     this.speech = new SpeechService({
       onStart: () => {
         if (this.micBtn) this.micBtn.classList.add('is-recording');
-        this.vortex.setState('LISTENING', 'Écoute en cours... (Touchez pour envoyer)');
+        this.vortex.setState('LISTENING', 'Écoute en cours...');
+        this.logoVortex.setState('LISTENING', 'Écoute en cours...');
         this.audio.playBeep(440, 0.1);
         if (this.studentQueryPreview) {
           this.studentQueryPreview.classList.remove('hidden');
@@ -84,11 +101,13 @@ export class AlternIAApp {
           this.submitQuestion(text);
         } else {
           this.vortex.setState('IDLE', 'Prêt à répondre');
+          this.logoVortex.setState('IDLE', 'Prêt à répondre');
         }
       },
       onError: () => {
         if (this.micBtn) this.micBtn.classList.remove('is-recording');
         this.vortex.setState('IDLE', 'Prêt à répondre');
+        this.logoVortex.setState('IDLE', 'Prêt à répondre');
       }
     });
   }
@@ -133,13 +152,32 @@ export class AlternIAApp {
         if (this.speechContentArea) {
           this.speechContentArea.innerHTML = `
             <div class="speech-welcome-text">
-              <p class="text-base text-slate-200 leading-relaxed">
+              <p class="text-base text-slate-600 leading-relaxed">
                 Session réinitialisée. Posez une nouvelle question au micro ou par écrit.
               </p>
             </div>
           `;
         }
         this.vortex.setState('IDLE', 'Prêt à répondre');
+        this.logoVortex.setState('IDLE', 'Prêt à répondre');
+      };
+    }
+
+    // Modal Avatar Plein Écran
+    if (this.btnShowAvatar) {
+      this.btnShowAvatar.onclick = () => {
+        if (this.avatarModal) {
+          this.avatarModal.classList.remove('hidden');
+          // Débloquer audio context
+          if (this.audio && this.audio.audioCtx && this.audio.audioCtx.state === 'suspended') {
+            this.audio.audioCtx.resume();
+          }
+        }
+      };
+    }
+    if (this.btnCloseAvatar) {
+      this.btnCloseAvatar.onclick = () => {
+        if (this.avatarModal) this.avatarModal.classList.add('hidden');
       };
     }
 
@@ -164,6 +202,11 @@ export class AlternIAApp {
       }
     });
 
+    // Débloquer l'AudioContext lors du clic
+    if (this.audio && this.audio.audioCtx && this.audio.audioCtx.state === 'suspended') {
+      this.audio.audioCtx.resume();
+    }
+
     const labels = {
       '10eme': '10ème Année (Tronc Commun)',
       '11eme': '11ème Année (Sciences & Lettres)',
@@ -171,6 +214,15 @@ export class AlternIAApp {
     };
     if (this.classSublabel) {
       this.classSublabel.textContent = labels[classId] || 'Programme Lycée Mali';
+    }
+
+    const vocalLabels = {
+      '10eme': 'dixième année',
+      '11eme': 'onzième année',
+      '12eme': 'classe de terminale'
+    };
+    if (vocalLabels[classId]) {
+      this.audio.speakText(`Tu as sélectionné la ${vocalLabels[classId]}.`);
     }
   }
 
@@ -180,12 +232,17 @@ export class AlternIAApp {
       if (res.ok) {
         const data = await res.json();
         if (data && data.photoUrl) {
-          this.vortex.setAvatarImage(data.photoUrl, data.nom);
+          this.vortex.setAvatarImage(data.photoUrl, data.nom, data.landmarks);
         }
       }
     } catch (e) {
       console.warn("Avatar actif chargé :", e);
     }
+    
+    // Message de bienvenue
+    setTimeout(() => {
+      this.audio.speakText("Bonjour ! Je suis AlternIA, ton assistant pédagogique. Choisis ta classe et pose-moi tes questions.");
+    }, 1000);
   }
 
   async submitQuestion(questionText) {
@@ -194,6 +251,11 @@ export class AlternIAApp {
 
     if (this.questionInput) this.questionInput.value = '';
     this.audio.stop();
+    
+    // Débloquer l'AudioContext immédiatement sur l'interaction utilisateur pour éviter le blocage Autoplay (TTS)
+    if (this.audio.audioCtx && this.audio.audioCtx.state === 'suspended') {
+      this.audio.audioCtx.resume();
+    }
 
     if (this.studentQueryPreview) {
       this.studentQueryPreview.classList.remove('hidden');
@@ -201,6 +263,7 @@ export class AlternIAApp {
     }
 
     this.vortex.setState('THINKING', 'Consultation du RAG malien...');
+    this.logoVortex.setState('THINKING', 'Consultation du RAG malien...');
 
     // Préparation de la zone d'explication
     if (this.speechContentArea) {
@@ -228,6 +291,10 @@ export class AlternIAApp {
         if (this.speechContentArea) {
           this.speechContentArea.innerHTML = `<div class="formatted-text">${this.formatMarkdownText(fullText)}</div>`;
           this.katex.renderFormulasInElement(this.speechContentArea);
+        }
+        if (this.avatarTranscription) {
+          this.avatarTranscription.innerHTML = this.formatMarkdownText(fullText);
+          this.katex.renderFormulasInElement(this.avatarTranscription);
         }
 
         sentenceBuffer += chunk;
@@ -269,6 +336,10 @@ export class AlternIAApp {
           this.speechContentArea.innerHTML = `<div class="formatted-text">${this.formatMarkdownText(fullText)}</div>`;
           this.katex.renderFormulasInElement(this.speechContentArea);
         }
+        if (this.avatarTranscription) {
+          this.avatarTranscription.innerHTML = this.formatMarkdownText(fullText);
+          this.katex.renderFormulasInElement(this.avatarTranscription);
+        }
       }
     });
 
@@ -278,13 +349,17 @@ export class AlternIAApp {
       }
     } else {
       if (this.speechContentArea) {
-        this.speechContentArea.innerHTML = `
-          <p class="text-slate-200">
-            Pour la classe de <strong>${this.currentClass}</strong> : voici les éléments clés concernant votre question.
-          </p>
-        `;
+        this.speechContentArea.innerHTML = `<p class="text-red-400">Désolé, une erreur de connexion est survenue.</p>`;
       }
     }
+
+    // Sécurité : si la file audio est vide (ou TTS désactivé/échoué), on force le retour à l'état IDLE
+    setTimeout(() => {
+      if (!this.audio.isPlayingQueue && this.vortex.currentState === 'THINKING') {
+        this.vortex.setState('IDLE', 'Prêt à répondre');
+        this.logoVortex.setState('IDLE', 'Prêt à répondre');
+      }
+    }, 500);
   }
 
   formatMarkdownText(text) {

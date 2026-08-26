@@ -1,9 +1,9 @@
-"""
-Schémas Pydantic pour les avatars pédagogiques et le studio vocal.
-"""
-
-from typing import Optional
+from typing import Any, Dict, List, Optional
 from pydantic import BaseModel
+
+
+# 8 visèmes standard pour l'animation Sprite-Sheet
+VISEME_IDS = ["REST", "CLOSED", "OPEN_SMALL", "OPEN_WIDE", "ROUND_O", "ROUND_U", "TEETH", "SMILE"]
 
 
 class AvatarCreateRequest(BaseModel):
@@ -15,6 +15,8 @@ class AvatarCreateRequest(BaseModel):
     audio_sample_url: Optional[str] = None
     audio_file_name: Optional[str] = None
     par_defaut: Optional[bool] = False
+    landmarks: Optional[Dict[str, Any]] = None
+    viseme_photos: Optional[Dict[str, str]] = None  # {"REST": "/api/avatars/images/xxx.jpg", ...}
 
 
 class AvatarUpdateRequest(BaseModel):
@@ -25,6 +27,13 @@ class AvatarUpdateRequest(BaseModel):
     photo_url: Optional[str] = None
     actif: Optional[bool] = None
     par_defaut: Optional[bool] = None
+    landmarks: Optional[Dict[str, Any]] = None
+    viseme_photos: Optional[Dict[str, str]] = None
+
+
+class AvatarDetectLandmarksRequest(BaseModel):
+    photo_url: Optional[str] = None
+    file_name: Optional[str] = None
 
 
 class StudioVocalTestRequest(BaseModel):
@@ -32,3 +41,4 @@ class StudioVocalTestRequest(BaseModel):
     voix: Optional[str] = "vivienne"
     vitesse: Optional[float] = 1.0
     tonalite: Optional[float] = 0.0
+

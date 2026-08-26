@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="fr" class="dark">
+<html lang="fr" class="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>AlternIA – Tuteur Pédagogique Intelligent</title>
   <meta name="description" content="Interface tactile et vocale épurée du boîtier AlternIA pour les lycéens du Mali.">
-  <meta name="theme-color" content="#060911">
+  <meta name="theme-color" content="#FDFBF7">
 
   <!-- Favicon -->
   <link rel="icon" type="image/x-icon" href="assets/icone.ico">
@@ -51,7 +51,7 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 
-<body class="bg-[#060911] text-slate-100 font-display min-h-screen flex flex-col justify-between overflow-hidden select-none">
+<body class="bg-[#FDFBF7] text-slate-800 font-display min-h-screen flex flex-col justify-between overflow-hidden select-none">
 
   <!-- Arrière-plan lumineux d'ambiance -->
   <div class="ambient-glow-layer">
@@ -64,8 +64,8 @@
        ========================================================================= -->
   <header class="kiosk-topbar">
     <div class="flex items-center gap-3">
-      <img src="assets/logo-horizontal.jpeg" alt="AlternIA" class="h-9 w-auto object-contain rounded-lg border border-white/10 shadow-sm">
-      <span class="text-xs text-slate-400 font-mono hidden sm:inline-block">Boîtier Éducatif Mali</span>
+      <img src="assets/logo-icon.jpeg" alt="AlternIA" class="h-9 w-auto object-contain rounded-lg shadow-sm">
+      <span class="text-lg font-bold text-[#314999] tracking-tight">AlternIA</span>
     </div>
 
     <!-- Sélecteur de Classe Minimaliste Direct (10ème, 11ème, Terminale) -->
@@ -84,17 +84,20 @@
       </button>
     </div>
 
-    <!-- Contrôles Muet / Reset -->
+    <!-- Contrôles Muet / Reset / Avatar -->
     <div class="flex items-center gap-2">
+      <button id="btn-show-avatar" class="kiosk-icon-btn" title="Ouvrir l'Avatar">
+        <svg class="w-5 h-5 text-indigo-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+      </button>
       <button id="btn-toggle-mute" class="kiosk-icon-btn" title="Activer / Couper la voix">
-        <svg class="w-5 h-5 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <svg class="w-5 h-5 text-cyan-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
           <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
           <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
         </svg>
       </button>
       <button id="btn-reset-session" class="kiosk-icon-btn" title="Nouvelle question">
-        <svg class="w-5 h-5 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <svg class="w-5 h-5 text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path>
           <path d="M21 3v5h-5"></path>
           <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path>
@@ -109,23 +112,24 @@
        ========================================================================= -->
   <main class="kiosk-body">
 
-    <!-- Colonne Gauche : L'Avatar Animé 2.5D et le Microphone -->
+    <!-- Colonne Gauche : Le Logo Animé et le Microphone -->
     <div class="avatar-speaker-column">
       
       <div class="avatar-canvas-wrapper" id="alta-vortex-hub">
-        <canvas id="alta-avatar-canvas" width="220" height="220" class="avatar-canvas"></canvas>
+        <!-- Canvas pour le logo animé et les cercles FFT -->
+        <canvas id="main-animated-logo-canvas" width="220" height="220" class="avatar-canvas"></canvas>
         <div class="status-live-pill" id="status-pill">
-          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" id="status-dot"></span>
-          <span class="text-xs font-semibold text-slate-200" id="status-text">Prêt à répondre</span>
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" id="status-dot"></span>
+          <span class="text-xs font-semibold text-slate-700" id="status-text">Prêt à répondre</span>
         </div>
       </div>
 
       <div class="text-center mt-3">
-        <h2 class="text-lg font-bold text-white flex items-center justify-center gap-1.5 font-display">
-          <span id="alta-avatar-name">Enseignant IA</span>
-          <span class="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_#0284C7]"></span>
+        <h2 class="text-lg font-bold text-slate-800 flex items-center justify-center gap-1.5 font-display">
+          <span id="alta-avatar-name">Assistant AlternIA</span>
+          <span class="w-2 h-2 rounded-full bg-cyan-500 shadow-[0_0_8px_#0284C7]"></span>
         </h2>
-        <p class="text-xs text-cyan-300 font-medium" id="alta-class-sublabel">Programme Officiel du Mali</p>
+        <p class="text-xs text-slate-500 font-medium" id="alta-class-sublabel">Programme Officiel du Mali</p>
       </div>
 
       <!-- Grand Bouton Microphone Push-To-Talk -->
@@ -160,14 +164,14 @@
 
         <!-- Question posée par l'élève -->
         <div id="student-query-preview" class="student-query-box hidden">
-          <span class="text-xs text-secondary font-bold mr-1">Votre question :</span>
-          <span id="student-query-text" class="text-sm text-cyan-200 italic">...</span>
+          <span class="text-xs text-[#F1851F] font-bold mr-1">Votre question :</span>
+          <span id="student-query-text" class="text-sm text-slate-700 italic">...</span>
         </div>
 
         <!-- Texte de l'explication (Dynamique & KaTeX) -->
         <div class="speech-content-area" id="speech-content-area">
           <div class="speech-welcome-text" id="speech-welcome-text">
-            <p class="text-base text-slate-200 leading-relaxed font-sans">
+            <p class="text-base text-slate-600 leading-relaxed font-sans">
               Bonjour ! Je suis ton enseignant virtuel AlternIA.<br>
               Choisis ta classe en haut et <strong>appuie sur le micro pour me poser n'importe quelle question</strong> sur tes cours de mathématiques, physique, SVT, chimie ou lettres.
             </p>
@@ -200,12 +204,27 @@
   <!-- KaTeX Modal pour formules zoomées si besoin -->
   <div id="formula-modal" class="formula-modal-overlay hidden">
     <div class="formula-modal-content">
-      <div class="flex items-center justify-between border-b border-white/10 pb-3 mb-3">
-        <h3 class="text-base font-bold text-white">Formule Officielle</h3>
-        <button id="btn-close-formula-modal" class="text-slate-400 hover:text-white text-lg">✕</button>
+      <div class="flex items-center justify-between border-b border-black/10 pb-3 mb-3">
+        <h3 class="text-base font-bold text-slate-800">Formule Officielle</h3>
+        <button id="btn-close-formula-modal" class="text-slate-500 hover:text-slate-800 text-lg">✕</button>
       </div>
-      <div id="formula-modal-math" class="text-2xl text-center py-4 text-cyan-300 font-mono"></div>
-      <div id="formula-modal-source" class="text-xs text-slate-400 text-right italic font-mono mt-2"></div>
+      <div id="formula-modal-math" class="text-2xl text-center py-4 text-[#314999] font-mono"></div>
+      <div id="formula-modal-source" class="text-xs text-slate-500 text-right italic font-mono mt-2"></div>
+    </div>
+  </div>
+
+  <!-- Avatar Plein Écran Modal -->
+  <div id="avatar-fullscreen-modal" class="hidden fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#060911]/95 backdrop-blur-xl">
+    <button id="btn-close-avatar" class="absolute top-6 right-6 w-12 h-12 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white text-2xl transition-all">✕</button>
+    
+    <div class="flex-1 flex items-center justify-center w-full max-h-[60vh] mt-10">
+      <canvas id="alta-avatar-canvas" width="450" height="450" class="rounded-full shadow-[0_0_50px_rgba(2,132,199,0.3)]"></canvas>
+    </div>
+    
+    <div class="w-full max-w-4xl px-8 pb-12 mt-8 text-center h-[20vh] flex flex-col justify-end">
+      <p id="avatar-fullscreen-transcription" class="text-2xl font-medium text-cyan-100 leading-relaxed drop-shadow-md">
+        <!-- La transcription s'affichera ici -->
+      </p>
     </div>
   </div>
 

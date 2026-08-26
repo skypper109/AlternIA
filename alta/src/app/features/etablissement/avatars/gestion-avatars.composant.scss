@@ -281,7 +281,7 @@
   overflow-y: auto;
 
   &-lg {
-    max-width: 720px;
+    max-width: 860px;
   }
 }
 
@@ -307,8 +307,8 @@
 
 .upload-modal-grid {
   display: grid;
-  grid-template-columns: 200px 1fr;
-  gap: 24px;
+  grid-template-columns: 320px 1fr;
+  gap: 32px;
 
   @media (max-width: 640px) {
     grid-template-columns: 1fr;
@@ -318,7 +318,6 @@
 .upload-preview-pane {
   display: flex;
   flex-direction: column;
-  align-items: center;
 }
 
 .upload-dropzone {

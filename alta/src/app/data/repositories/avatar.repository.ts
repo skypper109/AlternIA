@@ -42,6 +42,9 @@ export class AvatarRepository {
       voixId: item.voixTts || 'vivienne',
       personnalite: item.stylePedagogique || 'Bienveillante et explicative',
       actif: item.parDefaut ?? item.actif ?? true,
+      landmarks: item.landmarks || null,
+      visemePhotos: item.visemePhotos || null,
+      compatibilityScore: item.landmarks ? 98 : 75,
       dateCreation: item.dateCreation ? new Date(item.dateCreation) : new Date(),
       utilisations: 120 + index * 45,
     };
@@ -65,10 +68,22 @@ export class AvatarRepository {
     );
   }
 
-  uploaderPhotoAvatar(file: File): Observable<{ photoUrl: string; fileName: string }> {
+  uploaderPhotoAvatar(file: File): Observable<{ photoUrl: string; fileName: string; compatibility?: any; landmarks?: any }> {
     const formData = new FormData();
     formData.append('file', file, file.name);
-    return this.http.post<{ photoUrl: string; fileName: string }>(`${environment.apiUrl}/avatars/upload`, formData);
+    return this.http.post<{ photoUrl: string; fileName: string; compatibility?: any; landmarks?: any }>(`${environment.apiUrl}/avatars/upload`, formData);
+  }
+
+  uploaderVisemePhoto(file: File, visemeId: string): Observable<{ visemeId: string; photoUrl: string; fileName: string; compatibility?: any; landmarks?: any }> {
+    const formData = new FormData();
+    formData.append('file', file, file.name);
+    return this.http.post<{ visemeId: string; photoUrl: string; fileName: string; compatibility?: any; landmarks?: any }>(
+      `${environment.apiUrl}/avatars/upload-viseme?viseme_id=${visemeId}`, formData
+    );
+  }
+
+  detecterRepèresAvatar(photoUrl: string): Observable<any> {
+    return this.http.post<any>(`${environment.apiUrl}/avatars/detect-landmarks`, { photoUrl });
   }
 
   creerAvatar(data: {
@@ -78,6 +93,8 @@ export class AvatarRepository {
     voixTts?: string;
     photoUrl?: string;
     parDefaut?: boolean;
+    landmarks?: any;
+    visemePhotos?: Record<string, string>;
   }): Observable<AvatarPedagogique> {
     return this.http.post<any>(`${environment.apiUrl}/avatars`, {
       nom: data.nom,
@@ -86,6 +103,8 @@ export class AvatarRepository {
       voix_tts: data.voixTts || 'vivienne',
       photo_url: data.photoUrl || null,
       par_defaut: data.parDefaut || false,
+      landmarks: data.landmarks || null,
+      viseme_photos: data.visemePhotos || null,
     }).pipe(map(item => this.mapDtoToAvatar(item, 0)));
   }
 

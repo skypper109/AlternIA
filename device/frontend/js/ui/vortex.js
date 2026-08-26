@@ -22,6 +22,7 @@ export class VortexUI {
     if (canvas) {
       this.animator = new DeviceAvatarAnimator(canvas, {
         themeColor: '#0284C7',
+        enableMouseTracking: false
       });
       if (defaultImageUrl) {
         this.animator.setImage(defaultImageUrl);
@@ -37,9 +38,9 @@ export class VortexUI {
     }
   }
 
-  setAvatarImage(imageUrl, name = null) {
+  setAvatarImage(imageUrl, name = null, landmarks = null) {
     if (this.animator && imageUrl) {
-      this.animator.setImage(imageUrl);
+      this.animator.setImage(imageUrl, landmarks);
     }
     const nameEl = document.getElementById('alta-avatar-name');
     if (nameEl && name) {

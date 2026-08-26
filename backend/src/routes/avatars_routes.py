@@ -2,6 +2,8 @@
 Routes API pour la gestion des avatars pédagogiques, upload d'images et tests vocaux.
 """
 
+from pathlib import Path
+from PIL import ImagePath
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
@@ -15,6 +17,7 @@ from backend.src.services.avatar_service import (
     get_avatar_image_path,
     list_avatars,
     save_avatar_image,
+    save_viseme_photo,
     set_active_avatar,
     test_voice_audio,
     update_avatar,
@@ -44,6 +47,15 @@ async def api_upload_avatar_image(file: UploadFile = File(...)):
     return await save_avatar_image(file)
 
 
+@router.post("/upload-viseme")
+async def api_upload_viseme_photo(viseme_id: str, file: UploadFile = File(...)):
+    """
+    Upload d'une photo pour un visème spécifique (REST, CLOSED, OPEN_SMALL, etc.).
+    Utilisé pour l'animation Sprite-Sheet cross-fade réaliste.
+    """
+    return await save_viseme_photo(file, viseme_id)
+
+
 @router.get("/images/{filename}")
 def api_serve_avatar_image(filename: str):
     """Sert une image d'avatar enregistrée."""
@@ -63,6 +75,21 @@ def api_serve_avatar_image(filename: str):
         "Cache-Control": "public, max-age=86400",
     }
     return FileResponse(str(path), media_type=media_type, headers=headers)
+
+
+@router.post("/detect-landmarks")
+def api_detect_avatar_landmarks(req: dict):
+    """
+    Analyse la compatibilité d'une photo d'avatar et détecte les repères faciaux précis.
+    """
+    from backend.src.services.avatar_service import AVATARS_STORAGE_DIR, analyze_face_landmarks
+    photo_url = req.get("photoUrl") or req.get("photo_url") or req.get("fileName")
+    if not photo_url:
+        raise HTTPException(status_code=400, detail="URL ou nom de fichier d'avatar requis.")
+    
+    filename = photo_url.split("/api/avatars/images/")[-1] if "/api/avatars/images/" in photo_url else Path(photo_url).name
+    path = AVATARS_STORAGE_DIR / filename
+    return analyze_face_landmarks(path)
 
 
 @router.post("")

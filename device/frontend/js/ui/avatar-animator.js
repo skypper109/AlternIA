@@ -1,14 +1,10 @@
 /**
  * Moteur d'Animation de Portrait 2.5D Haute Fidélité & Tête Parlante Synchrone (Talking Head).
- * 
- * Anime n'importe quelle photo de visage/portrait de manière organique et fluide :
- * 1. Mouvements 3D de la tête entière (Pitch, Yaw, Roll, Parallaxe de profondeur).
- * 2. Déformation faciale anatomique continue (Mâchoire, Joues, Menton, Cou).
- * 3. Hochements de tête expressifs et micro-inclinaisons synchronisés avec le TTS.
- * 4. Morphing labial fluide multi-visèmes (A, E, I, O, U, Consonnes) calé sur l'analyse FFT.
- * 5. Clignements de paupières naturels avec micro-saccades oculaires.
- * 6. Respiration du buste et aura holographique réactive.
+ * Variante pure JS du CanvasAvatarInstance (Angular) pour le boîtier.
+ * Implémente le système Viseme Sprite-Sheet (Cross-Fade) pour un réalisme accru.
  */
+
+const VISEME_IDS = ['REST', 'CLOSED', 'OPEN_SMALL', 'OPEN_WIDE', 'ROUND_O', 'ROUND_U', 'TEETH', 'SMILE'];
 
 export class DeviceAvatarAnimator {
   constructor(canvas, options = {}) {
@@ -19,8 +15,21 @@ export class DeviceAvatarAnimator {
     this.themeColor = options.themeColor || '#0284C7';
     this.state = 'IDLE'; // 'IDLE' | 'LISTENING' | 'THINKING' | 'SPEAKING'
 
+    // Image principale (fallback si pas de visèmes)
     this.image = null;
     this.isLoaded = false;
+
+    // Sprite-Sheet Visème : 8 images pré-chargées
+    this.visemeImages = new Map();
+    this.visemeLoadedCount = 0;
+    this.hasVisemes = false;
+
+    // Visème courant et cible pour le cross-fade
+    this.currentViseme = 'REST';
+    this.targetViseme = 'REST';
+    this.crossFadeProgress = 1.0;
+    this.crossFadeSpeed = 0.18;
+
     this.animFrameId = null;
     this.time = 0;
 
@@ -29,9 +38,9 @@ export class DeviceAvatarAnimator {
     this.dataArray = null;
 
     // Dynamique de la Tête (3D Pose & Saccades)
-    this.headPitch = 0;   // Hochement haut/bas
-    this.headYaw = 0;     // Rotation gauche/droite
-    this.headRoll = 0;    // Inclinaison latérale
+    this.headPitch = 0;
+    this.headYaw = 0;
+    this.headRoll = 0;
     this.targetPitch = 0;
     this.targetYaw = 0;
     this.targetRoll = 0;
@@ -39,10 +48,6 @@ export class DeviceAvatarAnimator {
     // Suivi de la souris / de l'élève
     this.mouseX = 0;
     this.mouseY = 0;
-    this.eyeTargetX = 0;
-    this.eyeTargetY = 0;
-    this.eyeCurrentX = 0;
-    this.eyeCurrentY = 0;
 
     // Clignements naturels
     this.blinkTimer = 0;
@@ -50,17 +55,15 @@ export class DeviceAvatarAnimator {
     this.blinkProgress = 0;
     this.isBlinking = false;
 
-    // Lip-Sync & Visèmes organiques
-    this.mouthOpen = 0;
-    this.mouthWidth = 1.0;
-    this.jawDrop = 0;
-    this.cheekLift = 0;
-    this.eyebrowLift = 0;
+    // Lip-Sync dynamique (uniquement pour le fallback statique maintenant)
+    this.mouthOpenness = 0;
 
     // Respiration
     this.breathCycle = 0;
 
-    this.initMouseTracking();
+    if (options.enableMouseTracking !== false) {
+      this.initMouseTracking();
+    }
     this.start();
   }
 
@@ -94,6 +97,38 @@ export class DeviceAvatarAnimator {
         this.isLoaded = true;
       };
     };
+  }
+
+  setVisemePhotos(visemePhotos) {
+    if (!visemePhotos || Object.keys(visemePhotos).length === 0) {
+      this.hasVisemes = false;
+      return;
+    }
+
+    this.visemeImages.clear();
+    this.visemeLoadedCount = 0;
+    const totalToLoad = Object.keys(visemePhotos).length;
+
+    for (const [visemeId, url] of Object.entries(visemePhotos)) {
+      const img = new Image();
+      if (url.startsWith('http')) {
+        img.crossOrigin = 'anonymous';
+      }
+      img.src = url;
+      img.onload = () => {
+        this.visemeImages.set(visemeId, img);
+        this.visemeLoadedCount++;
+        if (this.visemeLoadedCount >= totalToLoad) {
+          this.hasVisemes = true;
+          // Utiliser REST comme image principale de fallback
+          const restImg = this.visemeImages.get('REST');
+          if (restImg) {
+            this.image = restImg;
+            this.isLoaded = true;
+          }
+        }
+      };
+    }
   }
 
   setAudioAnalyser(analyser) {
@@ -160,6 +195,22 @@ export class DeviceAvatarAnimator {
     };
   }
 
+  determineVisemeFromAudio(audio) {
+    const { volume, bass, mid, high } = audio;
+
+    if (volume < 0.015) return 'REST';
+
+    if (volume > 0.35 && bass > 0.3) return 'OPEN_WIDE';
+    if (bass > 0.35 && mid < 0.25) return 'ROUND_O';
+    if (bass > 0.4 && high < 0.15) return 'ROUND_U';
+    if (high > 0.3 && volume > 0.1) return 'TEETH';
+    if (volume > 0.15 && mid > 0.2) return 'OPEN_SMALL';
+    if (volume > 0.05 && volume < 0.15) return 'CLOSED';
+    if (mid > 0.25 && high > 0.2) return 'SMILE';
+
+    return 'OPEN_SMALL';
+  }
+
   render(timestamp) {
     const { width, height } = this.canvas;
     this.ctx.clearRect(0, 0, width, height);
@@ -170,26 +221,34 @@ export class DeviceAvatarAnimator {
 
     // 1. Analyse audio & Énergie vocale
     const audio = this.getAudioEnergy();
-    let targetMouthOpen = 0;
-    let targetMouthWidth = 1.0;
-    let speechEmphasis = 0;
+    let speechEnergy = 0;
 
     if (this.state === 'SPEAKING' || audio.volume > 0.012) {
-      const rawEnergy = (this.state === 'SPEAKING' && audio.volume <= 0.012)
-        ? Math.abs(Math.sin(timestamp * 0.015)) * 0.85 + Math.sin(timestamp * 0.008) * 0.3
-        : audio.volume * 3.5;
+      speechEnergy = (this.state === 'SPEAKING' && audio.volume <= 0.012)
+        ? Math.abs(Math.sin(timestamp * 0.015)) * 0.6
+        : audio.volume * 3.0;
 
-      targetMouthOpen = Math.min(1.0, Math.max(0.12, rawEnergy));
-      targetMouthWidth = 1.0 + (audio.mid || 0) * 0.4 - (audio.bass || 0) * 0.25;
-      speechEmphasis = targetMouthOpen;
+      if (this.hasVisemes) {
+        const newViseme = this.determineVisemeFromAudio(audio);
+        if (newViseme !== this.targetViseme) {
+          this.currentViseme = this.targetViseme;
+          this.targetViseme = newViseme;
+          this.crossFadeProgress = 0;
+        }
+      }
+    } else {
+      if (this.targetViseme !== 'REST') {
+        this.currentViseme = this.targetViseme;
+        this.targetViseme = 'REST';
+        this.crossFadeProgress = 0;
+      }
     }
 
-    // Lissage dynamique des visèmes
-    this.mouthOpen += (targetMouthOpen - this.mouthOpen) * 0.38;
-    this.mouthWidth += (targetMouthWidth - this.mouthWidth) * 0.25;
-    this.jawDrop += (this.mouthOpen * 16 - this.jawDrop) * 0.35;
-    this.cheekLift += (this.mouthOpen * 4 - this.cheekLift) * 0.25;
-    this.eyebrowLift += (speechEmphasis * 5 - this.eyebrowLift) * 0.2;
+    if (this.crossFadeProgress < 1.0) {
+      this.crossFadeProgress = Math.min(1.0, this.crossFadeProgress + this.crossFadeSpeed);
+    }
+
+    this.mouthOpenness += (speechEnergy - this.mouthOpenness) * 0.3;
 
     // 2. Clignements naturels avec variation stochastique
     this.blinkTimer += delta;
@@ -208,226 +267,132 @@ export class DeviceAvatarAnimator {
       }
     }
 
-    const blinkValue = this.isBlinking
-      ? Math.sin(this.blinkProgress * Math.PI)
-      : 0;
+    const blinkValue = this.isBlinking ? Math.sin(this.blinkProgress * Math.PI) : 0;
 
-    // 3. Posture 3D de la tête et hochements expressifs
+    // 3. Posture 3D de la tête
     const breathOffset = Math.sin(this.breathCycle) * 3.0;
 
     if (this.state === 'SPEAKING') {
-      // Hochements naturels au rythme de la voix
-      this.targetPitch = Math.sin(timestamp * 0.009) * 0.08 * (1 + this.mouthOpen * 0.5);
+      this.targetPitch = Math.sin(timestamp * 0.009) * 0.08 * (1 + this.mouthOpenness * 0.3);
       this.targetYaw = this.mouseX * 0.15 + Math.sin(timestamp * 0.004) * 0.06;
       this.targetRoll = Math.sin(timestamp * 0.003) * 0.04 + this.mouseX * 0.03;
-      this.eyeTargetX = this.mouseX * 0.25;
-      this.eyeTargetY = this.mouseY * 0.2;
     } else if (this.state === 'LISTENING') {
-      // Tête légèrement penchée en écoute attentive
       this.targetPitch = 0.04;
       this.targetYaw = this.mouseX * 0.25;
       this.targetRoll = -0.04;
-      this.eyeTargetX = this.mouseX * 0.4;
-      this.eyeTargetY = 0.1;
     } else if (this.state === 'THINKING') {
-      // Regard et tête tournés vers le haut en réflexion
       this.targetPitch = -0.08;
       this.targetYaw = 0.1;
       this.targetRoll = 0.05;
-      this.eyeTargetX = 0.3;
-      this.eyeTargetY = -0.4;
     } else {
-      // Repos (Idle) avec léger balancement vivant
       this.targetPitch = Math.sin(this.breathCycle * 0.5) * 0.02;
       this.targetYaw = this.mouseX * 0.18 + Math.sin(timestamp * 0.001) * 0.03;
       this.targetRoll = Math.sin(timestamp * 0.0015) * 0.02;
-      this.eyeTargetX = this.mouseX * 0.3;
-      this.eyeTargetY = this.mouseY * 0.25;
     }
 
     this.headPitch += (this.targetPitch - this.headPitch) * 0.08;
     this.headYaw += (this.targetYaw - this.headYaw) * 0.08;
     this.headRoll += (this.targetRoll - this.headRoll) * 0.08;
-    this.eyeCurrentX += (this.eyeTargetX - this.eyeCurrentX) * 0.1;
-    this.eyeCurrentY += (this.eyeTargetY - this.eyeCurrentY) * 0.1;
 
     const cx = width / 2;
     const cy = height / 2;
     const size = Math.min(width, height) * 0.88;
 
-    // 4. Halo lumineux holographique réactif
+    // 4. Halo lumineux
     this.drawAura(cx, cy, size, audio.volume || (this.state === 'SPEAKING' ? 0.3 : 0), timestamp);
 
-    // 5. Rendu du Portrait Déformé en 2.5D
+    // 5. Rendu du Portrait en 2.5D
     this.ctx.save();
-    
-    // Positionnement global avec parallaxe 3D
     const parallaxX = cx + this.headYaw * 35;
     const parallaxY = cy + breathOffset + this.headPitch * 25;
     this.ctx.translate(parallaxX, parallaxY);
     this.ctx.rotate(this.headRoll);
 
-    // Masque circulaire
     this.ctx.beginPath();
     this.ctx.arc(0, 0, size / 2, 0, Math.PI * 2);
     this.ctx.closePath();
     this.ctx.clip();
 
-    // Fond sombre élégant
     this.ctx.fillStyle = '#0F172A';
     this.ctx.fill();
 
-    if (this.isLoaded && this.image) {
-      // Rendu Multi-Tranches 2.5D (Tête, Joues, Mâchoire, Yeux)
-      this.renderOrganicPortrait(size, blinkValue);
+    if (this.hasVisemes) {
+      this.renderVisemeCrossFade(size);
+    } else if (this.isLoaded && this.image) {
+      this.renderStaticPortrait(size);
     } else {
-      this.drawStylizedPlaceholder(size, this.mouthOpen, blinkValue);
+      this.drawPlaceholder(size);
+    }
+
+    if (blinkValue > 0.04) {
+      this.renderNaturalBlink(size, blinkValue);
     }
 
     this.ctx.restore();
 
-    // 6. Anneau lumineux dynamique extérieur
+    // 6. Anneau lumineux
     this.drawGlowRing(cx, cy, size, breathOffset, audio.volume || (this.state === 'SPEAKING' ? 0.3 : 0));
   }
 
-  renderOrganicPortrait(size, blinkValue) {
-    const img = this.image;
+  renderVisemeCrossFade(size) {
     const half = size / 2;
 
-    // 1. Couche Arrière (Crâne & Buste / Cheveux)
-    this.ctx.save();
-    this.ctx.drawImage(img, -half, -half, size, size);
-    this.ctx.restore();
-
-    // 2. Déformation 2.5D de la Mâchoire & du Menton (Jaw-Drop continu)
-    if (this.jawDrop > 0.8) {
-      const jawY = size * 0.10;
-      const jawH = size * 0.40;
-
+    const currentImg = this.visemeImages.get(this.currentViseme) || this.image;
+    if (currentImg) {
       this.ctx.save();
-      this.ctx.beginPath();
-      this.ctx.ellipse(0, size * 0.28, half * 0.88, jawH * 0.65, 0, 0, Math.PI * 2);
-      this.ctx.clip();
-
-      // Déplacement de la mâchoire avec léger élargissement
-      this.ctx.translate(0, this.jawDrop * 0.7);
-      this.ctx.scale(1.0 + this.mouthOpen * 0.02, 1.0 + this.mouthOpen * 0.04);
-      this.ctx.drawImage(img, -half, -half, size, size);
+      this.ctx.globalAlpha = 1.0;
+      this.ctx.drawImage(currentImg, -half, -half, size, size);
       this.ctx.restore();
     }
 
-    // 3. Morphing Labial Réaliste (Cavité, Lèvres, Dents)
-    if (this.mouthOpen > 0.06) {
-      this.renderRealisticMouth(size, this.mouthOpen, this.mouthWidth);
-    }
-
-    // 4. Clignements et regard expressif
-    if (blinkValue > 0.04) {
-      this.renderEyelids(size, blinkValue);
-    }
-
-    // 5. Sourcils expressifs (Légère animation d'accentuation)
-    if (this.eyebrowLift > 0.5) {
-      this.renderEyebrowAccents(size, this.eyebrowLift);
+    if (this.crossFadeProgress < 1.0) {
+      const targetImg = this.visemeImages.get(this.targetViseme) || this.image;
+      if (targetImg && targetImg !== currentImg) {
+        this.ctx.save();
+        this.ctx.globalAlpha = this.crossFadeProgress;
+        this.ctx.drawImage(targetImg, -half, -half, size, size);
+        this.ctx.restore();
+      }
+    } else {
+      const targetImg = this.visemeImages.get(this.targetViseme) || this.image;
+      if (targetImg) {
+        this.ctx.save();
+        this.ctx.globalAlpha = 1.0;
+        this.ctx.drawImage(targetImg, -half, -half, size, size);
+        this.ctx.restore();
+      }
     }
   }
 
-  renderRealisticMouth(size, openFactor, widthFactor) {
-    const mouthY = size * 0.21 + this.jawDrop * 0.3;
-    const mouthW = size * 0.23 * widthFactor;
-    const mouthH = size * 0.17 * openFactor;
+  renderStaticPortrait(size) {
+    const img = this.image;
+    const half = size / 2;
+    const breathScale = 1.0 + Math.sin(this.breathCycle) * 0.005;
+    const speechScale = 1.0 + this.mouthOpenness * 0.008;
+    const totalScale = breathScale * speechScale;
 
     this.ctx.save();
-
-    // Cavité buccale avec profondeur
-    this.ctx.beginPath();
-    this.ctx.ellipse(0, mouthY, mouthW / 2, mouthH / 2, 0, 0, Math.PI * 2);
-    const grad = this.ctx.createRadialGradient(0, mouthY, 2, 0, mouthY, mouthH);
-    grad.addColorStop(0, '#1A0407');
-    grad.addColorStop(0.6, '#4A0F1A');
-    grad.addColorStop(1, '#1A0407');
-    this.ctx.fillStyle = grad;
-    this.ctx.fill();
-
-    // Dents supérieures nettes
-    if (openFactor > 0.2) {
-      this.ctx.beginPath();
-      this.ctx.ellipse(0, mouthY - mouthH * 0.24, mouthW * 0.38, mouthH * 0.22, 0, 0, Math.PI);
-      this.ctx.fillStyle = '#FFFFFF';
-      this.ctx.fill();
-    }
-
-    // Langue douce
-    if (openFactor > 0.4) {
-      this.ctx.beginPath();
-      this.ctx.ellipse(0, mouthY + mouthH * 0.22, mouthW * 0.26, mouthH * 0.18, 0, Math.PI, Math.PI * 2);
-      this.ctx.fillStyle = '#BA485C';
-      this.ctx.fill();
-    }
-
-    // Contour des lèvres teinté et estompé
-    this.ctx.beginPath();
-    this.ctx.ellipse(0, mouthY, (mouthW / 2) + 2, (mouthH / 2) + 2, 0, 0, Math.PI * 2);
-    this.ctx.strokeStyle = 'rgba(120, 40, 50, 0.45)';
-    this.ctx.lineWidth = 2.5;
-    this.ctx.stroke();
-
+    this.ctx.scale(totalScale, totalScale);
+    this.ctx.drawImage(img, -half, -half, size, size);
     this.ctx.restore();
   }
 
-  renderEyelids(size, blink) {
+  renderNaturalBlink(size, blinkValue) {
     const eyeY = -size * 0.08;
-    const eyeSpacing = size * 0.17;
-    const eyeW = size * 0.13;
-    const eyeH = size * 0.08 * blink;
+    const eyeW = size * 0.38;
+    const eyeH = size * 0.06 * blinkValue;
 
     this.ctx.save();
-    this.ctx.fillStyle = 'rgba(40, 20, 25, 0.75)';
+    this.ctx.globalCompositeOperation = 'multiply';
+    this.ctx.fillStyle = `rgba(20, 15, 15, ${blinkValue * 0.85})`;
 
-    // Paupière gauche
     this.ctx.beginPath();
-    this.ctx.ellipse(-eyeSpacing, eyeY, eyeW / 2, eyeH / 2, 0, 0, Math.PI * 2);
+    this.ctx.ellipse(-size * 0.15, eyeY, eyeW / 2, eyeH, 0, 0, Math.PI * 2);
     this.ctx.fill();
 
-    // Paupière droite
     this.ctx.beginPath();
-    this.ctx.ellipse(eyeSpacing, eyeY, eyeW / 2, eyeH / 2, 0, 0, Math.PI * 2);
+    this.ctx.ellipse(size * 0.15, eyeY, eyeW / 2, eyeH, 0, 0, Math.PI * 2);
     this.ctx.fill();
-
-    // Ligne des cils
-    this.ctx.strokeStyle = 'rgba(20, 10, 15, 0.9)';
-    this.ctx.lineWidth = 1.8;
-    this.ctx.beginPath();
-    this.ctx.moveTo(-eyeSpacing - eyeW / 2, eyeY);
-    this.ctx.lineTo(-eyeSpacing + eyeW / 2, eyeY);
-    this.ctx.moveTo(eyeSpacing - eyeW / 2, eyeY);
-    this.ctx.lineTo(eyeSpacing + eyeW / 2, eyeY);
-    this.ctx.stroke();
-
-    this.ctx.restore();
-  }
-
-  renderEyebrowAccents(size, lift) {
-    const browY = -size * 0.19 - lift * 0.8;
-    const browSpacing = size * 0.17;
-    const browW = size * 0.12;
-
-    this.ctx.save();
-    this.ctx.strokeStyle = 'rgba(30, 20, 20, 0.35)';
-    this.ctx.lineWidth = 2.5;
-    this.ctx.lineCap = 'round';
-
-    // Sourcil gauche
-    this.ctx.beginPath();
-    this.ctx.moveTo(-browSpacing - browW / 2, browY + 2);
-    this.ctx.quadraticCurveTo(-browSpacing, browY - 3, -browSpacing + browW / 2, browY);
-    this.ctx.stroke();
-
-    // Sourcil droit
-    this.ctx.beginPath();
-    this.ctx.moveTo(browSpacing - browW / 2, browY);
-    this.ctx.quadraticCurveTo(browSpacing, browY - 3, browSpacing + browW / 2, browY + 2);
-    this.ctx.stroke();
 
     this.ctx.restore();
   }
@@ -445,7 +410,6 @@ export class DeviceAvatarAnimator {
     this.ctx.arc(cx, cy, r, 0, Math.PI * 2);
     this.ctx.fill();
 
-    // Ondes sinusoïdales réactives pendant la parole
     if (this.state === 'SPEAKING' || energy > 0.03) {
       const bars = 28;
       this.ctx.strokeStyle = this.themeColor;
@@ -485,11 +449,10 @@ export class DeviceAvatarAnimator {
     this.ctx.restore();
   }
 
-  drawStylizedPlaceholder(size, mouthOpen, blink) {
+  drawPlaceholder(size) {
     const half = size / 2;
     this.ctx.save();
     
-    // Tête stylisée
     this.ctx.beginPath();
     this.ctx.ellipse(0, 0, half * 0.7, half * 0.85, 0, 0, Math.PI * 2);
     this.ctx.fillStyle = '#1E293B';
@@ -498,17 +461,12 @@ export class DeviceAvatarAnimator {
     this.ctx.lineWidth = 2;
     this.ctx.stroke();
 
-    // Yeux
-    if (blink < 0.7) {
-      this.ctx.beginPath();
-      this.ctx.arc(-size * 0.18, -size * 0.08, 6, 0, Math.PI * 2);
-      this.ctx.arc(size * 0.18, -size * 0.08, 6, 0, Math.PI * 2);
-      this.ctx.fillStyle = this.themeColor;
-      this.ctx.fill();
-    }
+    this.ctx.beginPath();
+    this.ctx.arc(-size * 0.18, -size * 0.08, 6, 0, Math.PI * 2);
+    this.ctx.arc(size * 0.18, -size * 0.08, 6, 0, Math.PI * 2);
+    this.ctx.fillStyle = this.themeColor;
+    this.ctx.fill();
 
-    // Bouche
-    this.renderRealisticMouth(size, mouthOpen, 1.0);
     this.ctx.restore();
   }
 }

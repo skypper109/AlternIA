@@ -346,6 +346,8 @@ class TTSEngine:
         t = re.sub(r"\b10[eè]me\b", "dixième année", t, flags=re.IGNORECASE)
         t = re.sub(r"\b11[eè]me\b", "onzième année", t, flags=re.IGNORECASE)
         t = re.sub(r"\b12[eè]me\b", "douzième année", t, flags=re.IGNORECASE)
+        t = re.sub(r"\bterminal\b", "terminale", t, flags=re.IGNORECASE)
+        t = re.sub(r"\bterminale\b", "classe de terminale", t, flags=re.IGNORECASE)
         t = re.sub(r"\s*&\s*", " et ", t)
         # Supprimer les parenthèses de sigles qui créent des prononciations étranges (ex: (TSExp), (11S), (TSE))
         t = re.sub(r"\s*\([A-Za-z0-9\s-]+\)", "", t)

@@ -9,10 +9,10 @@
   --color-primary: #314999;
   --color-secondary: #F1851F;
   --color-innovation: #0284C7;
-  --bg-deep: #060911;
-  --bg-surface: #0B1120;
-  --bg-card: #0F172A;
-  --color-border: rgba(255, 255, 255, 0.12);
+  --bg-deep: #FDFBF7;
+  --bg-surface: #F5F2E9;
+  --bg-card: #FFFFFF;
+  --color-border: rgba(0, 0, 0, 0.08);
 }
 
 * {
@@ -23,8 +23,8 @@
 }
 
 html, body {
-  background-color: #060911;
-  color: #F8FAFC;
+  background-color: var(--bg-deep);
+  color: #1E293B;
   font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   height: 100vh;
   width: 100vw;
@@ -73,7 +73,7 @@ html, body {
   align-items: center;
   justify-content: space-between;
   padding: 14px 28px;
-  background: rgba(11, 17, 32, 0.85);
+  background: rgba(253, 251, 247, 0.85);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--color-border);
@@ -85,11 +85,11 @@ html, body {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: rgba(15, 23, 42, 0.9);
+  background: #FFFFFF;
   border: 1px solid var(--color-border);
   padding: 5px 8px;
   border-radius: 9999px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
 .class-tab-btn {
@@ -101,14 +101,14 @@ html, body {
   border-radius: 9999px;
   border: 1px solid transparent;
   background: transparent;
-  color: #94A3B8;
+  color: #64748B;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .class-tab-btn:hover {
-  color: #F8FAFC;
-  background: rgba(255, 255, 255, 0.06);
+  color: #1E293B;
+  background: rgba(0, 0, 0, 0.03);
 }
 
 .class-tab-btn.class-tab--active {
@@ -135,7 +135,7 @@ html, body {
   width: 40px;
   height: 40px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(0, 0, 0, 0.03);
   border: 1px solid var(--color-border);
   display: flex;
   align-items: center;
@@ -178,16 +178,16 @@ html, body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: rgba(15, 23, 42, 0.75);
+  background: rgba(255, 255, 255, 0.6);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--color-border);
   border-radius: 28px;
   padding: 24px 20px;
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.05);
 }
 
-.avatar-canvas-wrapper {
+.logo-animation-wrapper {
   position: relative;
   width: 200px;
   height: 200px;
@@ -196,11 +196,32 @@ html, body {
   justify-content: center;
 }
 
-.avatar-canvas {
-  width: 200px;
-  height: 200px;
-  border-radius: 50%;
-  filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.5));
+.pulsing-logo {
+  width: 140px;
+  height: auto;
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  transition: transform 0.5s ease-in-out;
+}
+
+.pulsing-logo.is-listening {
+  animation: logoListenPulse 1.5s infinite;
+}
+
+.pulsing-logo.is-thinking {
+  animation: logoThinkPulse 2s infinite;
+}
+
+@keyframes logoListenPulse {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(241, 133, 31, 0.4); }
+  50% { transform: scale(1.05); box-shadow: 0 0 0 15px rgba(241, 133, 31, 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(241, 133, 31, 0); }
+}
+
+@keyframes logoThinkPulse {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(2, 132, 199, 0.4); }
+  50% { transform: scale(1.08); box-shadow: 0 0 0 20px rgba(2, 132, 199, 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(2, 132, 199, 0); }
 }
 
 .status-live-pill {
@@ -209,12 +230,12 @@ html, body {
   display: flex;
   align-items: center;
   gap: 6px;
-  background: rgba(11, 17, 32, 0.95);
+  background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(0, 0, 0, 0.1);
   padding: 4px 14px;
   border-radius: 9999px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 /* Gros Bouton Microphone Tactile */
@@ -261,7 +282,7 @@ html, body {
 
 .speech-bubble-card {
   flex: 1;
-  background: rgba(15, 23, 42, 0.75);
+  background: rgba(255, 255, 255, 0.6);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--color-border);
@@ -270,7 +291,7 @@ html, body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.05);
   min-height: 0;
 }
 
@@ -278,7 +299,7 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
   padding-bottom: 14px;
   margin-bottom: 16px;
   flex-shrink: 0;
@@ -296,8 +317,8 @@ html, body {
 }
 
 .student-query-box {
-  background: rgba(2, 132, 199, 0.12);
-  border: 1px solid rgba(2, 132, 199, 0.3);
+  background: rgba(241, 133, 31, 0.08);
+  border: 1px solid rgba(241, 133, 31, 0.2);
   border-radius: 14px;
   padding: 10px 16px;
   margin-bottom: 16px;
@@ -310,7 +331,7 @@ html, body {
   padding-right: 8px;
   font-size: 17px;
   line-height: 1.7;
-  color: #E2E8F0;
+  color: #1E293B;
 }
 
 .speech-welcome-text {
@@ -328,7 +349,7 @@ html, body {
   display: flex;
   align-items: center;
   gap: 10px;
-  background: rgba(15, 23, 42, 0.9);
+  background: rgba(255, 255, 255, 0.8);
   border: 1px solid var(--color-border);
   border-radius: 18px;
   padding: 6px 10px;
@@ -336,8 +357,8 @@ html, body {
 }
 
 .kiosk-input-bar:focus-within {
-  border-color: #0284C7;
-  box-shadow: 0 0 16px rgba(2, 132, 199, 0.3);
+  border-color: #314999;
+  box-shadow: 0 0 0 4px rgba(49, 73, 153, 0.15);
 }
 
 .kiosk-input {
@@ -346,19 +367,19 @@ html, body {
   border: none;
   outline: none;
   padding: 10px 12px;
-  color: #F8FAFC;
+  color: #1E293B;
   font-size: 15px;
   font-family: inherit;
 }
 
 .kiosk-input::placeholder {
-  color: #64748B;
+  color: #94A3B8;
 }
 
 .kiosk-send-btn {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
   background: #314999;
   border: none;
   display: flex;
@@ -371,6 +392,11 @@ html, body {
 .kiosk-send-btn:hover {
   background: #0284C7;
   transform: scale(1.05);
+}
+
+.kiosk-send-btn svg {
+  width: 22px;
+  height: 22px;
 }
 
 /* Modal Formule */
@@ -388,8 +414,8 @@ html, body {
 }
 
 .formula-modal-content {
-  background: #0B1120;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: #FFFFFF;
+  border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 20px;
   padding: 24px;
   max-width: 600px;

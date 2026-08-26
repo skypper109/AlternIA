@@ -153,6 +153,8 @@ class AvatarPedagogique(Base):
     audio_file_name: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
     actif: Mapped[bool] = mapped_column(Boolean, default=True)
     par_defaut: Mapped[bool] = mapped_column(Boolean, default=False)
+    landmarks_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    viseme_photos_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     date_creation: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
 
 

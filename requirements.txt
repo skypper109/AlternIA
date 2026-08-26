@@ -17,6 +17,7 @@ torch==2.2.2
 transformers==4.46.3
 sentence-transformers==3.4.1
 huggingface-hub>=0.20.0
+opencv-python-headless<=4.10.0.84
 
 # LLM Local (GGUF / Llama.cpp)
 llama-cpp-python>=0.3.0

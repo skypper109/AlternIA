@@ -67,18 +67,22 @@ export class AudioService {
   }
 
   stop() {
+    this.audioQueue = [];
     if (this.currentPlayer) {
       this.currentPlayer.pause();
+      this.currentPlayer.removeAttribute('src');
+      this.currentPlayer.load();
       this.currentPlayer = null;
+    }
+    if (this.currentSource) {
+      try { this.currentSource.stop(); } catch(e){}
+      this.currentSource = null;
     }
     if (this.speechSynthesis) {
       this.speechSynthesis.cancel();
     }
-    this.audioQueue = [];
     this.isPlayingQueue = false;
-    if (this.onSpeakingChange) {
-      this.onSpeakingChange(false);
-    }
+    if (this.onSpeakingChange) this.onSpeakingChange(false);
   }
 
   cleanTextForTTS(text) {
@@ -118,37 +122,36 @@ export class AudioService {
       try {
         const audioBlob = await item.audioPromise;
         if (audioBlob) {
-          const audioUrl = URL.createObjectURL(audioBlob);
-          const player = new Audio(audioUrl);
-          this.currentPlayer = player;
-
-          // Connexion au flux Web Audio pour le Lip-Sync
           if (this.audioCtx && this.analyser) {
             try {
               if (this.audioCtx.state === 'suspended') {
                 await this.audioCtx.resume();
               }
-              const source = this.audioCtx.createMediaElementSource(player);
+              const arrayBuffer = await audioBlob.arrayBuffer();
+              const audioBuffer = await this.audioCtx.decodeAudioData(arrayBuffer);
+              
+              const source = this.audioCtx.createBufferSource();
+              source.buffer = audioBuffer;
+              this.currentSource = source;
+
               source.connect(this.analyser);
               this.analyser.connect(this.audioCtx.destination);
-            } catch (mediaErr) {
-              // Ignore si déjà routé
-            }
-          }
 
-          await new Promise((resolve) => {
-            player.onended = () => {
-              URL.revokeObjectURL(audioUrl);
-              this.currentPlayer = null;
-              resolve();
-            };
-            player.onerror = () => {
-              URL.revokeObjectURL(audioUrl);
-              this.currentPlayer = null;
-              resolve();
-            };
-            player.play().catch(() => resolve());
-          });
+              await new Promise((resolve) => {
+                source.onended = () => {
+                  this.currentSource = null;
+                  resolve();
+                };
+                source.start(0);
+              });
+            } catch (mediaErr) {
+              console.warn("Erreur Web Audio :", mediaErr);
+              // Fallback HTMLAudioElement si erreur de décodage
+              await this.playWithAudioElement(audioBlob);
+            }
+          } else {
+            await this.playWithAudioElement(audioBlob);
+          }
         } else if (this.speechSynthesis) {
           await this.speakWithWebSpeech(item.text);
         }
@@ -159,6 +162,31 @@ export class AudioService {
 
     this.isPlayingQueue = false;
     if (this.onSpeakingChange) this.onSpeakingChange(false);
+  }
+
+  playWithAudioElement(audioBlob) {
+    return new Promise((resolve) => {
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const player = new Audio(audioUrl);
+      this.currentPlayer = player;
+      
+      player.onended = () => {
+        URL.revokeObjectURL(audioUrl);
+        this.currentPlayer = null;
+        resolve();
+      };
+      player.onerror = () => {
+        URL.revokeObjectURL(audioUrl);
+        this.currentPlayer = null;
+        resolve();
+      };
+      player.play().catch((e) => {
+        console.warn("AudioElement play failed (Autoplay policy?):", e);
+        URL.revokeObjectURL(audioUrl);
+        this.currentPlayer = null;
+        resolve();
+      });
+    });
   }
 
   speakWithWebSpeech(text) {

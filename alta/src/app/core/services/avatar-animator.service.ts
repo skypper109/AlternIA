@@ -2,6 +2,13 @@ import { Injectable, NgZone, inject } from '@angular/core';
 
 export type AvatarState = 'IDLE' | 'LISTENING' | 'THINKING' | 'SPEAKING';
 
+/**
+ * Les 8 visèmes standard pour l'animation Sprite-Sheet.
+ * Chaque visème correspond à une position de bouche photographiée.
+ */
+export const VISEME_IDS = ['REST', 'CLOSED', 'OPEN_SMALL', 'OPEN_WIDE', 'ROUND_O', 'ROUND_U', 'TEETH', 'SMILE'] as const;
+export type VisemeId = typeof VISEME_IDS[number];
+
 export interface AvatarAnimOptions {
   themeColor?: string;
   glowIntensity?: number;
@@ -16,7 +23,7 @@ export class AvatarAnimatorService {
   private analyser: AnalyserNode | null = null;
   private audioSource: MediaElementAudioSourceNode | null = null;
   private currentAudioElement: HTMLAudioElement | null = null;
-  private dataArray: Uint8Array | null = null;
+  private dataArray: Uint8Array<ArrayBuffer> | null = null;
 
   createInstance(canvas: HTMLCanvasElement, options: AvatarAnimOptions = {}) {
     return new CanvasAvatarInstance(canvas, this, options, this.ngZone);
@@ -92,10 +99,37 @@ export class AvatarAnimatorService {
   }
 }
 
+/**
+ * Moteur de rendu Canvas 2.5D avec Cross-Fade Visème Sprite-Sheet.
+ *
+ * Au lieu de dessiner des formes vectorielles par-dessus la photo,
+ * ce moteur charge 8 photos correspondant à 8 positions de bouche différentes
+ * et effectue un cross-fade fluide entre elles au rythme de l'audio TTS.
+ *
+ * Les animations de qualité sont conservées :
+ * - Respiration naturelle
+ * - Parallax 2.5D (suivi souris)
+ * - Clignements des yeux naturels
+ * - Halo audio-réactif circulaire
+ * - Anneau lumineux
+ */
 export class CanvasAvatarInstance {
   private ctx: CanvasRenderingContext2D;
+
+  // Image principale (fallback si pas de visèmes)
   private image: HTMLImageElement | null = null;
   private isLoaded = false;
+
+  // Sprite-Sheet Visème : 8 images pré-chargées
+  private visemeImages: Map<VisemeId, HTMLImageElement> = new Map();
+  private visemeLoadedCount = 0;
+  private hasVisemes = false;
+
+  // Visème courant et cible pour le cross-fade
+  private currentViseme: VisemeId = 'REST';
+  private targetViseme: VisemeId = 'REST';
+  private crossFadeProgress = 1.0; // 1.0 = transition terminée
+  private crossFadeSpeed = 0.18;   // Vitesse du cross-fade (plus haut = plus rapide)
 
   private animFrameId: number | null = null;
   private state: AvatarState = 'IDLE';
@@ -112,10 +146,6 @@ export class CanvasAvatarInstance {
   // Suivi de la souris
   private mouseX = 0;
   private mouseY = 0;
-  private eyeTargetX = 0;
-  private eyeTargetY = 0;
-  private eyeCurrentX = 0;
-  private eyeCurrentY = 0;
 
   // Clignements
   private blinkTimer = 0;
@@ -123,11 +153,8 @@ export class CanvasAvatarInstance {
   private blinkProgress = 0;
   private isBlinking = false;
 
-  // Lip-Sync & Visèmes
-  private mouthOpen = 0;
-  private mouthWidth = 1.0;
-  private jawDrop = 0;
-  private eyebrowLift = 0;
+  // Lip-Sync dynamique
+  private mouthOpenness = 0; // 0-1, piloté par l'énergie audio
 
   // Respiration
   private breathCycle = 0;
@@ -158,6 +185,9 @@ export class CanvasAvatarInstance {
     });
   }
 
+  /**
+   * Charge une image principale (utilisée si pas de visèmes disponibles).
+   */
   setImage(imageUrl: string) {
     if (!imageUrl) return;
     this.isLoaded = false;
@@ -179,6 +209,43 @@ export class CanvasAvatarInstance {
       };
     };
   }
+
+  /**
+   * Charge les photos de visèmes pour l'animation Sprite-Sheet.
+   * @param visemePhotos Record<string, string> — { "REST": "/api/avatars/images/xxx.jpg", ... }
+   */
+  setVisemePhotos(visemePhotos: Record<string, string>) {
+    if (!visemePhotos || Object.keys(visemePhotos).length === 0) {
+      this.hasVisemes = false;
+      return;
+    }
+
+    this.visemeImages.clear();
+    this.visemeLoadedCount = 0;
+    const totalToLoad = Object.keys(visemePhotos).length;
+
+    for (const [visemeId, url] of Object.entries(visemePhotos)) {
+      const img = new Image();
+      if (url.startsWith('http')) {
+        img.crossOrigin = 'anonymous';
+      }
+      img.src = url;
+      img.onload = () => {
+        this.visemeImages.set(visemeId as VisemeId, img);
+        this.visemeLoadedCount++;
+        if (this.visemeLoadedCount >= totalToLoad) {
+          this.hasVisemes = true;
+          // Utiliser REST comme image principale de fallback
+          const restImg = this.visemeImages.get('REST');
+          if (restImg) {
+            this.image = restImg;
+            this.isLoaded = true;
+          }
+        }
+      };
+    }
+  }
+
 
   setState(newState: AvatarState) {
     this.state = newState;
@@ -206,6 +273,39 @@ export class CanvasAvatarInstance {
     this.stop();
   }
 
+  /**
+   * Détermine le visème cible basé sur l'énergie audio en temps réel.
+   * Mapping : énergie vocale + fréquences → position de bouche la plus probable.
+   */
+  private determineVisemeFromAudio(audio: { volume: number; bass: number; mid: number; high: number }): VisemeId {
+    const { volume, bass, mid, high } = audio;
+
+    if (volume < 0.015) return 'REST';
+
+    // Forte ouverture (voyelles ouvertes A, AH)
+    if (volume > 0.35 && bass > 0.3) return 'OPEN_WIDE';
+
+    // Bouche arrondie (O, AU) — basses dominantes
+    if (bass > 0.35 && mid < 0.25) return 'ROUND_O';
+
+    // Bouche en U (OU, U) — basses très dominantes, peu de hauts
+    if (bass > 0.4 && high < 0.15) return 'ROUND_U';
+
+    // Consonnes sifflantes (S, Z, CH) — hautes fréquences dominantes
+    if (high > 0.3 && volume > 0.1) return 'TEETH';
+
+    // Ouverture moyenne (E, È, I)
+    if (volume > 0.15 && mid > 0.2) return 'OPEN_SMALL';
+
+    // Lèvres fermées (B, P, M) — volume très bas mais présent
+    if (volume > 0.05 && volume < 0.15) return 'CLOSED';
+
+    // Sourire / transition
+    if (mid > 0.25 && high > 0.2) return 'SMILE';
+
+    return 'OPEN_SMALL';
+  }
+
   private render(timestamp: number) {
     const { width, height } = this.canvas;
     this.ctx.clearRect(0, 0, width, height);
@@ -216,24 +316,37 @@ export class CanvasAvatarInstance {
 
     // 1. Analyse audio & Énergie vocale
     const audio = this.service.getAudioEnergy();
-    let targetMouthOpen = 0;
-    let targetMouthWidth = 1.0;
-    let speechEmphasis = 0;
+    let speechEnergy = 0;
 
     if (this.state === 'SPEAKING' || audio.volume > 0.012) {
-      const rawEnergy = (this.state === 'SPEAKING' && audio.volume <= 0.012)
-        ? Math.abs(Math.sin(timestamp * 0.015)) * 0.85 + Math.sin(timestamp * 0.008) * 0.3
-        : audio.volume * 3.5;
+      speechEnergy = (this.state === 'SPEAKING' && audio.volume <= 0.012)
+        ? Math.abs(Math.sin(timestamp * 0.015)) * 0.6
+        : audio.volume * 3.0;
 
-      targetMouthOpen = Math.min(1.0, Math.max(0.12, rawEnergy));
-      targetMouthWidth = 1.0 + (audio.mid || 0) * 0.4 - (audio.bass || 0) * 0.25;
-      speechEmphasis = targetMouthOpen;
+      // Déterminer le visème cible
+      if (this.hasVisemes) {
+        const newViseme = this.determineVisemeFromAudio(audio);
+        if (newViseme !== this.targetViseme) {
+          this.currentViseme = this.targetViseme;
+          this.targetViseme = newViseme;
+          this.crossFadeProgress = 0;
+        }
+      }
+    } else {
+      // Pas de parole → retour au repos
+      if (this.targetViseme !== 'REST') {
+        this.currentViseme = this.targetViseme;
+        this.targetViseme = 'REST';
+        this.crossFadeProgress = 0;
+      }
     }
 
-    this.mouthOpen += (targetMouthOpen - this.mouthOpen) * 0.38;
-    this.mouthWidth += (targetMouthWidth - this.mouthWidth) * 0.25;
-    this.jawDrop += (this.mouthOpen * 16 - this.jawDrop) * 0.35;
-    this.eyebrowLift += (speechEmphasis * 5 - this.eyebrowLift) * 0.2;
+    // Avancer le cross-fade
+    if (this.crossFadeProgress < 1.0) {
+      this.crossFadeProgress = Math.min(1.0, this.crossFadeProgress + this.crossFadeSpeed);
+    }
+
+    this.mouthOpenness += (speechEnergy - this.mouthOpenness) * 0.3;
 
     // 2. Clignements naturels
     this.blinkTimer += delta;
@@ -256,49 +369,39 @@ export class CanvasAvatarInstance {
       ? Math.sin(this.blinkProgress * Math.PI)
       : 0;
 
-    // 3. Posture 3D de la tête et hochements expressifs
+    // 3. Posture 3D de la tête
     const breathOffset = Math.sin(this.breathCycle) * 3.0;
 
     if (this.state === 'SPEAKING') {
-      this.targetPitch = Math.sin(timestamp * 0.009) * 0.08 * (1 + this.mouthOpen * 0.5);
+      this.targetPitch = Math.sin(timestamp * 0.009) * 0.08 * (1 + this.mouthOpenness * 0.3);
       this.targetYaw = this.mouseX * 0.15 + Math.sin(timestamp * 0.004) * 0.06;
       this.targetRoll = Math.sin(timestamp * 0.003) * 0.04 + this.mouseX * 0.03;
-      this.eyeTargetX = this.mouseX * 0.25;
-      this.eyeTargetY = this.mouseY * 0.2;
     } else if (this.state === 'LISTENING') {
       this.targetPitch = 0.04;
       this.targetYaw = this.mouseX * 0.25;
       this.targetRoll = -0.04;
-      this.eyeTargetX = this.mouseX * 0.4;
-      this.eyeTargetY = 0.1;
     } else if (this.state === 'THINKING') {
       this.targetPitch = -0.08;
       this.targetYaw = 0.1;
       this.targetRoll = 0.05;
-      this.eyeTargetX = 0.3;
-      this.eyeTargetY = -0.4;
     } else {
       this.targetPitch = Math.sin(this.breathCycle * 0.5) * 0.02;
       this.targetYaw = this.mouseX * 0.18 + Math.sin(timestamp * 0.001) * 0.03;
       this.targetRoll = Math.sin(timestamp * 0.0015) * 0.02;
-      this.eyeTargetX = this.mouseX * 0.3;
-      this.eyeTargetY = this.mouseY * 0.25;
     }
 
     this.headPitch += (this.targetPitch - this.headPitch) * 0.08;
     this.headYaw += (this.targetYaw - this.headYaw) * 0.08;
     this.headRoll += (this.targetRoll - this.headRoll) * 0.08;
-    this.eyeCurrentX += (this.eyeTargetX - this.eyeCurrentX) * 0.1;
-    this.eyeCurrentY += (this.eyeTargetY - this.eyeCurrentY) * 0.1;
 
     const cx = width / 2;
     const cy = height / 2;
     const size = Math.min(width, height) * 0.88;
 
-    // 4. Halo lumineux
+    // 4. Halo lumineux audio-réactif
     this.drawHolographicAura(cx, cy, size, audio.volume || (this.state === 'SPEAKING' ? 0.3 : 0), timestamp);
 
-    // 5. Rendu du Portrait 2.5D
+    // 5. Rendu du portrait avec cross-fade visème
     this.ctx.save();
     const parallaxX = cx + this.headYaw * 35;
     const parallaxY = cy + breathOffset + this.headPitch * 25;
@@ -313,10 +416,17 @@ export class CanvasAvatarInstance {
     this.ctx.fillStyle = '#0F172A';
     this.ctx.fill();
 
-    if (this.isLoaded && this.image) {
-      this.renderOrganicPortrait(size, blinkValue);
+    if (this.hasVisemes) {
+      this.renderVisemeCrossFade(size);
+    } else if (this.isLoaded && this.image) {
+      this.renderStaticPortrait(size);
     } else {
-      this.drawStylizedFacePlaceholder(size, this.mouthOpen, blinkValue);
+      this.drawPlaceholder(size);
+    }
+
+    // Clignement naturel par overlay semi-transparent (pas de dessins vectoriels)
+    if (blinkValue > 0.04) {
+      this.renderNaturalBlink(size, blinkValue);
     }
 
     this.ctx.restore();
@@ -325,130 +435,84 @@ export class CanvasAvatarInstance {
     this.drawGlowRing(cx, cy, size, breathOffset, audio.volume || (this.state === 'SPEAKING' ? 0.3 : 0));
   }
 
-  private renderOrganicPortrait(size: number, blinkValue: number) {
-    const img = this.image!;
+  /**
+   * Cross-Fade entre deux photos de visèmes.
+   * Dessine d'abord le visème source, puis le visème cible par-dessus avec opacité progressive.
+   */
+  private renderVisemeCrossFade(size: number) {
     const half = size / 2;
 
-    this.ctx.save();
-    this.ctx.drawImage(img, -half, -half, size, size);
-    this.ctx.restore();
-
-    // Mâchoire 2.5D Jaw-Drop
-    if (this.jawDrop > 0.8) {
-      const jawH = size * 0.40;
+    // Dessiner le visème source (en dessous)
+    const currentImg = this.visemeImages.get(this.currentViseme) || this.image;
+    if (currentImg) {
       this.ctx.save();
-      this.ctx.beginPath();
-      this.ctx.ellipse(0, size * 0.28, half * 0.88, jawH * 0.65, 0, 0, Math.PI * 2);
-      this.ctx.clip();
-      this.ctx.translate(0, this.jawDrop * 0.7);
-      this.ctx.scale(1.0 + this.mouthOpen * 0.02, 1.0 + this.mouthOpen * 0.04);
-      this.ctx.drawImage(img, -half, -half, size, size);
+      this.ctx.globalAlpha = 1.0;
+      this.ctx.drawImage(currentImg, -half, -half, size, size);
       this.ctx.restore();
     }
 
-    // Bouche
-    if (this.mouthOpen > 0.06) {
-      this.renderRealisticMouth(size, this.mouthOpen, this.mouthWidth);
-    }
-
-    // Clignements
-    if (blinkValue > 0.04) {
-      this.renderEyelids(size, blinkValue);
-    }
-
-    // Sourcils
-    if (this.eyebrowLift > 0.5) {
-      this.renderEyebrowAccents(size, this.eyebrowLift);
+    // Dessiner le visème cible par-dessus avec opacité = crossFadeProgress
+    if (this.crossFadeProgress < 1.0) {
+      const targetImg = this.visemeImages.get(this.targetViseme) || this.image;
+      if (targetImg && targetImg !== currentImg) {
+        this.ctx.save();
+        this.ctx.globalAlpha = this.crossFadeProgress;
+        this.ctx.drawImage(targetImg, -half, -half, size, size);
+        this.ctx.restore();
+      }
+    } else {
+      // Transition terminée : dessiner directement le visème cible
+      const targetImg = this.visemeImages.get(this.targetViseme) || this.image;
+      if (targetImg) {
+        this.ctx.save();
+        this.ctx.globalAlpha = 1.0;
+        this.ctx.drawImage(targetImg, -half, -half, size, size);
+        this.ctx.restore();
+      }
     }
   }
 
-  private renderRealisticMouth(size: number, openFactor: number, widthFactor: number) {
-    const mouthY = size * 0.21 + this.jawDrop * 0.3;
-    const mouthW = size * 0.23 * widthFactor;
-    const mouthH = size * 0.17 * openFactor;
+  /**
+   * Rendu d'un portrait statique (fallback sans visèmes).
+   * Aucun dessin vectoriel — juste la photo avec un léger scale subtil lié à l'audio.
+   */
+  private renderStaticPortrait(size: number) {
+    const img = this.image!;
+    const half = size / 2;
+
+    // Micro-scale lié à la parole pour donner un peu de vie
+    const breathScale = 1.0 + Math.sin(this.breathCycle) * 0.005;
+    const speechScale = 1.0 + this.mouthOpenness * 0.008;
+    const totalScale = breathScale * speechScale;
 
     this.ctx.save();
-
-    this.ctx.beginPath();
-    this.ctx.ellipse(0, mouthY, mouthW / 2, mouthH / 2, 0, 0, Math.PI * 2);
-    const grad = this.ctx.createRadialGradient(0, mouthY, 2, 0, mouthY, mouthH);
-    grad.addColorStop(0, '#1A0407');
-    grad.addColorStop(0.6, '#4A0F1A');
-    grad.addColorStop(1, '#1A0407');
-    this.ctx.fillStyle = grad;
-    this.ctx.fill();
-
-    if (openFactor > 0.2) {
-      this.ctx.beginPath();
-      this.ctx.ellipse(0, mouthY - mouthH * 0.24, mouthW * 0.38, mouthH * 0.22, 0, 0, Math.PI);
-      this.ctx.fillStyle = '#FFFFFF';
-      this.ctx.fill();
-    }
-
-    if (openFactor > 0.4) {
-      this.ctx.beginPath();
-      this.ctx.ellipse(0, mouthY + mouthH * 0.22, mouthW * 0.26, mouthH * 0.18, 0, Math.PI, Math.PI * 2);
-      this.ctx.fillStyle = '#BA485C';
-      this.ctx.fill();
-    }
-
-    this.ctx.beginPath();
-    this.ctx.ellipse(0, mouthY, (mouthW / 2) + 2, (mouthH / 2) + 2, 0, 0, Math.PI * 2);
-    this.ctx.strokeStyle = 'rgba(120, 40, 50, 0.45)';
-    this.ctx.lineWidth = 2.5;
-    this.ctx.stroke();
-
+    this.ctx.scale(totalScale, totalScale);
+    this.ctx.drawImage(img, -half, -half, size, size);
     this.ctx.restore();
   }
 
-  private renderEyelids(size: number, blink: number) {
+  /**
+   * Clignement naturel : overlay sombre semi-transparent sur la zone des yeux.
+   * Pas de dessin de paupières vectorielles.
+   */
+  private renderNaturalBlink(size: number, blinkValue: number) {
     const eyeY = -size * 0.08;
-    const eyeSpacing = size * 0.17;
-    const eyeW = size * 0.13;
-    const eyeH = size * 0.08 * blink;
+    const eyeW = size * 0.38;
+    const eyeH = size * 0.06 * blinkValue;
 
     this.ctx.save();
-    this.ctx.fillStyle = 'rgba(40, 20, 25, 0.75)';
+    this.ctx.globalCompositeOperation = 'multiply';
+    this.ctx.fillStyle = `rgba(20, 15, 15, ${blinkValue * 0.85})`;
 
+    // Zone paupière gauche
     this.ctx.beginPath();
-    this.ctx.ellipse(-eyeSpacing, eyeY, eyeW / 2, eyeH / 2, 0, 0, Math.PI * 2);
+    this.ctx.ellipse(-size * 0.15, eyeY, eyeW / 2, eyeH, 0, 0, Math.PI * 2);
     this.ctx.fill();
 
+    // Zone paupière droite
     this.ctx.beginPath();
-    this.ctx.ellipse(eyeSpacing, eyeY, eyeW / 2, eyeH / 2, 0, 0, Math.PI * 2);
+    this.ctx.ellipse(size * 0.15, eyeY, eyeW / 2, eyeH, 0, 0, Math.PI * 2);
     this.ctx.fill();
-
-    this.ctx.strokeStyle = 'rgba(20, 10, 15, 0.9)';
-    this.ctx.lineWidth = 1.8;
-    this.ctx.beginPath();
-    this.ctx.moveTo(-eyeSpacing - eyeW / 2, eyeY);
-    this.ctx.lineTo(-eyeSpacing + eyeW / 2, eyeY);
-    this.ctx.moveTo(eyeSpacing - eyeW / 2, eyeY);
-    this.ctx.lineTo(eyeSpacing + eyeW / 2, eyeY);
-    this.ctx.stroke();
-
-    this.ctx.restore();
-  }
-
-  private renderEyebrowAccents(size: number, lift: number) {
-    const browY = -size * 0.19 - lift * 0.8;
-    const browSpacing = size * 0.17;
-    const browW = size * 0.12;
-
-    this.ctx.save();
-    this.ctx.strokeStyle = 'rgba(30, 20, 20, 0.35)';
-    this.ctx.lineWidth = 2.5;
-    this.ctx.lineCap = 'round';
-
-    this.ctx.beginPath();
-    this.ctx.moveTo(-browSpacing - browW / 2, browY + 2);
-    this.ctx.quadraticCurveTo(-browSpacing, browY - 3, -browSpacing + browW / 2, browY);
-    this.ctx.stroke();
-
-    this.ctx.beginPath();
-    this.ctx.moveTo(browSpacing - browW / 2, browY);
-    this.ctx.quadraticCurveTo(browSpacing, browY - 3, browSpacing + browW / 2, browY + 2);
-    this.ctx.stroke();
 
     this.ctx.restore();
   }
@@ -505,7 +569,7 @@ export class CanvasAvatarInstance {
     this.ctx.restore();
   }
 
-  private drawStylizedFacePlaceholder(size: number, mouthOpen: number, blink: number) {
+  private drawPlaceholder(size: number) {
     const half = size / 2;
     this.ctx.save();
     this.ctx.beginPath();
@@ -516,15 +580,13 @@ export class CanvasAvatarInstance {
     this.ctx.lineWidth = 2;
     this.ctx.stroke();
 
-    if (blink < 0.7) {
-      this.ctx.beginPath();
-      this.ctx.arc(-size * 0.18, -size * 0.08, 6, 0, Math.PI * 2);
-      this.ctx.arc(size * 0.18, -size * 0.08, 6, 0, Math.PI * 2);
-      this.ctx.fillStyle = this.themeColor;
-      this.ctx.fill();
-    }
+    // Points simples pour les yeux
+    this.ctx.beginPath();
+    this.ctx.arc(-size * 0.18, -size * 0.08, 6, 0, Math.PI * 2);
+    this.ctx.arc(size * 0.18, -size * 0.08, 6, 0, Math.PI * 2);
+    this.ctx.fillStyle = this.themeColor;
+    this.ctx.fill();
 
-    this.renderRealisticMouth(size, mouthOpen, 1.0);
     this.ctx.restore();
   }
 }

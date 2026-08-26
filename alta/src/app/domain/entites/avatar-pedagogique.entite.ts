@@ -10,6 +10,9 @@ export interface AvatarPedagogique {
   voixId?: string;
   personnalite: string;
   actif: boolean;
+  landmarks?: any;
+  visemePhotos?: Record<string, string>;
+  compatibilityScore?: number;
   dateCreation: Date;
   utilisations: number;
 }
