@@ -120,22 +120,36 @@ export class AudioService {
     while (this.audioQueue.length > 0 && !this.isMuted) {
       const item = this.audioQueue.shift();
       try {
+        console.log("🔊 [AudioService] Préparation lecture :", item.text);
         const audioBlob = await item.audioPromise;
-        if (audioBlob) {
-          if (this.audioCtx && this.analyser) {
+        if (audioBlob && audioBlob.size > 100) {
+          console.log("🔊 [AudioService] Blob TTS reçu :", audioBlob.size, "octets");
+          
+          let playedSuccessfully = false;
+
+          // Tentative 1 : Web Audio API directe (BufferSource)
+          if (this.audioCtx) {
             try {
               if (this.audioCtx.state === 'suspended') {
                 await this.audioCtx.resume();
               }
               const arrayBuffer = await audioBlob.arrayBuffer();
-              const audioBuffer = await this.audioCtx.decodeAudioData(arrayBuffer);
+              const bufferCopy = arrayBuffer.slice(0);
               
+              const audioBuffer = await new Promise((res, rej) => {
+                this.audioCtx.decodeAudioData(bufferCopy, res, rej);
+              });
+
               const source = this.audioCtx.createBufferSource();
               source.buffer = audioBuffer;
               this.currentSource = source;
 
-              source.connect(this.analyser);
-              this.analyser.connect(this.audioCtx.destination);
+              if (this.analyser) {
+                source.connect(this.analyser);
+                this.analyser.connect(this.audioCtx.destination);
+              } else {
+                source.connect(this.audioCtx.destination);
+              }
 
               await new Promise((resolve) => {
                 source.onended = () => {
@@ -144,19 +158,36 @@ export class AudioService {
                 };
                 source.start(0);
               });
-            } catch (mediaErr) {
-              console.warn("Erreur Web Audio :", mediaErr);
-              // Fallback HTMLAudioElement si erreur de décodage
-              await this.playWithAudioElement(audioBlob);
+              playedSuccessfully = true;
+              console.log("🔊 [AudioService] Phrase jouée avec succès via Web Audio");
+            } catch (webAudioErr) {
+              console.warn("⚠️ [AudioService] Web Audio BufferSource a échoué :", webAudioErr);
             }
-          } else {
-            await this.playWithAudioElement(audioBlob);
           }
+
+          // Tentative 2 : HTMLAudioElement si BufferSource a échoué
+          if (!playedSuccessfully) {
+            try {
+              await this.playWithAudioElement(audioBlob);
+              playedSuccessfully = true;
+              console.log("🔊 [AudioService] Phrase jouée via HTMLAudioElement");
+            } catch (elErr) {
+              console.warn("⚠️ [AudioService] HTMLAudioElement a échoué :", elErr);
+            }
+          }
+
+          // Tentative 3 : Synthèse vocale navigateur WebSpeech de secours
+          if (!playedSuccessfully && this.speechSynthesis) {
+            console.log("🔊 [AudioService] Fallback vers WebSpeech pour :", item.text);
+            await this.speakWithWebSpeech(item.text);
+          }
+
         } else if (this.speechSynthesis) {
+          console.log("🔊 [AudioService] Aucun blob TTS reçu, lecture via WebSpeech");
           await this.speakWithWebSpeech(item.text);
         }
       } catch (err) {
-        console.warn("Erreur lecture audio :", err);
+        console.warn("❌ [AudioService] Erreur globale lecture audio :", err);
       }
     }
 

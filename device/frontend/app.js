@@ -301,30 +301,15 @@ export class AlternIAApp {
         sentenceBuffer += chunk;
 
         // Découpage et émission vocale TTS fluide
-        if (!firstSent) {
-          const match = clauseDelim.exec(sentenceBuffer);
-          if (match || sentenceBuffer.trim().split(/\s+/).length >= 6) {
-            const pos = match ? match.index + match[0].length : sentenceBuffer.length;
-            const segment = sentenceBuffer.substring(0, pos).trim();
-            sentenceBuffer = sentenceBuffer.substring(pos);
-            if (segment.length > 2) {
-              this.audio.enqueueSentence(segment);
-              firstSent = true;
-            }
-          }
-        } else {
-          while (true) {
-            let match = sentDelim.exec(sentenceBuffer);
-            if (!match && sentenceBuffer.trim().split(/\s+/).length >= 10) {
-              match = clauseDelim.exec(sentenceBuffer);
-            }
-            if (!match) break;
-            const pos = match.index + match[0].length;
-            const segment = sentenceBuffer.substring(0, pos).trim();
-            sentenceBuffer = sentenceBuffer.substring(pos);
-            if (segment.length > 2) {
-              this.audio.enqueueSentence(segment);
-            }
+        const match = sentDelim.exec(sentenceBuffer) || clauseDelim.exec(sentenceBuffer);
+        if (match && sentenceBuffer.substring(0, match.index).trim().split(/\s+/).length >= 3) {
+          const pos = match.index + match[0].length;
+          const segment = sentenceBuffer.substring(0, pos).trim();
+          sentenceBuffer = sentenceBuffer.substring(pos);
+          if (segment.length > 2) {
+            console.log("🔊 [TTS Stream Chunk]:", segment);
+            this.audio.enqueueSentence(segment);
+            firstSent = true;
           }
         }
       },
@@ -341,14 +326,21 @@ export class AlternIAApp {
           this.avatarTranscription.innerHTML = this.formatMarkdownText(fullText);
           this.katex.renderFormulasInElement(this.avatarTranscription);
         }
+
+        // Si le buffer contient encore du texte restant non émis
+        if (sentenceBuffer.trim().length > 2) {
+          console.log("🔊 [TTS Stream Restant]:", sentenceBuffer.trim());
+          this.audio.enqueueSentence(sentenceBuffer.trim());
+          firstSent = true;
+        } else if (!firstSent && fullText.trim().length > 2) {
+          console.log("🔊 [TTS Stream Full Fallback]:", fullText.trim());
+          this.audio.enqueueSentence(fullText.trim());
+          firstSent = true;
+        }
       }
     });
 
-    if (streamSuccess) {
-      if (sentenceBuffer.trim().length > 2) {
-        this.audio.enqueueSentence(sentenceBuffer.trim());
-      }
-    } else {
+    if (!streamSuccess) {
       if (this.speechContentArea) {
         this.speechContentArea.innerHTML = `<p class="text-red-400">Désolé, une erreur de connexion est survenue.</p>`;
       }
