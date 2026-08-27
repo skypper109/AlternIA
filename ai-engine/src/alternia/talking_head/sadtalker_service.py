@@ -25,6 +25,7 @@ class SadTalkerService:
         candidates = [
             os.environ.get("SADTALKER_DIR"),
             sadtalker_dir,
+            "/workspace/SadTalker",  # RunPod
             "/content/SadTalker",  # Standard Google Colab
             str(Path.cwd() / "SadTalker"),
             str(Path.cwd().parent / "SadTalker"),

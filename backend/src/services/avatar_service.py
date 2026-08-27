@@ -483,13 +483,18 @@ async def generate_avatar_video(
             if candidate.exists():
                 img_path = candidate
 
-    if not img_path or not img_path.exists():
-        # Fallback sur la première image disponible
-        all_imgs = list(AVATARS_STORAGE_DIR.glob("*.jpg")) + list(AVATARS_STORAGE_DIR.glob("*.png"))
-        if all_imgs:
-            img_path = all_imgs[0]
+    # Si l'image est absente ou est un format vectoriel SVG, basculer sur une photo raster (PNG/JPG)
+    if not img_path or not img_path.exists() or img_path.suffix.lower() == ".svg":
+        candidates = (
+            list(AVATARS_STORAGE_DIR.glob("*.jpg"))
+            + list(AVATARS_STORAGE_DIR.glob("*.png"))
+            + [ROOT_DIR / "device" / "frontend" / "assets" / "avatar.png"]
+        )
+        valid_imgs = [p for p in candidates if p.exists() and p.is_file() and p.stat().st_size > 500]
+        if valid_imgs:
+            img_path = valid_imgs[0]
         else:
-            raise HTTPException(status_code=400, detail="Aucune photo d'avatar disponible pour la génération.")
+            raise HTTPException(status_code=400, detail="Aucune photo d'avatar JPG/PNG disponible pour la génération vidéo.")
 
     # 2. Génération de l'audio TTS
     text_to_speak = phrase or "Bonjour ! Je suis ton professeur virtuel AlternIA. Pose-moi une question !"

@@ -37,7 +37,6 @@ data/qdrant-*/
 data/index/
 ai-engine/data/qdrant/
 ai-engine/data/qdrant-*/
-ai-engine/data/index/*.json
 *.lock
 *.sqlite
 
