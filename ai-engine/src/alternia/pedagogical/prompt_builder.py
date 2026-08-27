@@ -137,13 +137,13 @@ class PedagogicalPromptBuilder:
             {"role": "system", "content": system_content}
         ]
 
-        # Insertion de l'historique récent (élagué pour économiser les tokens)
+        # Insertion de l'historique récent (multi-tours fluide)
         if session_messages:
-            for msg in session_messages[-2:]:
+            for msg in session_messages[-6:]:
                 role = "user" if getattr(msg, "role", "") == "student" else "assistant"
                 content = getattr(msg, "content", "").strip()
-                if role == "assistant" and len(content) > 150:
-                    content = content[:150].rstrip() + "..."
+                if role == "assistant" and len(content) > 600:
+                    content = content[:600].rstrip() + "..."
                 if content:
                     messages.append({"role": role, "content": content})
 

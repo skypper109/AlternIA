@@ -263,7 +263,7 @@ class AlterniaOrchestrator:
                 student_class=student_class,
                 subject=subject,
             )
-            session_messages = session.last_messages(2)
+            session_messages = session.last_messages(6)
             conversation_context = (
                 self.conversation_context_builder
                 .build(session)
@@ -447,7 +447,7 @@ class AlterniaOrchestrator:
                 student_class=student_class,
                 subject=subject,
             )
-            session_messages = session.last_messages(2)
+            session_messages = session.last_messages(6)
             conversation_context = (
                 self.conversation_context_builder
                 .build(session)
