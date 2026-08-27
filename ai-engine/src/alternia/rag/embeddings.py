@@ -57,11 +57,13 @@ class EmbeddingService:
         else:
             self.model_path = MULTILINGUAL_MODEL_PATH
 
+        device = "cuda" if torch.cuda.is_available() else "cpu"
         if not self.model_path.exists():
             try:
                 # Tentative de chargement via HuggingFace Hub si non téléchargé
                 self.model = SentenceTransformer(
-                    "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+                    "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+                    device=device,
                 )
                 self.model.save(str(MULTILINGUAL_MODEL_PATH))
                 self.model_path = MULTILINGUAL_MODEL_PATH
@@ -73,7 +75,8 @@ class EmbeddingService:
                 )
 
         self.model = SentenceTransformer(
-            str(self.model_path)
+            str(self.model_path),
+            device=device,
         )
 
     def encode(

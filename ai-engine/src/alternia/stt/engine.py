@@ -41,6 +41,16 @@ class STTEngine:
         compute_type: str = "int8",
         models_dir: Optional[Path] = None,
     ):
+        # Auto-détection CUDA pour accélération GPU
+        if device == "cpu":
+            try:
+                import torch
+                if torch.cuda.is_available() and torch.cuda.device_count() > 0:
+                    device = "cuda"
+                    compute_type = "float16"
+            except Exception:
+                pass
+
         self.model_size = model_size
         self.language = language
         self.device = device

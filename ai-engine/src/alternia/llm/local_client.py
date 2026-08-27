@@ -101,8 +101,9 @@ class LocalLLMClient(LLMClient):
         threads_batch = cpu_count
 
         # Détection intelligente de l'accélération matérielle
-        # Sur Raspberry Pi 4/5 ou Mac Intel (GPU discret non unifié), n_gpu_layers=0 (CPU pur) est le plus rapide
         gpu_layers = self._detect_optimal_gpu_layers(n_gpu_layers)
+        target_mode = f"GPU ({gpu_layers} layers)" if gpu_layers != 0 else "CPU (0 layers)"
+        print(f"\033[36m🚀 [local_client.py]\033[0m Chargement du LLM ({Path(self.model_path).name}) — Mode : \033[1;32m{target_mode}\033[0m")
 
         try:
             from llama_cpp import Llama
@@ -122,7 +123,9 @@ class LocalLLMClient(LLMClient):
                 n_gpu_layers=gpu_layers,
                 verbose=False,
             )
-        except Exception:
+            print(f"\033[32m✅ [local_client.py]\033[0m LLM chargé avec succès sur {target_mode} !")
+        except Exception as exc:
+            print(f"\033[33m⚠️ [local_client.py]\033[0m Échec du chargement GPU ({exc}). Basculement sur CPU...")
             # Repli CPU pur en cas d'échec de chargement
             self.llm = Llama(
                 model_path=self.model_path,
