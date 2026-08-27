@@ -23,7 +23,7 @@ os.environ["PYTHONUNBUFFERED"] = "1"
 
 
 def print_banner():
-    print("""
+    print(r"""
 \033[1;36m
    _   _ _                  ___   _    
   /_\ | | |_ ___ _ _ _ _   |_ _| /_\   
@@ -84,14 +84,15 @@ def start_tunnel(port: int = 8000) -> tuple[subprocess.Popen, str]:
     start_time = time.time()
 
     # Lecture des logs pour extraire l'URL trycloudflare.com
-    while time.time() - start_time < 30:
-        line = proc.stderr.readline()
-        if not line and proc.poll() is not None:
-            break
-        match = re.search(r"(https://[a-zA-Z0-9-]+\.trycloudflare\.com)", line)
-        if match:
-            public_url = match.group(1)
-            break
+    if proc.stderr:
+        while time.time() - start_time < 30:
+            line = proc.stderr.readline()
+            if not line and proc.poll() is not None:
+                break
+            match = re.search(r"(https://[a-zA-Z0-9-]+\.trycloudflare\.com)", line)
+            if match:
+                public_url = match.group(1)
+                break
 
     if not public_url:
         print("⚠️ Impossible d'obtenir l'URL Cloudflare automatiquement. Vérifiez les logs.")
