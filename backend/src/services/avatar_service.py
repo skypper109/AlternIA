@@ -174,6 +174,10 @@ def map_avatar_to_dict(av: AvatarPedagogique) -> Dict[str, Any]:
         except Exception:
             viseme_photos = None
 
+    video_url = getattr(av, "video_url", None)
+    if not video_url and av.photo_url and any(av.photo_url.lower().endswith(ext) for ext in [".mp4", ".webm", ".mov"]):
+        video_url = av.photo_url
+
     return {
         "id": av.id,
         "nom": av.nom,
@@ -181,6 +185,7 @@ def map_avatar_to_dict(av: AvatarPedagogique) -> Dict[str, Any]:
         "stylePedagogique": av.style_pedagogique,
         "voixTts": av.voix_tts,
         "photoUrl": av.photo_url,
+        "videoUrl": video_url,
         "audioUrl": av.audio_sample_url,
         "audioFileName": av.audio_file_name,
         "actif": av.actif,
@@ -193,40 +198,56 @@ def map_avatar_to_dict(av: AvatarPedagogique) -> Dict[str, Any]:
 
 async def save_avatar_image(file: UploadFile) -> Dict[str, Any]:
     """
-    Sauvegarde l'image uploadée par l'utilisateur dans data/avatars/
-    et lance automatiquement l'analyse des repères faciaux et du diagnostic de compatibilité.
+    Sauvegarde l'image ou la vidéo uploadée par l'utilisateur dans data/avatars/
+    et lance automatiquement l'analyse des repères faciaux si c'est une image.
     """
     if not file.filename:
         raise HTTPException(status_code=400, detail="Nom de fichier manquant.")
 
     extension = Path(file.filename).suffix.lower()
-    if extension not in [".jpg", ".jpeg", ".png", ".webp", ".svg"]:
-        raise HTTPException(status_code=400, detail="Format non supporté. Utilisez JPG, PNG, WEBP ou SVG.")
+    valid_exts = [".jpg", ".jpeg", ".png", ".webp", ".svg", ".mp4", ".webm", ".mov"]
+    if extension not in valid_exts:
+        raise HTTPException(status_code=400, detail="Format non supporté. Utilisez JPG, PNG, WEBP, SVG ou MP4.")
 
-    clean_name = f"avatar_{uuid.uuid4().hex[:10]}{extension}"
-    target_path = AVATARS_STORAGE_DIR / clean_name
+    is_video = extension in [".mp4", ".webm", ".mov"]
+    prefix = "video" if is_video else "avatar"
+    clean_name = f"{prefix}_{uuid.uuid4().hex[:10]}{extension}"
+    target_dir = AVATARS_VIDEOS_DIR if is_video else AVATARS_STORAGE_DIR
+    target_path = target_dir / clean_name
 
     try:
         content = await file.read()
-        if len(content) > 10 * 1024 * 1024:
-            raise HTTPException(status_code=400, detail="L'image est trop volumineuse (max 10 Mo).")
+        max_size = 50 * 1024 * 1024 if is_video else 10 * 1024 * 1024
+        if len(content) > max_size:
+            raise HTTPException(status_code=400, detail="Fichier trop volumineux (max 50 Mo pour vidéo, 10 Mo pour image).")
 
         with open(target_path, "wb") as f:
             f.write(content)
 
-        # Analyse automatique des repères faciaux
+        if is_video:
+            video_url = f"/api/avatars/videos/{clean_name}"
+            return {
+                "photoUrl": video_url,
+                "videoUrl": video_url,
+                "fileName": clean_name,
+                "isVideo": True,
+            }
+
+        # Analyse automatique des repères faciaux si image
         analysis = analyze_face_landmarks(target_path)
 
         return {
             "photoUrl": f"/api/avatars/images/{clean_name}",
+            "videoUrl": None,
             "fileName": clean_name,
             "compatibility": analysis,
             "landmarks": analysis.get("landmarks"),
+            "isVideo": False,
         }
     except HTTPException:
         raise
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Erreur lors de la sauvegarde de l'image : {exc}")
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la sauvegarde : {exc}")
 
 
 def get_avatar_image_path(filename: str) -> Path:

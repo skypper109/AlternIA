@@ -44,6 +44,8 @@ export class AlternIAApp {
     this.modalAvatarSubtitle = document.getElementById('modal-avatar-subtitle');
     this.modalStatusText = document.getElementById('modal-status-text');
     this.modalStatusDot = document.getElementById('modal-status-dot');
+    this.avatarVideo = document.getElementById('alta-avatar-video');
+    this.avatarCanvas = document.getElementById('alta-avatar-canvas');
   }
 
   initModules() {
@@ -67,15 +69,21 @@ export class AlternIAApp {
     // 2. Moteur KaTeX
     this.katex = new KaTeXRenderer();
 
-    // 3. Moteur Audio & Synthèse Vocale avec analyseur FFT pour Lip-Sync
+    // 3. Moteur Audio & Synthèse Vocale avec analyseur FFT pour Lip-Sync et Contrôle Vidéo
     this.audio = new AudioService({
       onSpeakingChange: (isSpeaking) => {
         if (isSpeaking) {
           this.vortex.setState('SPEAKING', 'Enseignant explique...');
           this.logoVortex.setState('SPEAKING', 'Enseignant explique...');
+          if (this.avatarVideo && !this.avatarVideo.classList.contains('hidden')) {
+            this.avatarVideo.play().catch(() => {});
+          }
         } else if (this.vortex.currentState === 'SPEAKING') {
           this.vortex.setState('IDLE', 'Prêt à répondre');
           this.logoVortex.setState('IDLE', 'Prêt à répondre');
+          if (this.avatarVideo && !this.avatarVideo.classList.contains('hidden')) {
+            this.avatarVideo.pause();
+          }
         }
       },
       onAnalyserReady: (analyser) => {
@@ -261,13 +269,21 @@ export class AlternIAApp {
             this.modalAvatarSubtitle.textContent = `${subject}${style}`;
           }
 
-          // L'image de l'avatar est chargée UNIQUEMENT dans le modal (this.vortex)
-          // La page principale garde TOUJOURS le logo officiel AlternIA (this.logoVortex)
-          if (data.photoUrl) {
+          // Support Avatar Vidéo Réel MP4 ou Portrait 2.5D
+          if (data.videoUrl) {
+            if (this.avatarVideo) {
+              this.avatarVideo.src = data.videoUrl;
+              this.avatarVideo.classList.remove('hidden');
+              if (this.avatarCanvas) this.avatarCanvas.classList.add('hidden');
+              this.avatarVideo.load();
+            }
+          } else if (data.photoUrl) {
+            if (this.avatarCanvas) this.avatarCanvas.classList.remove('hidden');
+            if (this.avatarVideo) this.avatarVideo.classList.add('hidden');
             this.vortex.setAvatarImage(data.photoUrl, data.nom, data.landmarks);
-          }
-          if (data.visemePhotos && this.vortex.animator) {
-            this.vortex.animator.setVisemePhotos(data.visemePhotos);
+            if (data.visemePhotos && this.vortex.animator) {
+              this.vortex.animator.setVisemePhotos(data.visemePhotos);
+            }
           }
         }
       }
