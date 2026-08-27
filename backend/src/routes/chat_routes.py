@@ -95,6 +95,16 @@ def chat_endpoint(req: ChatRequest):
                 subject=effective_subject,
                 student_id=req.student_id,
             )
+            sources_list = getattr(context, "sources", []) if context else []
+            if (not sources_list or max((getattr(s, "score", 0.0) for s in sources_list), default=0.0) < 0.35) and effective_subject:
+                context_global = orch.rag_service.retrieve(
+                    question=rag_query,
+                    student_class=norm_class,
+                    subject=None,
+                    student_id=req.student_id,
+                )
+                if context_global and getattr(context_global, "sources", []):
+                    context = context_global
         except Exception:
             context = None
 
@@ -197,6 +207,17 @@ async def chat_stream_endpoint(req: ChatRequest):
                 subject=effective_subject,
                 student_id=req.student_id,
             )
+            # Si aucune source trouvée dans la matière spécifique, recherche globale multi-matières
+            sources_list = getattr(context, "sources", []) if context else []
+            if (not sources_list or max((getattr(s, "score", 0.0) for s in sources_list), default=0.0) < 0.35) and effective_subject:
+                context_global = orch.rag_service.retrieve(
+                    question=rag_query,
+                    student_class=norm_class,
+                    subject=None,
+                    student_id=req.student_id,
+                )
+                if context_global and getattr(context_global, "sources", []):
+                    context = context_global
         except Exception:
             context = None
 
@@ -219,7 +240,6 @@ async def chat_stream_endpoint(req: ChatRequest):
         _max_score = max((getattr(s, "score", 0.0) for s in sources_list), default=0.0)
         if len(sources_list) == 0 or _max_score < 0.35:
             context = None
-            formatted_sources = []
 
     generator = orch.ask_stream(
         question=core_question,

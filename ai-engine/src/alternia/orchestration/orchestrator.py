@@ -210,28 +210,28 @@ class AlterniaOrchestrator:
         # GUARD PÉDAGOGIQUE CENTRALISÉ :
         # Si un RAG est configuré et qu'aucune source valide n'est trouvée (ou score < 0.40),
         # l'orchestrateur refuse immédiatement SANS appeler le LLM.
-        if self.rag_service is not None:
-            # Bypass RAG strictness for identity or greeting questions
-            import re
-            q_clean = question.strip().lower()
-            is_identity = bool(re.search(r"^(qui es tu|qui es-tu|presente toi|présente toi|présente-toi|presente-toi|tu es qui|qui est tu|bonjour|salut)", q_clean))
+        # if self.rag_service is not None:
+        #     # Bypass RAG strictness for identity or greeting questions
+        #     import re
+        #     q_clean = question.strip().lower()
+        #     is_identity = bool(re.search(r"^(qui es tu|qui es-tu|presente toi|présente toi|présente-toi|presente-toi|tu es qui|qui est tu|bonjour|salut)", q_clean))
             
-            sources = getattr(context, "sources", []) if context else []
-            max_score = max((getattr(s, "score", 0.0) for s in sources), default=0.0)
+        #     sources = getattr(context, "sources", []) if context else []
+        #     max_score = max((getattr(s, "score", 0.0) for s in sources), default=0.0)
             
-            if not is_identity and (not sources or max_score < 0.40):
-                subject_label = subject or "la matière sélectionnée"
-                refusal_text = (
-                    f"Je n'ai pas trouvé d'information sur ce sujet dans le programme officiel "
-                    f"de {student_class} pour {subject_label}. "
-                    f"Pose-moi une question sur {subject_label} conforme au programme de ta classe "
-                    f"pour que je puisse t'aider."
-                )
+        #     if not is_identity and (not sources or max_score < 0.40):
+        #         subject_label = subject or "la matière sélectionnée"
+        #         refusal_text = (
+        #             f"Je n'ai pas trouvé d'information sur ce sujet dans le programme officiel "
+        #             f"de {student_class} pour {subject_label}. "
+        #             f"Pose-moi une question sur {subject_label} conforme au programme de ta classe "
+        #             f"pour que je puisse t'aider."
+        #         )
 
-                def refusal_generator():
-                    yield refusal_text
+        #         def refusal_generator():
+        #             yield refusal_text
 
-                return refusal_generator()
+        #         return refusal_generator()
 
         t0_orch = time.perf_counter()
         print(f"\033[36m⏱️  [orchestrator.py]\033[0m Préparation orchestrateur (profil, conversation, pédagogie, prompt)...")
