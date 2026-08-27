@@ -10,6 +10,54 @@ export class KaTeXRenderer {
     this.modalSource = document.getElementById('formula-modal-source');
   }
 
+  renderFormulasInElement(element) {
+    if (!element) return;
+    if (window.renderMathInElement) {
+      try {
+        window.renderMathInElement(element, {
+          delimiters: [
+            { left: '$$', right: '$$', display: true },
+            { left: '\\[', right: '\\]', display: true },
+            { left: '$', right: '$', display: false },
+            { left: '\\(', right: '\\)', display: false }
+          ],
+          throwOnError: false
+        });
+        return;
+      } catch (e) {
+        console.warn("renderMathInElement error:", e);
+      }
+    }
+
+    // Fallback direct regex avec katex.renderToString
+    if (window.katex) {
+      try {
+        let html = element.innerHTML;
+        // Display math: \[ ... \] ou $$ ... $$
+        html = html.replace(/\\\[([\s\S]*?)\\\]|\$\$([\s\S]*?)\$\$/g, (match, p1, p2) => {
+          const formula = p1 || p2;
+          try {
+            return `<div class="my-2 flex justify-center">${window.katex.renderToString(formula.trim(), { displayMode: true, throwOnError: false })}</div>`;
+          } catch (e) {
+            return match;
+          }
+        });
+        // Inline math: \( ... \) ou $ ... $
+        html = html.replace(/\\\(([\s\S]*?)\\\)|\$([^\$\n]+)\$/g, (match, p1, p2) => {
+          const formula = p1 || p2;
+          try {
+            return `<span class="inline-math mx-1">${window.katex.renderToString(formula.trim(), { displayMode: false, throwOnError: false })}</span>`;
+          } catch (e) {
+            return match;
+          }
+        });
+        element.innerHTML = html;
+      } catch (e) {
+        console.warn("KaTeX fallback rendering error:", e);
+      }
+    }
+  }
+
   extractFormula(text) {
     if (!text) return null;
     const displayMathRegex = /\$\$([\s\S]*?)\$\$|\\\[([\s\S]*?)\\\]/;

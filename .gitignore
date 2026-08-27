@@ -62,8 +62,6 @@ node_modules/
 **/node_modules/
 .angular/
 **/.angular/
-dist/
-**/dist/
 
 # Temporary files
 tmp/

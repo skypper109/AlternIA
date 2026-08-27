@@ -67,17 +67,31 @@ def get_device_info():
 
 
 @router.post("/api/tts")
-@router.get("/api/tts")
-async def tts_endpoint(text: Optional[str] = None, req: Optional[TTSRequest] = None):
-    """Synthèse vocale neurale haute fidélité (voix Vivienne par défaut)."""
-    raw_text = (req.text if req else None) or text or ""
-    if not raw_text.strip():
+async def tts_post_endpoint(req: TTSRequest):
+    """Synthèse vocale neurale haute fidélité (POST JSON body)."""
+    if not req.text or not req.text.strip():
         raise HTTPException(status_code=400, detail="Texte manquant pour la synthèse vocale")
 
-    voice_name = (req.voice if req else None) or settings.tts_voice or "vivienne"
+    voice_name = req.voice or settings.tts_voice or "vivienne"
     tts_engine = TTSEngine(voice=voice_name)
     try:
-        audio_bytes = await tts_engine.synthesize_to_bytes(raw_text)
+        audio_bytes = await tts_engine.synthesize_to_bytes(req.text)
+        if not audio_bytes:
+            raise HTTPException(status_code=500, detail="Échec de la synthèse vocale")
+        return Response(content=audio_bytes, media_type="audio/mpeg")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur TTS : {str(e)}")
+
+
+@router.get("/api/tts")
+async def tts_get_endpoint(text: str, voice: Optional[str] = "vivienne"):
+    """Synthèse vocale neurale haute fidélité (GET query param)."""
+    if not text.strip():
+        raise HTTPException(status_code=400, detail="Texte manquant pour la synthèse vocale")
+
+    tts_engine = TTSEngine(voice=voice or "vivienne")
+    try:
+        audio_bytes = await tts_engine.synthesize_to_bytes(text)
         if not audio_bytes:
             raise HTTPException(status_code=500, detail="Échec de la synthèse vocale")
         return Response(content=audio_bytes, media_type="audio/mpeg")

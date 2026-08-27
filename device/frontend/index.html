@@ -46,6 +46,7 @@
   <!-- KaTeX pour les formules scientifiques -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
 
   <!-- Styles personnalisés épurés Kiosk -->
   <link rel="stylesheet" href="styles.css">
@@ -84,8 +85,11 @@
       </button>
     </div>
 
-    <!-- Contrôles Muet / Reset / Avatar -->
+    <!-- Contrôles Muet / Reset / Avatar / Backoffice -->
     <div class="flex items-center gap-2">
+      <a href="/auth/connexion" class="kiosk-icon-btn text-purple-600 hover:text-purple-700" title="Accéder au Backoffice Alta" target="_self">
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+      </a>
       <button id="btn-show-avatar" class="kiosk-icon-btn" title="Ouvrir l'Avatar">
         <svg class="w-5 h-5 text-indigo-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
       </button>
