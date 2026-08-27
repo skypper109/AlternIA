@@ -300,7 +300,7 @@ export class AlternIAApp {
       if (res.ok) {
         const data = await res.json();
         if (data) {
-          // Mise à jour du nom et de la matière de l'avatar créé dans le back-office
+          // 1. Mise à jour du nom et de la matière de l'avatar créé dans le back-office
           if (this.modalAvatarTitle && data.nom) {
             this.modalAvatarTitle.textContent = data.nom;
           }
@@ -314,11 +314,22 @@ export class AlternIAApp {
             altaAvatarName.textContent = data.nom;
           }
 
+          // 2. Affichage immédiat de la photo sur l'accueil ET dans le modal
           if (data.photoUrl) {
             this.vortex.setAvatarImage(data.photoUrl, data.nom, data.landmarks);
+            this.logoVortex.setAvatarImage(data.photoUrl, data.nom, data.landmarks);
+            if (this.logoVortex.animator) {
+              this.logoVortex.animator.isLogoMode = false;
+            }
           }
-          if (data.visemePhotos && this.vortex.animator) {
-            this.vortex.animator.setVisemePhotos(data.visemePhotos);
+          if (data.visemePhotos) {
+            if (this.vortex.animator) {
+              this.vortex.animator.setVisemePhotos(data.visemePhotos);
+            }
+            if (this.logoVortex.animator) {
+              this.logoVortex.animator.setVisemePhotos(data.visemePhotos);
+              this.logoVortex.animator.isLogoMode = false;
+            }
           }
         }
       }

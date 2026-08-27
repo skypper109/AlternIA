@@ -50,6 +50,54 @@ def detect_hardware():
         print("⚠️ PyTorch n'est pas encore installé.")
 
 
+def ensure_environment():
+    """Vérifie et installe automatiquement les dépendances manquantes."""
+    required = [
+        ("uvicorn", "uvicorn[standard]"),
+        ("fastapi", "fastapi"),
+        ("pydantic_settings", "pydantic-settings"),
+        ("sqlalchemy", "sqlalchemy"),
+        ("pymysql", "pymysql"),
+        ("sentence_transformers", "sentence-transformers"),
+        ("edge_tts", "edge-tts"),
+        ("multipart", "python-multipart"),
+        ("cv2", "opencv-python-headless"),
+    ]
+    missing = []
+    for mod_name, pkg_name in required:
+        try:
+            __import__(mod_name)
+        except ImportError:
+            missing.append(pkg_name)
+
+    if missing:
+        print(f"📦 Installation automatique des dépendances manquantes : {', '.join(missing)}...")
+        subprocess.run([sys.executable, "-m", "pip", "install", "-q"] + missing, check=False)
+
+    # Vérification et installation de llama-cpp-python
+    try:
+        import llama_cpp
+    except ImportError:
+        print("⚡ Installation de llama-cpp-python...")
+        try:
+            import torch
+            if torch.cuda.is_available():
+                cmd = [
+                    sys.executable, "-m", "pip", "install", "-q",
+                    "llama-cpp-python",
+                    "--extra-index-url", "https://abetlen.github.io/llama-cpp-python/whl/cu124"
+                ]
+                res = subprocess.run(cmd)
+                if res.returncode != 0:
+                    env = os.environ.copy()
+                    env["CMAKE_ARGS"] = "-DGGML_CUDA=on"
+                    subprocess.run([sys.executable, "-m", "pip", "install", "--no-cache-dir", "llama-cpp-python"], env=env)
+            else:
+                subprocess.run([sys.executable, "-m", "pip", "install", "-q", "llama-cpp-python"])
+        except Exception as e:
+            print(f"⚠️ Note installation llama_cpp : {e}")
+
+
 def install_cloudflared() -> str:
     """Télécharge et installe le binaire cloudflared si absent."""
     cloudflared_path = shutil.which("cloudflared")
@@ -102,6 +150,7 @@ def start_tunnel(port: int = 8000) -> tuple[subprocess.Popen, str]:
 def main():
     print_banner()
     detect_hardware()
+    ensure_environment()
 
     port = int(os.environ.get("PORT", 8000))
 
