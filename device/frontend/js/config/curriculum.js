@@ -3,7 +3,14 @@
  * Module enrichi avec Défis Express du Bac, Badges Gamifiés et Notions Clés tape-à-l'œil.
  */
 
-export const API_BASE_URL = window.location.origin || '';
+// Résolution dynamique de l'API (Support Local & Google Colab Pro / AWS Cloud)
+const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+const apiFromQuery = urlParams ? urlParams.get('api') : null;
+if (apiFromQuery && typeof localStorage !== 'undefined') {
+  localStorage.setItem('ALTERNIA_API_URL', apiFromQuery);
+}
+const savedApi = typeof localStorage !== 'undefined' ? localStorage.getItem('ALTERNIA_API_URL') : null;
+export const API_BASE_URL = apiFromQuery || savedApi || (typeof window !== 'undefined' && window.location.origin.startsWith('http') ? window.location.origin : 'http://127.0.0.1:8000');
 
 export const CURRICULUM_DATA = {
   classes: [

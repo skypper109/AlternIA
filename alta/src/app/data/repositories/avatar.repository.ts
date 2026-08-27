@@ -128,4 +128,11 @@ export class AvatarRepository {
       voix,
     }, { responseType: 'blob' });
   }
+
+  genererVideoAvatar(data: { avatarId?: string; photoUrl?: string; phrase?: string; voice?: string }): Observable<{ status: string; video_url: string; video_filename: string; is_gpu_accelerated: boolean }> {
+    return this.http.post<{ status: string; video_url: string; video_filename: string; is_gpu_accelerated: boolean }>(
+      `${environment.apiUrl}/avatars/generate-video`,
+      data
+    );
+  }
 }

@@ -13,8 +13,10 @@ from backend.src.models.avatar import AvatarCreateRequest, AvatarUpdateRequest, 
 from backend.src.services.avatar_service import (
     create_avatar,
     delete_avatar,
+    generate_avatar_video,
     get_active_avatar,
     get_avatar_image_path,
+    get_avatar_video_path,
     list_avatars,
     save_avatar_image,
     save_viseme_photo,
@@ -116,6 +118,38 @@ def api_supprimer_avatar(avatar_id: str, db: Session = Depends(get_db)):
     return delete_avatar(db, avatar_id)
 
 
+@router.post("/generate-video")
+async def api_generer_video_avatar(req: dict, db: Session = Depends(get_db)):
+    """
+    Génère une vidéo parlante ultra-réaliste à partir d'une photo et d'un texte didactique.
+    Prend en charge l'accélération GPU (Colab Pro / AWS) et le streaming Web MP4.
+    """
+    avatar_id = req.get("avatar_id") or req.get("avatarId")
+    photo_url = req.get("photo_url") or req.get("photoUrl")
+    phrase = req.get("phrase") or req.get("text") or req.get("question")
+    voice = req.get("voice") or req.get("voix") or "vivienne"
+
+    return await generate_avatar_video(
+        db=db,
+        avatar_id=avatar_id,
+        photo_url=photo_url,
+        phrase=phrase,
+        voice=voice,
+    )
+
+
+@router.get("/videos/{filename}")
+def api_servir_video_avatar(filename: str):
+    """Sert une vidéo d'avatar générée avec streaming fluide H.264."""
+    path = get_avatar_video_path(filename)
+    headers = {
+        "Access-Control-Allow-Origin": "*",
+        "Cache-Control": "public, max-age=86400",
+        "Accept-Ranges": "bytes",
+    }
+    return FileResponse(str(path), media_type="video/mp4", headers=headers)
+
+
 # Route de test vocal dans le Studio Vocal
 vocal_router = APIRouter(tags=["Studio Vocal"])
 
@@ -124,3 +158,4 @@ vocal_router = APIRouter(tags=["Studio Vocal"])
 async def api_studio_vocal_test_audio(req: StudioVocalTestRequest):
     """Génère un extrait audio de test pour le Studio Vocal (voix neurale haute fidélité)."""
     return await test_voice_audio(req)
+

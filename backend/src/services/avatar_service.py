@@ -2,6 +2,7 @@ import json
 import os
 import shutil
 import sys
+import tempfile
 import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -439,3 +440,106 @@ async def test_voice_audio(req: StudioVocalTestRequest) -> Response:
         )
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Erreur TTS : {exc}")
+
+
+AVATARS_VIDEOS_DIR = AVATARS_STORAGE_DIR / "videos"
+AVATARS_VIDEOS_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def get_avatar_video_path(filename: str) -> Path:
+    """Retourne le chemin sécurisé vers une vidéo d'avatar."""
+    clean_name = Path(filename).name
+    path = AVATARS_VIDEOS_DIR / clean_name
+    if not path.exists() or not path.is_file():
+        raise HTTPException(status_code=404, detail="Vidéo d'avatar non trouvée.")
+    return path
+
+
+async def generate_avatar_video(
+    db: Session,
+    avatar_id: Optional[str] = None,
+    photo_url: Optional[str] = None,
+    phrase: Optional[str] = None,
+    voice: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Génère une vidéo MP4 parlante ultra-réaliste pour un avatar à partir d'une photo et d'un texte.
+    Fonctionne sur GPU (Google Colab Pro A100 / AWS GPU) et en local avec fallback instantané.
+    """
+    from alternia.talking_head.sadtalker_service import SadTalkerService
+
+    # 1. Résolution de l'image source
+    img_path = None
+    if avatar_id:
+        avatar = db.query(AvatarPedagogique).filter(AvatarPedagogique.id == avatar_id).first()
+        if avatar and avatar.photo_url:
+            clean_filename = Path(avatar.photo_url).name
+            img_path = AVATARS_STORAGE_DIR / clean_filename
+
+    if not img_path or not img_path.exists():
+        if photo_url:
+            clean_filename = Path(photo_url).name
+            candidate = AVATARS_STORAGE_DIR / clean_filename
+            if candidate.exists():
+                img_path = candidate
+
+    if not img_path or not img_path.exists():
+        # Fallback sur la première image disponible
+        all_imgs = list(AVATARS_STORAGE_DIR.glob("*.jpg")) + list(AVATARS_STORAGE_DIR.glob("*.png"))
+        if all_imgs:
+            img_path = all_imgs[0]
+        else:
+            raise HTTPException(status_code=400, detail="Aucune photo d'avatar disponible pour la génération.")
+
+    # 2. Génération de l'audio TTS
+    text_to_speak = phrase or "Bonjour ! Je suis ton professeur virtuel AlternIA. Pose-moi une question !"
+    chosen_voice = voice or "vivienne"
+    tts_engine = TTSEngine(voice=chosen_voice)
+
+    temp_audio_file = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False)
+    temp_audio_path = Path(temp_audio_file.name)
+    temp_audio_file.close()
+
+    try:
+        audio_bytes = await tts_engine.synthesize_to_bytes(text_to_speak)
+        if not audio_bytes:
+            raise HTTPException(status_code=500, detail="Erreur de synthèse vocale pour la vidéo.")
+        with open(temp_audio_path, "wb") as f:
+            f.write(audio_bytes)
+
+        # 3. Inférence Vidéo SadTalker / GPU
+        service = SadTalkerService()
+        generated_video = service.generate_video(
+            image_path=str(img_path),
+            audio_path=str(temp_audio_path),
+            output_dir=str(AVATARS_VIDEOS_DIR),
+            pose_style=0,
+            enhancement=False,
+        )
+
+        if not generated_video:
+            raise HTTPException(status_code=500, detail="Échec de la génération vidéo de l'avatar.")
+
+        video_path = Path(generated_video)
+        video_filename = video_path.name
+        
+        # S'assurer que le fichier est bien copié dans le dossier public des vidéos
+        target_public_path = AVATARS_VIDEOS_DIR / video_filename
+        if video_path != target_public_path and video_path.exists():
+            shutil.copy(str(video_path), str(target_public_path))
+
+        return {
+            "status": "success",
+            "video_url": f"/api/avatars/videos/{video_filename}",
+            "video_filename": video_filename,
+            "avatar_id": avatar_id,
+            "phrase": text_to_speak,
+            "is_gpu_accelerated": service.is_available(),
+        }
+    finally:
+        if temp_audio_path.exists():
+            try:
+                temp_audio_path.unlink()
+            except Exception:
+                pass
+
