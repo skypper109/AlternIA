@@ -78,20 +78,19 @@ def ensure_environment():
     try:
         import llama_cpp
     except ImportError:
-        print("⚡ Installation de llama-cpp-python...")
+        print("⚡ Compilation native de llama-cpp-python pour CUDA 12.8...")
         try:
             import torch
             if torch.cuda.is_available():
-                cmd = [
-                    sys.executable, "-m", "pip", "install", "-q",
-                    "llama-cpp-python",
-                    "--extra-index-url", "https://abetlen.github.io/llama-cpp-python/whl/cu124"
-                ]
-                res = subprocess.run(cmd)
-                if res.returncode != 0:
-                    env = os.environ.copy()
-                    env["CMAKE_ARGS"] = "-DGGML_CUDA=on"
-                    subprocess.run([sys.executable, "-m", "pip", "install", "--no-cache-dir", "llama-cpp-python"], env=env)
+                env = os.environ.copy()
+                env["CMAKE_ARGS"] = "-DGGML_CUDA=on -DGGML_AVX512=off"
+                env["PATH"] = f"/usr/local/cuda/bin:{env.get('PATH', '')}"
+                env["LD_LIBRARY_PATH"] = f"/usr/local/cuda/lib64:{env.get('LD_LIBRARY_PATH', '')}"
+                subprocess.run(
+                    [sys.executable, "-m", "pip", "install", "--no-cache-dir", "--force-reinstall", "llama-cpp-python"],
+                    env=env,
+                    check=False
+                )
             else:
                 subprocess.run([sys.executable, "-m", "pip", "install", "-q", "llama-cpp-python"])
         except Exception as e:
