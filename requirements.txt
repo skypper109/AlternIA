@@ -2,13 +2,15 @@
 # ALTERNIA — Dépendances Générales du Projet
 # ==============================================================================
 
-# Framework Web & API
+# Framework Web, Base de Données & API
 fastapi>=0.115.0
 uvicorn[standard]>=0.30.0
 pydantic>=2.7.0
 pydantic-settings>=2.0.0
 python-dotenv>=1.0.0
 httpx>=0.27.0
+sqlalchemy>=2.0.0
+pymysql>=1.1.0
 
 # Calcul Scientifique & IA (Versions compatibles)
 numpy<2.0.0

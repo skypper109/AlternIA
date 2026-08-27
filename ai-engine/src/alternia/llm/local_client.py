@@ -35,11 +35,25 @@ class LocalLLMClient(LLMClient):
         # Fallback de modèle si le fichier spécifié n'existe pas
         if not path.exists():
             models_dir = path.parent
-            if (models_dir / "qwen2.5-3b-instruct-q4_k_m.gguf").exists():
-                path = models_dir / "qwen2.5-3b-instruct-q4_k_m.gguf"
-            elif (models_dir / "qwen2.5-1.5b-instruct-q4_k_m.gguf").exists():
-                path = models_dir / "qwen2.5-1.5b-instruct-q4_k_m.gguf"
-            else:
+            candidates = [
+                "qwen2.5-14b-instruct-q4_k_m.gguf",
+                "qwen2.5-7b-instruct-q5_k_m.gguf",
+                "qwen2.5-7b-instruct-q4_k_m.gguf",
+                "qwen2.5-3b-instruct-q4_k_m.gguf",
+                "qwen2.5-1.5b-instruct-q4_k_m.gguf",
+            ]
+            found = False
+            for candidate in candidates:
+                if (models_dir / candidate).exists():
+                    path = models_dir / candidate
+                    found = True
+                    break
+            if not found and models_dir.exists():
+                ggufs = list(models_dir.glob("*.gguf"))
+                if ggufs:
+                    path = ggufs[0]
+                    found = True
+            if not found:
                 raise FileNotFoundError(
                     f"Modèle GGUF introuvable : {path}"
                 )
@@ -145,7 +159,18 @@ class LocalLLMClient(LLMClient):
             # Intel Mac (x86_64) → GPU discret non unifié, CPU pur est plus rapide
             return 0
 
-        # Linux / Raspberry Pi (ARM Cortex A72/A76) → CPU pur
+        # Linux : Vérifier la présence d'un GPU NVIDIA (CUDA / RunPod / Colab / AWS)
+        if sys_name == "Linux":
+            try:
+                import torch
+                if torch.cuda.is_available() and torch.cuda.device_count() > 0:
+                    return -1  # Toutes les couches sur GPU NVIDIA CUDA
+            except Exception:
+                pass
+            if os.path.exists("/proc/driver/nvidia") or os.environ.get("CUDA_VISIBLE_DEVICES"):
+                return -1
+
+        # Raspberry Pi (ARM Cortex A72/A76) / CPU pur
         return 0
 
     def _build_messages(
