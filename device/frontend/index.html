@@ -85,26 +85,20 @@
       </button>
     </div>
 
-    <!-- Contrôles Muet / Reset / Avatar / Serveur / Backoffice -->
+    <!-- Contrôles Épurés : Avatar / Son / Reset -->
     <div class="flex items-center gap-2">
-      <button id="btn-server-config" class="kiosk-icon-btn text-emerald-600 hover:text-emerald-700" title="Configuration Serveur & Accès Mobile">
-        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"></path><path d="M12 12v9"></path><path d="m8 17 4 4 4-4"></path></svg>
+      <button id="btn-show-avatar" class="kiosk-icon-btn text-indigo-500" title="Ouvrir l'Avatar Pédagogique">
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
       </button>
-      <a href="/auth/connexion" class="kiosk-icon-btn text-purple-600 hover:text-purple-700" title="Accéder au Backoffice Alta" target="_self">
-        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-      </a>
-      <button id="btn-show-avatar" class="kiosk-icon-btn" title="Ouvrir l'Avatar Interactif">
-        <svg class="w-5 h-5 text-indigo-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-      </button>
-      <button id="btn-toggle-mute" class="kiosk-icon-btn" title="Activer / Couper la voix">
-        <svg class="w-5 h-5 text-cyan-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <button id="btn-toggle-mute" class="kiosk-icon-btn text-cyan-500" title="Activer / Couper la voix">
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
           <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
           <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
         </svg>
       </button>
-      <button id="btn-reset-session" class="kiosk-icon-btn" title="Nouvelle question">
-        <svg class="w-5 h-5 text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <button id="btn-reset-session" class="kiosk-icon-btn text-amber-500" title="Nouvelle question">
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path>
           <path d="M21 3v5h-5"></path>
           <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path>
@@ -119,11 +113,11 @@
        ========================================================================= -->
   <main class="kiosk-body">
 
-    <!-- Colonne Gauche : Le Logo Animé et le Microphone -->
+    <!-- Colonne Gauche : Logo Officiel AlternIA Animé et Microphone -->
     <div class="avatar-speaker-column">
       
       <div class="avatar-canvas-wrapper" id="alta-vortex-hub">
-        <!-- Canvas pour le logo animé et les cercles FFT -->
+        <!-- Canvas pour le logo officiel animé et les cercles FFT -->
         <canvas id="main-animated-logo-canvas" width="220" height="220" class="avatar-canvas"></canvas>
         <div class="status-live-pill" id="status-pill">
           <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" id="status-dot"></span>
@@ -153,16 +147,16 @@
 
     </div>
 
-    <!-- Colonne Droite : L'Explication Pédagogique RAG -->
-    <div class="kiosk-content-column">
+    <!-- Colonne Droite : Ce que dit le boîtier (Explication & Champ de saisie) -->
+    <div class="speech-display-column">
       
       <!-- Carte d'explication de l'enseignant -->
       <div class="speech-bubble-card" id="main-speech-card">
         
         <!-- En-tête de la bulle -->
-        <div class="flex items-center justify-between border-b border-black/5 pb-3 mb-4">
+        <div class="speech-card-header">
           <div class="flex items-center gap-2">
-            <div class="w-6 h-6 rounded-md bg-[#314999]/10 text-[#314999] flex items-center justify-center text-xs font-bold">
+            <div class="icon-indicator">
               <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                 <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
                 <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
@@ -177,22 +171,41 @@
         </div>
 
         <!-- Aperçu de la question posée par l'élève -->
-        <div id="student-query-preview" class="hidden mb-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl">
+        <div id="student-query-preview" class="student-query-box hidden">
           <p class="text-xs text-amber-800 font-medium">
             <span class="font-bold text-amber-900">Votre question :</span> <em id="student-query-text"></em>
           </p>
         </div>
 
         <!-- Zone du texte de la réponse (Support KaTeX + Markdown) -->
-        <div id="speech-content-area" class="speech-scroll-area">
+        <div id="speech-content-area" class="speech-content-area">
           <div class="speech-welcome-text">
-            <h3 class="text-xl font-bold text-slate-800 mb-2">Bienvenue sur votre tuteur AlternIA !</h3>
-            <p class="text-base text-slate-600 leading-relaxed">
-              Sélectionnez votre classe ci-dessus (10ème, 11ème ou Terminale), puis <strong>touchez le micro orange</strong> ou écrivez une question pour réviser avec les manuels officiels du Mali.
-            </p>
+            <div>
+              <h3 class="text-xl font-bold text-slate-800 mb-2">Bienvenue sur votre tuteur AlternIA !</h3>
+              <p class="text-base text-slate-600 leading-relaxed">
+                Sélectionnez votre classe ci-dessus (10ème, 11ème ou Terminale), puis <strong>touchez le micro orange</strong> ou écrivez une question pour réviser avec les manuels officiels du Mali.
+              </p>
+            </div>
           </div>
         </div>
 
+      </div>
+
+      <!-- Barre de saisie intégrée en bas de la colonne de réponse -->
+      <div class="kiosk-input-bar">
+        <input 
+          type="text" 
+          id="question-input" 
+          class="kiosk-input" 
+          placeholder="Ou écrivez votre question ici..."
+          autocomplete="off"
+        >
+        <button id="btn-send" class="kiosk-send-btn" title="Envoyer la question">
+          <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          </svg>
+        </button>
       </div>
 
     </div>
@@ -200,28 +213,7 @@
   </main>
 
   <!-- =========================================================================
-       3. BARRE DE SAISIE INFÉRIEURE TACTILE
-       ========================================================================= -->
-  <footer class="kiosk-bottom-bar">
-    <div class="kiosk-input-container">
-      <input 
-        type="text" 
-        id="question-input" 
-        class="kiosk-text-input" 
-        placeholder="Ou écrivez votre question ici..."
-        autocomplete="off"
-      >
-      <button id="btn-send" class="kiosk-send-btn" title="Envoyer la question">
-        <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <line x1="22" y1="2" x2="11" y2="13"></line>
-          <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-        </svg>
-      </button>
-    </div>
-  </footer>
-
-  <!-- =========================================================================
-       4. MODALES (FORMULES KATEX, AVATAR INTERACTIF & CONFIG SERVEUR)
+       3. MODALES (FORMULES KATEX & AVATAR INTERACTIF)
        ========================================================================= -->
 
   <!-- Formule Plein Écran Modal -->
@@ -281,46 +273,6 @@
       <span class="text-xs text-slate-400 font-medium">Touchez pour parler, retouchez pour envoyer</span>
     </div>
 
-  </div>
-
-  <!-- Modal Configuration Serveur & Accès Mobile -->
-  <div id="server-settings-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4">
-    <div class="bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 animate-fade-in">
-      <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 mb-4">
-        <div class="flex items-center gap-2.5">
-          <div class="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center font-bold">
-            🌐
-          </div>
-          <h3 class="text-base font-bold text-slate-800 dark:text-white">Connexion Serveur & Mobile</h3>
-        </div>
-        <button id="btn-close-server-modal" class="text-slate-400 hover:text-slate-700 dark:hover:text-white text-lg">✕</button>
-      </div>
-
-      <div class="space-y-4 text-sm text-slate-600 dark:text-slate-300">
-        <div>
-          <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">URL API Actuelle :</label>
-          <div class="flex gap-2">
-            <input type="text" id="input-server-url" class="flex-1 px-3 py-2 border rounded-lg bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-xs font-mono" placeholder="http://127.0.0.1:8000">
-            <button id="btn-save-server-url" class="px-4 py-2 bg-[#314999] text-white font-medium rounded-lg text-xs hover:bg-[#253977]">Enregistrer</button>
-          </div>
-        </div>
-
-        <div class="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800">
-          <h4 class="font-bold text-xs text-slate-700 dark:text-slate-200 mb-1.5">📱 Pour connecter l'application Mobile :</h4>
-          <p class="text-xs text-slate-500 dark:text-slate-400 mb-2 leading-relaxed">
-            Entrez l'URL de votre serveur Cloud (ex: <code class="text-cyan-600 font-mono" id="current-cloud-url-display">https://...trycloudflare.com</code>) dans l'application mobile pour synchroniser les révisions et poser des questions vocales.
-          </p>
-          <div class="flex items-center gap-2">
-            <button id="btn-copy-server-url" class="px-3 py-1.5 bg-cyan-600 text-white rounded-lg text-xs font-medium hover:bg-cyan-700 flex items-center gap-1">
-              📋 Copier le lien serveur
-            </button>
-            <button id="btn-reset-server-local" class="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs hover:bg-slate-300">
-              🏠 Basculer en Local
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
   </div>
 
   <!-- Logique applicative modulaire -->

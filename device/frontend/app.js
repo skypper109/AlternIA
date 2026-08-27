@@ -44,16 +44,6 @@ export class AlternIAApp {
     this.modalAvatarSubtitle = document.getElementById('modal-avatar-subtitle');
     this.modalStatusText = document.getElementById('modal-status-text');
     this.modalStatusDot = document.getElementById('modal-status-dot');
-
-    // Configuration Serveur & Mobile
-    this.btnServerConfig = document.getElementById('btn-server-config');
-    this.serverModal = document.getElementById('server-settings-modal');
-    this.btnCloseServerModal = document.getElementById('btn-close-server-modal');
-    this.inputServerUrl = document.getElementById('input-server-url');
-    this.btnSaveServerUrl = document.getElementById('btn-save-server-url');
-    this.btnCopyServerUrl = document.getElementById('btn-copy-server-url');
-    this.btnResetServerLocal = document.getElementById('btn-reset-server-local');
-    this.cloudUrlDisplay = document.getElementById('current-cloud-url-display');
   }
 
   initModules() {
@@ -210,45 +200,6 @@ export class AlternIAApp {
       };
     }
 
-    // Modal Configuration Serveur & Mobile
-    if (this.btnServerConfig) {
-      this.btnServerConfig.onclick = () => {
-        if (this.serverModal) {
-          if (this.inputServerUrl) this.inputServerUrl.value = localStorage.getItem('ALTERNIA_API_URL') || window.location.origin;
-          if (this.cloudUrlDisplay) this.cloudUrlDisplay.textContent = window.location.origin;
-          this.serverModal.classList.remove('hidden');
-        }
-      };
-    }
-    if (this.btnCloseServerModal) {
-      this.btnCloseServerModal.onclick = () => {
-        if (this.serverModal) this.serverModal.classList.add('hidden');
-      };
-    }
-    if (this.btnSaveServerUrl) {
-      this.btnSaveServerUrl.onclick = () => {
-        const url = this.inputServerUrl.value.trim();
-        if (url) {
-          localStorage.setItem('ALTERNIA_API_URL', url);
-          window.location.reload();
-        }
-      };
-    }
-    if (this.btnResetServerLocal) {
-      this.btnResetServerLocal.onclick = () => {
-        localStorage.removeItem('ALTERNIA_API_URL');
-        window.location.href = 'http://127.0.0.1:8000/device/';
-      };
-    }
-    if (this.btnCopyServerUrl) {
-      this.btnCopyServerUrl.onclick = () => {
-        const urlToCopy = localStorage.getItem('ALTERNIA_API_URL') || window.location.origin;
-        navigator.clipboard.writeText(urlToCopy);
-        this.btnCopyServerUrl.textContent = "✅ Lien copié !";
-        setTimeout(() => { this.btnCopyServerUrl.textContent = "📋 Copier le lien serveur"; }, 2000);
-      };
-    }
-
     // Mute / Unmute
     if (this.btnMute) {
       this.btnMute.onclick = () => {
@@ -300,7 +251,7 @@ export class AlternIAApp {
       if (res.ok) {
         const data = await res.json();
         if (data) {
-          // 1. Mise à jour du nom et de la matière de l'avatar créé dans le back-office
+          // Mise à jour des informations de l'avatar UNIQUEMENT dans le Modal Pédagogique
           if (this.modalAvatarTitle && data.nom) {
             this.modalAvatarTitle.textContent = data.nom;
           }
@@ -309,27 +260,14 @@ export class AlternIAApp {
             const style = data.stylePedagogique ? ` • Style ${data.stylePedagogique}` : '';
             this.modalAvatarSubtitle.textContent = `${subject}${style}`;
           }
-          const altaAvatarName = document.getElementById('alta-avatar-name');
-          if (altaAvatarName && data.nom) {
-            altaAvatarName.textContent = data.nom;
-          }
 
-          // 2. Affichage immédiat de la photo sur l'accueil ET dans le modal
+          // L'image de l'avatar est chargée UNIQUEMENT dans le modal (this.vortex)
+          // La page principale garde TOUJOURS le logo officiel AlternIA (this.logoVortex)
           if (data.photoUrl) {
             this.vortex.setAvatarImage(data.photoUrl, data.nom, data.landmarks);
-            this.logoVortex.setAvatarImage(data.photoUrl, data.nom, data.landmarks);
-            if (this.logoVortex.animator) {
-              this.logoVortex.animator.isLogoMode = false;
-            }
           }
-          if (data.visemePhotos) {
-            if (this.vortex.animator) {
-              this.vortex.animator.setVisemePhotos(data.visemePhotos);
-            }
-            if (this.logoVortex.animator) {
-              this.logoVortex.animator.setVisemePhotos(data.visemePhotos);
-              this.logoVortex.animator.isLogoMode = false;
-            }
+          if (data.visemePhotos && this.vortex.animator) {
+            this.vortex.animator.setVisemePhotos(data.visemePhotos);
           }
         }
       }
