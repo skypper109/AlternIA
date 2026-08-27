@@ -39,17 +39,33 @@ export class AlternIAApp {
     this.btnCloseAvatar = document.getElementById('btn-close-avatar');
     this.avatarModal = document.getElementById('avatar-fullscreen-modal');
     this.avatarTranscription = document.getElementById('avatar-fullscreen-transcription');
+    this.btnMicModal = document.getElementById('btn-mic-modal');
+    this.modalAvatarTitle = document.getElementById('modal-avatar-title');
+    this.modalAvatarSubtitle = document.getElementById('modal-avatar-subtitle');
+    this.modalStatusText = document.getElementById('modal-status-text');
+    this.modalStatusDot = document.getElementById('modal-status-dot');
+
+    // Configuration Serveur & Mobile
+    this.btnServerConfig = document.getElementById('btn-server-config');
+    this.serverModal = document.getElementById('server-settings-modal');
+    this.btnCloseServerModal = document.getElementById('btn-close-server-modal');
+    this.inputServerUrl = document.getElementById('input-server-url');
+    this.btnSaveServerUrl = document.getElementById('btn-save-server-url');
+    this.btnCopyServerUrl = document.getElementById('btn-copy-server-url');
+    this.btnResetServerLocal = document.getElementById('btn-reset-server-local');
+    this.cloudUrlDisplay = document.getElementById('current-cloud-url-display');
   }
 
   initModules() {
-    // 1. UI Vortex & Avatar 2.5D (Modal)
+    // 1. UI Vortex & Avatar 2.5D (Modal plein écran pour l'avatar actif du backoffice)
     this.vortex = new VortexUI({
       canvasId: 'alta-avatar-canvas',
-      statusTextId: null, // Le modal n'a pas besoin du texte de statut
-      statusDotId: null,
+      statusTextId: 'modal-status-text',
+      statusDotId: 'modal-status-dot',
+      isLogoMode: false
     });
 
-    // 1b. UI Vortex & Avatar 2.5D (Logo Principal)
+    // 1b. UI Vortex & Avatar 2.5D (Logo Principal en page d'accueil)
     this.logoVortex = new VortexUI({
       canvasId: 'main-animated-logo-canvas',
       statusTextId: 'status-text',
@@ -78,10 +94,11 @@ export class AlternIAApp {
       }
     });
 
-    // 4. Moteur Speech-To-Text (Microphone) avec mode interactif clic-pour-parler / clic-pour-finir
+    // 4. Moteur Speech-To-Text (Microphone) avec mode interactif push-to-talk (Accueil + Modal Avatar)
     this.speech = new SpeechService({
       onStart: () => {
         if (this.micBtn) this.micBtn.classList.add('is-recording');
+        if (this.btnMicModal) this.btnMicModal.classList.add('animate-ping', 'ring-4', 'ring-amber-300');
         this.vortex.setState('LISTENING', 'Écoute en cours...');
         this.logoVortex.setState('LISTENING', 'Écoute en cours...');
         this.audio.playBeep(440, 0.1);
@@ -89,13 +106,18 @@ export class AlternIAApp {
           this.studentQueryPreview.classList.remove('hidden');
           if (this.studentQueryText) this.studentQueryText.textContent = "Je vous écoute... Parlez au micro";
         }
+        if (this.avatarTranscription) {
+          this.avatarTranscription.textContent = "Je vous écoute... Posez votre question au professeur.";
+        }
       },
       onResult: (transcript) => {
         if (this.studentQueryText) this.studentQueryText.textContent = transcript;
         if (this.questionInput) this.questionInput.value = transcript;
+        if (this.avatarTranscription) this.avatarTranscription.textContent = `"${transcript}"`;
       },
       onEnd: (finalText) => {
         if (this.micBtn) this.micBtn.classList.remove('is-recording');
+        if (this.btnMicModal) this.btnMicModal.classList.remove('animate-ping', 'ring-4', 'ring-amber-300');
         const text = finalText || (this.questionInput ? this.questionInput.value.trim() : '');
         if (text) {
           if (this.studentQueryText) this.studentQueryText.textContent = text;
@@ -107,6 +129,7 @@ export class AlternIAApp {
       },
       onError: () => {
         if (this.micBtn) this.micBtn.classList.remove('is-recording');
+        if (this.btnMicModal) this.btnMicModal.classList.remove('animate-ping', 'ring-4', 'ring-amber-300');
         this.vortex.setState('IDLE', 'Prêt à répondre');
         this.logoVortex.setState('IDLE', 'Prêt à répondre');
       }
@@ -122,9 +145,12 @@ export class AlternIAApp {
       };
     });
 
-    // Bouton Microphone : Touchez pour parler, retouchez pour envoyer la question
+    // Boutons Microphone : Accueil + Modal Avatar (Push-To-Talk)
     if (this.micBtn) {
       this.micBtn.onclick = () => this.speech.toggle();
+    }
+    if (this.btnMicModal) {
+      this.btnMicModal.onclick = () => this.speech.toggle();
     }
 
     // Envoi par bouton ou Entrée
@@ -159,6 +185,9 @@ export class AlternIAApp {
             </div>
           `;
         }
+        if (this.avatarTranscription) {
+          this.avatarTranscription.textContent = "Session réinitialisée. Touchez le micro pour me parler !";
+        }
         this.vortex.setState('IDLE', 'Prêt à répondre');
         this.logoVortex.setState('IDLE', 'Prêt à répondre');
       };
@@ -169,7 +198,6 @@ export class AlternIAApp {
       this.btnShowAvatar.onclick = () => {
         if (this.avatarModal) {
           this.avatarModal.classList.remove('hidden');
-          // Débloquer audio context
           if (this.audio && this.audio.audioCtx && this.audio.audioCtx.state === 'suspended') {
             this.audio.audioCtx.resume();
           }
@@ -179,6 +207,45 @@ export class AlternIAApp {
     if (this.btnCloseAvatar) {
       this.btnCloseAvatar.onclick = () => {
         if (this.avatarModal) this.avatarModal.classList.add('hidden');
+      };
+    }
+
+    // Modal Configuration Serveur & Mobile
+    if (this.btnServerConfig) {
+      this.btnServerConfig.onclick = () => {
+        if (this.serverModal) {
+          if (this.inputServerUrl) this.inputServerUrl.value = localStorage.getItem('ALTERNIA_API_URL') || window.location.origin;
+          if (this.cloudUrlDisplay) this.cloudUrlDisplay.textContent = window.location.origin;
+          this.serverModal.classList.remove('hidden');
+        }
+      };
+    }
+    if (this.btnCloseServerModal) {
+      this.btnCloseServerModal.onclick = () => {
+        if (this.serverModal) this.serverModal.classList.add('hidden');
+      };
+    }
+    if (this.btnSaveServerUrl) {
+      this.btnSaveServerUrl.onclick = () => {
+        const url = this.inputServerUrl.value.trim();
+        if (url) {
+          localStorage.setItem('ALTERNIA_API_URL', url);
+          window.location.reload();
+        }
+      };
+    }
+    if (this.btnResetServerLocal) {
+      this.btnResetServerLocal.onclick = () => {
+        localStorage.removeItem('ALTERNIA_API_URL');
+        window.location.href = 'http://127.0.0.1:8000/device/';
+      };
+    }
+    if (this.btnCopyServerUrl) {
+      this.btnCopyServerUrl.onclick = () => {
+        const urlToCopy = localStorage.getItem('ALTERNIA_API_URL') || window.location.origin;
+        navigator.clipboard.writeText(urlToCopy);
+        this.btnCopyServerUrl.textContent = "✅ Lien copié !";
+        setTimeout(() => { this.btnCopyServerUrl.textContent = "📋 Copier le lien serveur"; }, 2000);
       };
     }
 
@@ -232,8 +299,27 @@ export class AlternIAApp {
       const res = await fetch('/api/avatars/actif');
       if (res.ok) {
         const data = await res.json();
-        if (data && data.photoUrl) {
-          this.vortex.setAvatarImage(data.photoUrl, data.nom, data.landmarks);
+        if (data) {
+          // Mise à jour du nom et de la matière de l'avatar créé dans le back-office
+          if (this.modalAvatarTitle && data.nom) {
+            this.modalAvatarTitle.textContent = data.nom;
+          }
+          if (this.modalAvatarSubtitle) {
+            const subject = data.matiere || 'Tuteur Pédagogique';
+            const style = data.stylePedagogique ? ` • Style ${data.stylePedagogique}` : '';
+            this.modalAvatarSubtitle.textContent = `${subject}${style}`;
+          }
+          const altaAvatarName = document.getElementById('alta-avatar-name');
+          if (altaAvatarName && data.nom) {
+            altaAvatarName.textContent = data.nom;
+          }
+
+          if (data.photoUrl) {
+            this.vortex.setAvatarImage(data.photoUrl, data.nom, data.landmarks);
+          }
+          if (data.visemePhotos && this.vortex.animator) {
+            this.vortex.animator.setVisemePhotos(data.visemePhotos);
+          }
         }
       }
     } catch (e) {
