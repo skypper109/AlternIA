@@ -87,6 +87,18 @@ def ensure_environment():
         print(f"📦 Installation automatique des dépendances manquantes : {', '.join(missing)}...")
         subprocess.run([sys.executable, "-m", "pip", "install", "-q"] + missing, check=False)
 
+    # Vérification et auto-réparation du couplage transformers / sentence-transformers
+    try:
+        from sentence_transformers import SentenceTransformer
+    except Exception as exc:
+        print("⚡ Incompatibilité de version détectée (transformers / sentence-transformers). Auto-réparation en cours...")
+        subprocess.run(
+            [sys.executable, "-m", "pip", "install", "-q", "--upgrade", "transformers>=4.44.0", "sentence-transformers>=3.0.0"],
+            check=False
+        )
+        import importlib
+        importlib.invalidate_caches()
+
     # Vérification intelligente de llama-cpp-python (sans réinstallation superflue)
     is_llama_ready = False
     try:
