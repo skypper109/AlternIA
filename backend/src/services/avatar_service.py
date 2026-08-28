@@ -20,6 +20,8 @@ ROOT_DIR = Path(__file__).resolve().parents[3]
 AI_ENGINE_DIR = ROOT_DIR / "ai-engine" / "src"
 AVATARS_STORAGE_DIR = ROOT_DIR / "data" / "avatars"
 AVATARS_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
+AVATARS_VIDEOS_DIR = AVATARS_STORAGE_DIR / "videos"
+AVATARS_VIDEOS_DIR.mkdir(parents=True, exist_ok=True)
 
 for p in (ROOT_DIR, AI_ENGINE_DIR):
     if str(p) not in sys.path:
@@ -587,8 +589,7 @@ async def test_voice_audio(req: StudioVocalTestRequest) -> Response:
         raise HTTPException(status_code=500, detail=f"Erreur TTS : {exc}")
 
 
-AVATARS_VIDEOS_DIR = AVATARS_STORAGE_DIR / "videos"
-AVATARS_VIDEOS_DIR.mkdir(parents=True, exist_ok=True)
+
 
 
 def get_avatar_video_path(filename: str) -> Path:

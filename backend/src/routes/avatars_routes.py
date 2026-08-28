@@ -3,7 +3,6 @@ Routes API pour la gestion des avatars pédagogiques, upload d'images et tests v
 """
 
 from pathlib import Path
-from PIL import ImagePath
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session

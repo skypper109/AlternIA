@@ -21,6 +21,18 @@ sys.path.insert(0, str(PROJECT_ROOT / "ai-engine" / "src"))
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 os.environ["PYTHONUNBUFFERED"] = "1"
 
+# Configuration persistante et automatique des chemins CUDA pour RunPod / Colab / Linux
+for c_dir in ["/usr/local/cuda", "/usr/local/cuda-12", "/usr/local/cuda-12.8", "/usr/local/cuda-12.6"]:
+    if os.path.exists(c_dir):
+        os.environ["CUDA_HOME"] = c_dir
+        if f"{c_dir}/bin" not in os.environ.get("PATH", ""):
+            os.environ["PATH"] = f"{c_dir}/bin:{os.environ.get('PATH', '')}"
+        cuda_lib = f"{c_dir}/lib64"
+        current_ld = os.environ.get("LD_LIBRARY_PATH", "")
+        if cuda_lib not in current_ld:
+            os.environ["LD_LIBRARY_PATH"] = f"{cuda_lib}:{current_ld}".strip(":")
+        break
+
 
 def print_banner():
     print(r"""
@@ -75,27 +87,32 @@ def ensure_environment():
         print(f"📦 Installation automatique des dépendances manquantes : {', '.join(missing)}...")
         subprocess.run([sys.executable, "-m", "pip", "install", "-q"] + missing, check=False)
 
-    # Vérification et installation de llama-cpp-python
+    # Vérification intelligente de llama-cpp-python (sans réinstallation superflue)
+    is_llama_ready = False
     try:
         import llama_cpp
-    except ImportError:
-        print("⚡ Compilation native de llama-cpp-python pour CUDA 12.8...")
+        is_llama_ready = True
+    except Exception:
+        is_llama_ready = False
+
+    if not is_llama_ready:
+        print("⚡ Installation et compilation native de llama-cpp-python pour CUDA...")
         try:
             import torch
-            if torch.cuda.is_available():
-                env = os.environ.copy()
-                env["CMAKE_ARGS"] = "-DGGML_CUDA=on -DGGML_AVX512=off"
-                env["PATH"] = f"/usr/local/cuda/bin:{env.get('PATH', '')}"
-                env["LD_LIBRARY_PATH"] = f"/usr/local/cuda/lib64:{env.get('LD_LIBRARY_PATH', '')}"
-                subprocess.run(
-                    [sys.executable, "-m", "pip", "install", "--no-cache-dir", "--force-reinstall", "llama-cpp-python"],
-                    env=env,
-                    check=False
-                )
-            else:
-                subprocess.run([sys.executable, "-m", "pip", "install", "-q", "llama-cpp-python"])
-        except Exception as e:
-            print(f"⚠️ Note installation llama_cpp : {e}")
+            cuda_available = torch.cuda.is_available()
+        except ImportError:
+            cuda_available = False
+
+        env = os.environ.copy()
+        if cuda_available:
+            env["CMAKE_ARGS"] = "-DGGML_CUDA=on -DGGML_AVX512=off"
+            cmd = [sys.executable, "-m", "pip", "install", "--no-cache-dir", "llama-cpp-python"]
+        else:
+            cmd = [sys.executable, "-m", "pip", "install", "-q", "llama-cpp-python"]
+
+        subprocess.run(cmd, env=env, check=False)
+        import importlib
+        importlib.invalidate_caches()
 
 
 def install_cloudflared() -> str:
