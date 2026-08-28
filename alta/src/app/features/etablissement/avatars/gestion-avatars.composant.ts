@@ -106,6 +106,8 @@ export class GestionAvatarsComposant implements OnInit, OnDestroy {
     parDefaut: true,
   };
   formImageUrl = signal<string | null>(null);
+  formVideoUrl = signal<string | null>(null);
+  isGeneratingVideo = signal(false);
 
   avatarASupprimer = signal<AvatarPedagogique | null>(null);
 
@@ -459,6 +461,33 @@ export class GestionAvatarsComposant implements OnInit, OnDestroy {
     }
   }
 
+  // --- Génération Vidéo LivePortrait IA ---
+  genererVideoLivePortrait(): void {
+    if (!this.formImageUrl()) {
+      this.notifService.avertissement('Photo requise', 'Veuillez d\'abord uploader une photo du professeur.');
+      return;
+    }
+    this.isGeneratingVideo.set(true);
+    const phrase = `Bonjour ! Je suis ${this.avatarForm.nom || 'ton professeur'}. Je suis prêt à t'expliquer toutes les notions de ${this.getLibelleMatiere(this.avatarForm.matiere)}.`;
+    this.repo.genererVideoAvatar({
+      photoUrl: this.formImageUrl()!,
+      phrase: phrase,
+      voice: this.avatarForm.voixId || 'vivienne'
+    }).subscribe({
+      next: (res) => {
+        this.isGeneratingVideo.set(false);
+        if (res.video_url) {
+          this.formVideoUrl.set(res.video_url);
+          this.notifService.succes('Vidéo IA Générée', 'La vidéo LivePortrait a été générée avec succès !');
+        }
+      },
+      error: () => {
+        this.isGeneratingVideo.set(false);
+        this.notifService.erreur('Génération Vidéo', 'Impossible de générer la vidéo LivePortrait.');
+      }
+    });
+  }
+
   enregistrerNouvelAvatar(): void {
     if (!this.avatarForm.nom.trim()) {
       this.notifService.erreur('Champs requis', 'Veuillez saisir un nom pour votre enseignant virtuel.');
@@ -474,6 +503,7 @@ export class GestionAvatarsComposant implements OnInit, OnDestroy {
       stylePedagogique: this.avatarForm.description,
       voixTts: this.avatarForm.voixId,
       photoUrl: this.formImageUrl() || (hasVisemes ? visemes['REST'] : undefined),
+      videoUrl: this.formVideoUrl() || undefined,
       parDefaut: this.avatarForm.parDefaut,
       landmarks: this.landmarksDetectes(),
       visemePhotos: hasVisemes ? visemes : undefined,

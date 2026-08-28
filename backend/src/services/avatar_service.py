@@ -447,6 +447,7 @@ def create_avatar(db: Session, req: AvatarCreateRequest) -> Dict[str, Any]:
         style_pedagogique=req.style_pedagogique or "Bienveillant, rigoureux et interactif",
         voix_tts=req.voix_tts or "vivienne",
         photo_url=req.photo_url or "assets/avatars/vivienne.svg",
+        video_url=req.video_url,
         audio_sample_url=req.audio_sample_url,
         audio_file_name=req.audio_file_name,
         landmarks_json=landmarks_json,
@@ -474,6 +475,8 @@ def update_avatar(db: Session, avatar_id: str, req: AvatarUpdateRequest) -> Dict
         av.style_pedagogique = req.style_pedagogique
     if req.voix_tts is not None:
         av.voix_tts = req.voix_tts
+    if req.video_url is not None:
+        av.video_url = req.video_url
     if req.photo_url is not None:
         av.photo_url = req.photo_url
         if req.landmarks is None and "/api/avatars/images/" in req.photo_url:

@@ -92,6 +92,7 @@ export class AvatarRepository {
     stylePedagogique?: string;
     voixTts?: string;
     photoUrl?: string;
+    videoUrl?: string;
     parDefaut?: boolean;
     landmarks?: any;
     visemePhotos?: Record<string, string>;
@@ -102,6 +103,7 @@ export class AvatarRepository {
       style_pedagogique: data.stylePedagogique || 'Bienveillant et interactif',
       voix_tts: data.voixTts || 'vivienne',
       photo_url: data.photoUrl || null,
+      video_url: data.videoUrl || null,
       par_defaut: data.parDefaut || false,
       landmarks: data.landmarks || null,
       viseme_photos: data.visemePhotos || null,

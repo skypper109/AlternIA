@@ -149,6 +149,7 @@ class AvatarPedagogique(Base):
     style_pedagogique: Mapped[str] = mapped_column(String(120), default="Bienveillant, rigoureux et interactif")
     voix_tts: Mapped[str] = mapped_column(String(60), default="vivienne")
     photo_url: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    video_url: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     audio_sample_url: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     audio_file_name: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
     actif: Mapped[bool] = mapped_column(Boolean, default=True)

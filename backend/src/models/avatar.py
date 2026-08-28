@@ -12,6 +12,7 @@ class AvatarCreateRequest(BaseModel):
     style_pedagogique: Optional[str] = "Bienveillant et interactif"
     voix_tts: Optional[str] = "vivienne"
     photo_url: Optional[str] = None
+    video_url: Optional[str] = None
     audio_sample_url: Optional[str] = None
     audio_file_name: Optional[str] = None
     par_defaut: Optional[bool] = False
@@ -25,6 +26,7 @@ class AvatarUpdateRequest(BaseModel):
     style_pedagogique: Optional[str] = None
     voix_tts: Optional[str] = None
     photo_url: Optional[str] = None
+    video_url: Optional[str] = None
     actif: Optional[bool] = None
     par_defaut: Optional[bool] = None
     landmarks: Optional[Dict[str, Any]] = None
