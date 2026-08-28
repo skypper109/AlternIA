@@ -85,5 +85,19 @@ def get_db() -> Generator[Session, None, None]:
 def init_db():
     """Crée toutes les tables et initialise les données de démarrage si nécessaire."""
     from backend.src.db import models, seed
+    from sqlalchemy import text
+
     Base.metadata.create_all(bind=engine)
+
+    # Migration automatique des colonnes manquantes (SQLite / MySQL)
+    try:
+        with engine.connect() as conn:
+            try:
+                conn.execute(text("ALTER TABLE avatars_pedagogiques ADD COLUMN video_url VARCHAR(255)"))
+                conn.commit()
+            except Exception:
+                pass
+    except Exception as e:
+        logger.debug(f"Note migration schema : {e}")
+
     seed.seed_initial_data(SessionLocal())

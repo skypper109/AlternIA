@@ -104,11 +104,14 @@ class LivePortraitService:
         # 1. Tentative avec LivePortrait
         if self.liveportrait_dir and (self.liveportrait_dir / "inference.py").exists():
             try:
+                driving_candidates = list((self.liveportrait_dir / "assets").glob("**/*.mp4"))
+                driving_video = str(driving_candidates[0]) if driving_candidates else str(audio_path)
+                
                 cmd = [
                     self.python_exe,
                     str(self.liveportrait_dir / "inference.py"),
                     "-s", str(image_path),
-                    "-d", str(audio_path),
+                    "-d", str(driving_video),
                     "-o", str(target_dir),
                     "--flag_crop_driving_video", "True",
                 ]
@@ -125,6 +128,27 @@ class LivePortraitService:
                 mp4_files = list(target_dir.glob("**/*.mp4"))
                 if mp4_files:
                     latest = max(mp4_files, key=lambda p: p.stat().st_mtime)
+                    # Mixer l'audio TTS généré avec la vidéo LivePortrait
+                    final_path = target_dir / cache_filename
+                    try:
+                        mux_cmd = [
+                            "ffmpeg", "-y",
+                            "-i", str(latest),
+                            "-i", str(audio_path),
+                            "-c:v", "copy",
+                            "-c:a", "aac",
+                            "-map", "0:v:0",
+                            "-map", "1:a:0",
+                            "-shortest",
+                            "-movflags", "+faststart",
+                            str(final_path)
+                        ]
+                        subprocess.run(mux_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+                        if final_path.exists() and final_path.stat().st_size > 5000:
+                            shutil.copy(str(final_path), str(cached_file))
+                            return str(final_path)
+                    except Exception:
+                        pass
                     shutil.copy(str(latest), str(cached_file))
                     return str(latest)
             except Exception as e:
