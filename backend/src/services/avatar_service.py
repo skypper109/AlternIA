@@ -18,10 +18,18 @@ logger = logging.getLogger(__name__)
 
 ROOT_DIR = Path(__file__).resolve().parents[3]
 AI_ENGINE_DIR = ROOT_DIR / "ai-engine" / "src"
+
+# Stockage principal du projet
 AVATARS_STORAGE_DIR = ROOT_DIR / "data" / "avatars"
 AVATARS_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
 AVATARS_VIDEOS_DIR = AVATARS_STORAGE_DIR / "videos"
 AVATARS_VIDEOS_DIR.mkdir(parents=True, exist_ok=True)
+
+# Stockage ultra-rapide sur DISQUE LOCAL (/tmp / NVMe local) pour éviter les lenteurs de volume réseau (NFS / RunPod)
+LOCAL_STORAGE_DIR = Path(tempfile.gettempdir()) / "alternia_storage" / "avatars"
+LOCAL_VIDEOS_DIR = LOCAL_STORAGE_DIR / "videos"
+LOCAL_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
+LOCAL_VIDEOS_DIR.mkdir(parents=True, exist_ok=True)
 
 for p in (ROOT_DIR, AI_ENGINE_DIR):
     if str(p) not in sys.path:
@@ -371,16 +379,25 @@ async def save_avatar_image(file: UploadFile) -> Dict[str, Any]:
 
 
 def get_avatar_image_path(filename: str) -> Path:
-    """Retourne le chemin absolu vers l'image d'avatar demandée."""
+    """Retourne le chemin absolu vers l'image d'avatar demandée en consultant le disque local puis le projet."""
     if filename.startswith("visemes/"):
         safe_filename = Path(filename.replace("visemes/", "")).name
-        path = AVATARS_STORAGE_DIR / "visemes" / safe_filename
+        candidates = [
+            LOCAL_STORAGE_DIR / "visemes" / safe_filename,
+            AVATARS_STORAGE_DIR / "visemes" / safe_filename,
+        ]
     else:
         safe_filename = Path(filename).name
-        path = AVATARS_STORAGE_DIR / safe_filename
-    if not path.exists() or not path.is_file():
-        raise HTTPException(status_code=404, detail="Image d'avatar introuvable.")
-    return path
+        candidates = [
+            LOCAL_STORAGE_DIR / safe_filename,
+            AVATARS_STORAGE_DIR / safe_filename,
+        ]
+
+    for path in candidates:
+        if path.exists() and path.is_file():
+            return path
+
+    raise HTTPException(status_code=404, detail="Image d'avatar introuvable.")
 
 
 def list_avatars(db: Session) -> List[Dict[str, Any]]:
@@ -604,12 +621,17 @@ async def test_voice_audio(req: StudioVocalTestRequest) -> Response:
 
 
 def get_avatar_video_path(filename: str) -> Path:
-    """Retourne le chemin sécurisé vers une vidéo d'avatar."""
+    """Retourne le chemin sécurisé vers une vidéo d'avatar en consultant le disque local puis le projet."""
     clean_name = Path(filename).name
-    path = AVATARS_VIDEOS_DIR / clean_name
-    if not path.exists() or not path.is_file():
-        raise HTTPException(status_code=404, detail="Vidéo d'avatar non trouvée.")
-    return path
+    candidates = [
+        LOCAL_VIDEOS_DIR / clean_name,
+        AVATARS_VIDEOS_DIR / clean_name,
+        Path(tempfile.gettempdir()) / "alternia_avatar_cache" / clean_name,
+    ]
+    for path in candidates:
+        if path.exists() and path.is_file():
+            return path
+    raise HTTPException(status_code=404, detail="Vidéo d'avatar non trouvée.")
 
 
 async def generate_avatar_video(
@@ -618,32 +640,50 @@ async def generate_avatar_video(
     photo_url: Optional[str] = None,
     phrase: Optional[str] = None,
     voice: Optional[str] = None,
+    nom: Optional[str] = None,
+    matiere: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Génère une vidéo MP4 parlante ultra-réaliste pour un avatar à partir d'une photo et d'un texte.
-    Fonctionne sur GPU (Google Colab Pro A100 / AWS GPU) et en local avec fallback instantané.
+    Utilise la voix TTS de l'enseignant et la matière sélectionnée lors de la création.
+    Fonctionne sur DISQUE LOCAL ultra-rapide (RAM/SSD) pour éviter tout ralentissement réseau.
     """
-    from alternia.talking_head.sadtalker_service import SadTalkerService
-
-    # 1. Résolution de l'image source
-    img_path = None
+    # 1. Résolution de l'avatar et de ses métadonnées pédagogiques
+    avatar = None
     if avatar_id:
         avatar = db.query(AvatarPedagogique).filter(AvatarPedagogique.id == avatar_id).first()
-        if avatar and avatar.photo_url:
-            clean_filename = Path(avatar.photo_url).name
-            img_path = AVATARS_STORAGE_DIR / clean_filename
+
+    nom_prof = (nom or (avatar.nom if avatar else "ton professeur")).strip()
+    matiere_nom = (matiere or (avatar.matiere if avatar else "SVT & Sciences Naturelles")).strip()
+    chosen_voice = (voice or (avatar.voix_tts if avatar else "vivienne")).strip().lower()
+
+    # Discours de présentation officiel de l'enseignant
+    text_to_speak = phrase or f"Bonjour ! Je suis {nom_prof}. Je suis prêt à t'expliquer toutes les notions de {matiere_nom}. Pose-moi toutes tes questions !"
+
+    # Résolution de l'image source
+    img_path = None
+    if avatar and avatar.photo_url:
+        clean_filename = Path(avatar.photo_url).name
+        candidates = [LOCAL_STORAGE_DIR / clean_filename, AVATARS_STORAGE_DIR / clean_filename]
+        for c in candidates:
+            if c.exists():
+                img_path = c
+                break
 
     if not img_path or not img_path.exists():
         if photo_url:
             clean_filename = Path(photo_url).name
-            candidate = AVATARS_STORAGE_DIR / clean_filename
-            if candidate.exists():
-                img_path = candidate
+            candidates = [LOCAL_STORAGE_DIR / clean_filename, AVATARS_STORAGE_DIR / clean_filename]
+            for c in candidates:
+                if c.exists():
+                    img_path = c
+                    break
 
     # Si l'image est absente ou est un format vectoriel SVG, basculer sur une photo raster (PNG/JPG)
     if not img_path or not img_path.exists() or img_path.suffix.lower() == ".svg":
         candidates = (
-            list(AVATARS_STORAGE_DIR.glob("*.jpg"))
+            list(LOCAL_STORAGE_DIR.glob("*.jpg"))
+            + list(AVATARS_STORAGE_DIR.glob("*.jpg"))
             + list(AVATARS_STORAGE_DIR.glob("*.png"))
             + [ROOT_DIR / "device" / "frontend" / "assets" / "avatar.png"]
         )
@@ -653,11 +693,8 @@ async def generate_avatar_video(
         else:
             raise HTTPException(status_code=400, detail="Aucune photo d'avatar JPG/PNG disponible pour la génération vidéo.")
 
-    # 2. Génération de l'audio TTS
-    text_to_speak = phrase or "Bonjour ! Je suis ton professeur virtuel AlternIA. Pose-moi une question !"
-    chosen_voice = voice or "vivienne"
+    # 2. Génération de l'audio TTS avec la voix et le discours officiel
     tts_engine = TTSEngine(voice=chosen_voice)
-
     temp_audio_file = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False)
     temp_audio_path = Path(temp_audio_file.name)
     temp_audio_file.close()
@@ -669,13 +706,17 @@ async def generate_avatar_video(
         with open(temp_audio_path, "wb") as f:
             f.write(audio_bytes)
 
-        # 3. Inférence Vidéo LivePortrait / SadTalker / GPU
+        # 3. Inférence Vidéo LivePortrait / SadTalker / GPU sur DISQUE LOCAL
         from alternia.talking_head.liveportrait_service import LivePortraitService
         service = LivePortraitService()
         generated_video = service.generate_video(
             image_path=str(img_path),
             audio_path=str(temp_audio_path),
-            output_dir=str(AVATARS_VIDEOS_DIR),
+            output_dir=str(LOCAL_VIDEOS_DIR),
+            phrase=text_to_speak,
+            voice=chosen_voice,
+            teacher_name=nom_prof,
+            subject=matiere_nom,
             use_gpu=True,
         )
 
@@ -685,10 +726,23 @@ async def generate_avatar_video(
         video_path = Path(generated_video)
         video_filename = video_path.name
         
-        # S'assurer que le fichier est bien copié dans le dossier public des vidéos
-        target_public_path = AVATARS_VIDEOS_DIR / video_filename
-        if video_path != target_public_path and video_path.exists():
-            shutil.copy(str(video_path), str(target_public_path))
+        # Enregistrer sur le disque local ET synchroniser avec le stockage projet
+        local_target = LOCAL_VIDEOS_DIR / video_filename
+        project_target = AVATARS_VIDEOS_DIR / video_filename
+        
+        if video_path != local_target and video_path.exists():
+            shutil.copy(str(video_path), str(local_target))
+        if video_path != project_target and video_path.exists():
+            try:
+                shutil.copy(str(video_path), str(project_target))
+            except Exception as e:
+                logger.warning(f"Note sync projet vidéo : {e}")
+
+        # Enregistrer le lien vidéo dans l'avatar en BDD s'il existe
+        if avatar:
+            avatar.video_url = f"/api/avatars/videos/{video_filename}"
+            db.commit()
+            db.refresh(avatar)
 
         return {
             "status": "success",
@@ -696,6 +750,9 @@ async def generate_avatar_video(
             "video_filename": video_filename,
             "avatar_id": avatar_id,
             "phrase": text_to_speak,
+            "nom": nom_prof,
+            "matiere": matiere_nom,
+            "voice": chosen_voice,
             "is_gpu_accelerated": service.is_available(),
         }
     finally:

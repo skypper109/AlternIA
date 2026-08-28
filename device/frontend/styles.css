@@ -22,7 +22,8 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-html, body {
+html,
+body {
   background-color: var(--bg-deep);
   color: #1E293B;
   font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -52,14 +53,19 @@ html, body {
 }
 
 @keyframes orbFloat {
-  0% { transform: translate(0, 0) scale(1); }
-  100% { transform: translate(30px, 40px) scale(1.1); }
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+
+  100% {
+    transform: translate(30px, 40px) scale(1.1);
+  }
 }
 
 .orb-primary {
   width: 600px;
   height: 600px;
-  background: linear-gradient(135deg, #314999 0%, rgba(49,73,153,0.3) 100%);
+  background: linear-gradient(135deg, #314999 0%, rgba(49, 73, 153, 0.3) 100%);
   top: -150px;
   left: -150px;
 }
@@ -67,7 +73,7 @@ html, body {
 .orb-innovation {
   width: 550px;
   height: 550px;
-  background: linear-gradient(135deg, #0284C7 0%, rgba(2,132,199,0.3) 100%);
+  background: linear-gradient(135deg, #0284C7 0%, rgba(2, 132, 199, 0.3) 100%);
   bottom: -150px;
   right: -150px;
 }
@@ -76,13 +82,16 @@ html, body {
 ::-webkit-scrollbar {
   width: 6px;
 }
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
   background: rgba(49, 73, 153, 0.15);
   border-radius: 10px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(49, 73, 153, 0.3);
 }
@@ -207,7 +216,22 @@ html, body {
   border: 1px solid rgba(255, 255, 255, 0.8);
   border-radius: 36px;
   padding: 32px 24px;
-  box-shadow: 0 20px 40px -10px rgba(49, 73, 153, 0.08), inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+}
+
+.avatar-canvas-wrapper {
+  position: relative;
+  cursor: pointer;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.3s ease;
+  border-radius: 50%;
+}
+
+.avatar-canvas-wrapper:hover {
+  transform: scale(1.04);
+  filter: drop-shadow(0 0 16px rgba(2, 132, 199, 0.3));
+}
+
+.avatar-canvas-wrapper:active {
+  transform: scale(0.97);
 }
 
 .logo-animation-wrapper {
@@ -236,15 +260,37 @@ html, body {
 }
 
 @keyframes logoListenPulse {
-  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(241, 133, 31, 0.4); }
-  50% { transform: scale(1.05); box-shadow: 0 0 0 15px rgba(241, 133, 31, 0); }
-  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(241, 133, 31, 0); }
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(241, 133, 31, 0.4);
+  }
+
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 0 15px rgba(241, 133, 31, 0);
+  }
+
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(241, 133, 31, 0);
+  }
 }
 
 @keyframes logoThinkPulse {
-  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(2, 132, 199, 0.4); }
-  50% { transform: scale(1.08); box-shadow: 0 0 0 20px rgba(2, 132, 199, 0); }
-  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(2, 132, 199, 0); }
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(2, 132, 199, 0.4);
+  }
+
+  50% {
+    transform: scale(1.08);
+    box-shadow: 0 0 0 20px rgba(2, 132, 199, 0);
+  }
+
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(2, 132, 199, 0);
+  }
 }
 
 .status-live-pill {
@@ -278,9 +324,17 @@ html, body {
 }
 
 @keyframes micIdlePulse {
-  0% { box-shadow: 0 12px 28px rgba(241, 133, 31, 0.4), 0 0 0 0 rgba(241, 133, 31, 0.2); }
-  50% { box-shadow: 0 12px 28px rgba(241, 133, 31, 0.4), 0 0 0 16px rgba(241, 133, 31, 0); }
-  100% { box-shadow: 0 12px 28px rgba(241, 133, 31, 0.4), 0 0 0 0 rgba(241, 133, 31, 0); }
+  0% {
+    box-shadow: 0 12px 28px rgba(241, 133, 31, 0.4), 0 0 0 0 rgba(241, 133, 31, 0.2);
+  }
+
+  50% {
+    box-shadow: 0 12px 28px rgba(241, 133, 31, 0.4), 0 0 0 16px rgba(241, 133, 31, 0);
+  }
+
+  100% {
+    box-shadow: 0 12px 28px rgba(241, 133, 31, 0.4), 0 0 0 0 rgba(241, 133, 31, 0);
+  }
 }
 
 .kiosk-mic-btn:hover {
@@ -296,9 +350,20 @@ html, body {
 }
 
 @keyframes micPulse {
-  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6); }
-  70% { transform: scale(1.06); box-shadow: 0 0 0 16px rgba(239, 68, 68, 0); }
-  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6);
+  }
+
+  70% {
+    transform: scale(1.06);
+    box-shadow: 0 0 0 16px rgba(239, 68, 68, 0);
+  }
+
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
 }
 
 /* Colonne Droite : Ce que dit le boîtier */
@@ -360,7 +425,8 @@ html, body {
   flex: 1;
   overflow-y: auto;
   padding-right: 12px;
-  font-size: 1.15rem; /* Slightly larger, more readable */
+  font-size: 1.15rem;
+  /* Slightly larger, more readable */
   line-height: 1.8;
   color: #0F172A;
   font-weight: 500;

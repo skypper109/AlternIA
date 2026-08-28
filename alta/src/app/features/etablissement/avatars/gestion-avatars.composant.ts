@@ -468,10 +468,14 @@ export class GestionAvatarsComposant implements OnInit, OnDestroy {
       return;
     }
     this.isGeneratingVideo.set(true);
-    const phrase = `Bonjour ! Je suis ${this.avatarForm.nom || 'ton professeur'}. Je suis prêt à t'expliquer toutes les notions de ${this.getLibelleMatiere(this.avatarForm.matiere)}.`;
+    const nomProf = this.avatarForm.nom.trim() || 'ton professeur';
+    const libelleMatiere = this.getLibelleMatiere(this.avatarForm.matiere);
+    const phrase = `Bonjour ! Je suis ${nomProf}. Je suis prêt à t'expliquer toutes les notions de ${libelleMatiere}.`;
     this.repo.genererVideoAvatar({
       photoUrl: this.formImageUrl()!,
       phrase: phrase,
+      nom: nomProf,
+      matiere: libelleMatiere,
       voice: this.avatarForm.voixId || 'vivienne'
     }).subscribe({
       next: (res) => {

@@ -136,7 +136,9 @@ async def api_generer_video_avatar(req: dict, db: Session = Depends(get_db)):
     avatar_id = req.get("avatar_id") or req.get("avatarId")
     photo_url = req.get("photo_url") or req.get("photoUrl")
     phrase = req.get("phrase") or req.get("text") or req.get("question")
-    voice = req.get("voice") or req.get("voix") or "vivienne"
+    voice = req.get("voice") or req.get("voix") or req.get("voix_tts")
+    nom = req.get("nom") or req.get("name")
+    matiere = req.get("matiere") or req.get("subject")
 
     return await generate_avatar_video(
         db=db,
@@ -144,6 +146,8 @@ async def api_generer_video_avatar(req: dict, db: Session = Depends(get_db)):
         photo_url=photo_url,
         phrase=phrase,
         voice=voice,
+        nom=nom,
+        matiere=matiere,
     )
 
 

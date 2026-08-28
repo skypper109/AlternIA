@@ -32,30 +32,32 @@ class SadTalkerService:
             "/opt/sadtalker",
         ]
         
-        self.sadtalker_dir = None
+        self.sadtalker_dir: Optional[Path] = None
         for c in candidates:
             if c and Path(c).exists() and (Path(c) / "inference.py").exists():
                 self.sadtalker_dir = Path(c)
                 break
 
         if self.sadtalker_dir is None:
-            # Répertoire par défaut
-            self.sadtalker_dir = Path("/content/SadTalker" if Path("/content").exists() else "/opt/sadtalker")
+            # Répertoire par défaut si existant
+            default_path = Path("/content/SadTalker" if Path("/content").exists() else "/opt/sadtalker")
+            if default_path.exists() and (default_path / "inference.py").exists():
+                self.sadtalker_dir = default_path
 
-        self.python_exe = sys.executable or "python3"
-        self.script_path = self.sadtalker_dir / "inference.py"
-        self.cache_dir = Path(tempfile.gettempdir()) / "alternia_avatar_cache"
+        self.python_exe: str = sys.executable or "python3"
+        self.script_path: Optional[Path] = (self.sadtalker_dir / "inference.py") if self.sadtalker_dir else None
+        self.cache_dir: Path = Path(tempfile.gettempdir()) / "alternia_avatar_cache"
         self.cache_dir.mkdir(parents=True, exist_ok=True)
 
         if not self.is_available():
             logger.info(
-                f"ℹ️ SadTalker non détecté dans {self.sadtalker_dir}. "
+                f"ℹ️ SadTalker non détecté ({self.sadtalker_dir or 'non configuré'}). "
                 "Le mode Cloud GPU ou le fallback vidéo sera utilisé."
             )
 
     def is_available(self) -> bool:
         """Vérifie si le script d'inférence officiel est présent."""
-        return self.script_path.exists()
+        return bool(self.sadtalker_dir and self.script_path and self.script_path.exists())
 
     def _compute_cache_key(self, image_path: str, audio_path: str) -> str:
         """Génère une clé de hachage unique pour la mise en cache de la vidéo."""
@@ -110,56 +112,95 @@ class SadTalkerService:
         target_dir.mkdir(parents=True, exist_ok=True)
 
         # 2. Si SadTalker officiel est installé (sur Colab Pro / AWS GPU)
-        if self.is_available():
+        work_dir = Path(tempfile.mkdtemp(prefix="sadtalker_work_"))
+        try:
+            # Assurer le format WAV sur disque local
+            wav_audio = audio_path
+            if audio_path and not str(audio_path).lower().endswith(".wav"):
+                tmp_wav = work_dir / f"audio_{hashlib.md5(str(audio_path).encode()).hexdigest()[:8]}.wav"
+                try:
+                    subprocess.run(
+                        ["ffmpeg", "-y", "-i", str(audio_path), "-ar", "16000", "-ac", "1", str(tmp_wav)],
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        check=True
+                    )
+                    if tmp_wav.exists() and tmp_wav.stat().st_size > 100:
+                        wav_audio = str(tmp_wav)
+                except Exception:
+                    wav_audio = audio_path
+
+            if self.is_available() and self.sadtalker_dir and self.script_path:
+                try:
+                    import torch
+                    cuda_available = torch.cuda.is_available()
+                except ImportError:
+                    cuda_available = False
+
+                gpu_flag = "False" if (use_gpu is False or not cuda_available) else "True"
+                use_cpu = (gpu_flag == "False")
+
+                cmd = [
+                    self.python_exe,
+                    str(self.script_path),
+                    "--driven_audio", str(wav_audio),
+                    "--source_image", str(image_path),
+                    "--result_dir", str(work_dir),
+                    "--pose_style", str(pose_style),
+                    "--preprocess", "crop",  # 'crop' ou 'full'
+                    "--size", "256" if use_cpu else "512",
+                ]
+
+                checkpoints_dir = self.sadtalker_dir / "checkpoints"
+                if checkpoints_dir.exists():
+                    cmd.extend(["--checkpoint_dir", str(checkpoints_dir)])
+
+                if use_cpu:
+                    cmd.extend(["--cpu"])
+                if enhancement and not use_cpu:
+                    cmd.extend(["--enhancer", "gfpgan"])
+
+                logger.info(f"🚀 Lancement inférence SadTalker GPU (disque local, CUDA={cuda_available}) : {' '.join(cmd)}")
+
+                try:
+                    subprocess.run(
+                        cmd,
+                        cwd=str(self.sadtalker_dir),
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        text=True,
+                        check=True,
+                        timeout=300,
+                    )
+                    mp4_files = list(work_dir.glob("**/*.mp4"))
+                    if mp4_files:
+                        latest = max(mp4_files, key=lambda p: p.stat().st_mtime)
+                        shutil.copy(str(latest), str(cached_file))
+                        if output_dir:
+                            shutil.copy(str(latest), str(target_dir / cache_filename))
+                            return str(target_dir / cache_filename)
+                        return str(cached_file)
+                except subprocess.CalledProcessError as e:
+                    logger.error(f"❌ Erreur exécution SadTalker (code {e.returncode}) :\n{e.stderr or e.stdout or e}")
+                except Exception as e:
+                    logger.error(f"❌ Erreur exécution SadTalker : {e}")
+
+            # 3. Fallback universel : Génère une vidéo MP4 propre sur disque local
+            logger.info("ℹ️ Utilisation du générateur vidéo de fallback sur disque local...")
+            fallback_local = work_dir / f"fallback_{cache_filename}"
+            fallback_res = self._generate_fallback_video(image_path, audio_path, fallback_local)
+            if fallback_res and Path(fallback_res).exists():
+                shutil.copy(str(fallback_res), str(cached_file))
+                if output_dir:
+                    shutil.copy(str(fallback_res), str(target_dir / cache_filename))
+                    return str(target_dir / cache_filename)
+                return str(cached_file)
+            return None
+        finally:
             try:
-                import torch
-                cuda_available = torch.cuda.is_available()
-            except ImportError:
-                cuda_available = False
-
-            gpu_flag = "False" if (use_gpu is False or not cuda_available) else "True"
-            use_cpu = (gpu_flag == "False")
-
-            cmd = [
-                self.python_exe,
-                str(self.script_path),
-                "--driven_audio", str(audio_path),
-                "--source_image", str(image_path),
-                "--result_dir", str(target_dir),
-                "--pose_style", str(pose_style),
-                "--preprocess", "crop",  # 'crop' ou 'full'
-                "--size", "256" if use_cpu else "512",
-            ]
-
-            if use_cpu:
-                cmd.extend(["--cpu"])
-            if enhancement and not use_cpu:
-                cmd.extend(["--enhancer", "gfpgan"])
-
-            logger.info(f"🚀 Lancement inférence SadTalker GPU (CUDA={cuda_available}) : {' '.join(cmd)}")
-
-            try:
-                subprocess.run(
-                    cmd,
-                    cwd=str(self.sadtalker_dir),
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True,
-                    check=True,
-                    timeout=300,
-                )
-                mp4_files = list(target_dir.glob("**/*.mp4"))
-                if mp4_files:
-                    latest = max(mp4_files, key=lambda p: p.stat().st_mtime)
-                    # Sauvegarder dans le cache
-                    shutil.copy(str(latest), str(cached_file))
-                    return str(latest)
-            except Exception as e:
-                logger.error(f"Erreur exécution SadTalker : {e}")
-
-        # 3. Fallback universel : Génère une vidéo MP4 propre (Image + Audio) compatible Web
-        logger.info("ℹ️ Utilisation du générateur vidéo de fallback compatible Web...")
-        return self._generate_fallback_video(image_path, audio_path, target_dir / cache_filename)
+                shutil.rmtree(work_dir, ignore_errors=True)
+            except Exception:
+                pass
 
     def _generate_fallback_video(self, image_path: str, audio_path: str, output_path: Path) -> Optional[str]:
         """
