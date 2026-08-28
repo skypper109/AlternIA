@@ -114,6 +114,18 @@ def ensure_environment():
         import importlib
         importlib.invalidate_caches()
 
+    # Vérification du moteur vidéo LivePortrait / SadTalker
+    try:
+        from alternia.talking_head.liveportrait_service import LivePortraitService
+        lp = LivePortraitService()
+        if lp.is_available():
+            engine_name = "LivePortrait" if lp.liveportrait_dir else "SadTalker"
+            print(f"🎬 \033[1;32mMoteur Vidéo IA :\033[0m {engine_name} prêt pour l'animation photoréaliste.")
+        else:
+            print("🎬 \033[1;36mMoteur Vidéo IA :\033[0m Générateur vidéo MP4 haute définition actif.")
+    except Exception as e:
+        print(f"ℹ️ Note moteur vidéo : {e}")
+
 
 def install_cloudflared() -> str:
     """Télécharge et installe le binaire cloudflared si absent."""

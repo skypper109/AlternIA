@@ -147,9 +147,8 @@ def analyze_face_landmarks(img_path: Path) -> Dict[str, Any]:
 
 def generate_viseme_frames_from_image(img_path: Path, landmarks: Optional[dict] = None) -> Dict[str, str]:
     """
-    Génère automatiquement une suite de 8 morphings photoréalistes (visèmes) de la bouche et du visage
-    à partir d'une seule image téléchargée de l'enseignant.
-    Permet au visage réel de parler avec une synchronisation labiale et des mimiques ultra-naturelles.
+    Génère une suite de 8 morphings photoréalistes (visèmes) de la bouche et du visage
+    à partir de l'image téléchargée, avec raccordement sans couture (aucun artefact de découpe).
     """
     from PIL import Image, ImageDraw, ImageFilter
 
@@ -169,16 +168,18 @@ def generate_viseme_frames_from_image(img_path: Path, landmarks: Optional[dict] 
         mx = int(mouth_pt.get("x", 0.50) * bw)
         my = int(mouth_pt.get("y", 0.72) * bh)
 
-        rx = int(bw * 0.16)
-        ry = int(bh * 0.12)
+        # Zone labiale élargie avec transition douce
+        rx = int(bw * 0.18)
+        ry = int(bh * 0.10)
         box = (max(0, mx - rx), max(0, my - ry), min(bw, mx + rx), min(bh, my + ry))
         mw = box[2] - box[0]
         mh = box[3] - box[1]
 
+        # Masque gaussien très diffus pour fondre parfaitement le morphing
         feather_mask = Image.new("L", (mw, mh), 0)
         draw_mask = ImageDraw.Draw(feather_mask)
-        draw_mask.ellipse([int(mw * 0.08), int(mh * 0.08), int(mw * 0.92), int(mh * 0.92)], fill=255)
-        feather_mask = feather_mask.filter(ImageFilter.GaussianBlur(radius=max(3, int(mw * 0.08))))
+        draw_mask.ellipse([int(mw * 0.15), int(mh * 0.15), int(mw * 0.85), int(mh * 0.85)], fill=255)
+        feather_mask = feather_mask.filter(ImageFilter.GaussianBlur(radius=max(4, int(mw * 0.12))))
 
         for vid in viseme_ids:
             out_file = visemes_dir / f"{stem}_viseme_{vid}.png"
@@ -189,69 +190,76 @@ def generate_viseme_frames_from_image(img_path: Path, landmarks: Optional[dict] 
                 continue
 
             frame = base_img.copy()
-            mouth_crop = base_img.crop(box)
+            mouth_crop = base_img.crop(box).copy()
 
             if vid == "CLOSED":
-                scaled = mouth_crop.resize((mw, max(1, int(mh * 0.85))), Image.Resampling.BICUBIC)
-                adjusted = Image.new("RGBA", (mw, mh), (0, 0, 0, 0))
-                adjusted.paste(scaled, (0, int(mh * 0.08)))
+                # Pincer légèrement les lèvres
+                scaled = mouth_crop.resize((mw, max(1, int(mh * 0.90))), Image.Resampling.LANCZOS)
+                adjusted = mouth_crop.copy()
+                adjusted.paste(scaled, (0, int(mh * 0.05)))
                 frame.paste(adjusted, box, feather_mask)
 
             elif vid == "OPEN_SMALL":
-                scaled = mouth_crop.resize((mw, int(mh * 1.15)), Image.Resampling.BICUBIC)
+                # Légère ouverture naturelle
+                scaled = mouth_crop.resize((mw, int(mh * 1.10)), Image.Resampling.LANCZOS)
                 adjusted = scaled.crop((0, 0, mw, mh))
-                shadow_overlay = Image.new("RGBA", (mw, mh), (0, 0, 0, 0))
-                sd_draw = ImageDraw.Draw(shadow_overlay)
-                sd_draw.ellipse([int(mw * 0.35), int(mh * 0.42), int(mw * 0.65), int(mh * 0.58)], fill=(30, 10, 10, 140))
-                shadow_overlay = shadow_overlay.filter(ImageFilter.GaussianBlur(radius=2))
-                adjusted.paste(shadow_overlay, (0, 0), shadow_overlay)
+                shadow = Image.new("RGBA", (mw, mh), (0, 0, 0, 0))
+                s_draw = ImageDraw.Draw(shadow)
+                s_draw.ellipse([int(mw * 0.38), int(mh * 0.44), int(mw * 0.62), int(mh * 0.56)], fill=(30, 15, 15, 120))
+                shadow = shadow.filter(ImageFilter.GaussianBlur(radius=2))
+                adjusted = Image.alpha_composite(adjusted, shadow)
                 frame.paste(adjusted, box, feather_mask)
 
             elif vid == "OPEN_WIDE":
-                scaled = mouth_crop.resize((int(mw * 0.95), int(mh * 1.35)), Image.Resampling.BICUBIC)
+                # Grande ouverture de la bouche
+                scaled = mouth_crop.resize((int(mw * 0.98), int(mh * 1.25)), Image.Resampling.LANCZOS)
                 adjusted = scaled.crop((0, 0, mw, mh))
-                shadow_overlay = Image.new("RGBA", (mw, mh), (0, 0, 0, 0))
-                sd_draw = ImageDraw.Draw(shadow_overlay)
-                sd_draw.ellipse([int(mw * 0.30), int(mh * 0.38), int(mw * 0.70), int(mh * 0.68)], fill=(20, 5, 5, 200))
-                sd_draw.arc([int(mw * 0.36), int(mh * 0.38), int(mw * 0.64), int(mh * 0.46)], 0, 180, fill=(240, 240, 235, 220), width=2)
-                shadow_overlay = shadow_overlay.filter(ImageFilter.GaussianBlur(radius=2))
-                adjusted.paste(shadow_overlay, (0, 0), shadow_overlay)
+                shadow = Image.new("RGBA", (mw, mh), (0, 0, 0, 0))
+                s_draw = ImageDraw.Draw(shadow)
+                s_draw.ellipse([int(mw * 0.33), int(mh * 0.40), int(mw * 0.67), int(mh * 0.64)], fill=(20, 8, 8, 180))
+                s_draw.arc([int(mw * 0.38), int(mh * 0.40), int(mw * 0.62), int(mh * 0.47)], 0, 180, fill=(240, 240, 235, 190), width=2)
+                shadow = shadow.filter(ImageFilter.GaussianBlur(radius=2))
+                adjusted = Image.alpha_composite(adjusted, shadow)
                 frame.paste(adjusted, box, feather_mask)
 
             elif vid == "ROUND_O":
-                scaled = mouth_crop.resize((int(mw * 0.82), int(mh * 1.20)), Image.Resampling.BICUBIC)
-                adjusted = Image.new("RGBA", (mw, mh), (0, 0, 0, 0))
-                adjusted.paste(scaled, (int(mw * 0.09), 0))
-                shadow_overlay = Image.new("RGBA", (mw, mh), (0, 0, 0, 0))
-                sd_draw = ImageDraw.Draw(shadow_overlay)
-                sd_draw.ellipse([int(mw * 0.38), int(mh * 0.40), int(mw * 0.62), int(mh * 0.62)], fill=(25, 8, 8, 180))
-                shadow_overlay = shadow_overlay.filter(ImageFilter.GaussianBlur(radius=2))
-                adjusted.paste(shadow_overlay, (0, 0), shadow_overlay)
+                # Lèvres en O
+                scaled = mouth_crop.resize((int(mw * 0.88), int(mh * 1.15)), Image.Resampling.LANCZOS)
+                adjusted = mouth_crop.copy()
+                adjusted.paste(scaled, (int(mw * 0.06), 0))
+                shadow = Image.new("RGBA", (mw, mh), (0, 0, 0, 0))
+                s_draw = ImageDraw.Draw(shadow)
+                s_draw.ellipse([int(mw * 0.40), int(mh * 0.42), int(mw * 0.60), int(mh * 0.60)], fill=(25, 10, 10, 160))
+                shadow = shadow.filter(ImageFilter.GaussianBlur(radius=2))
+                adjusted = Image.alpha_composite(adjusted, shadow)
                 frame.paste(adjusted, box, feather_mask)
 
             elif vid == "ROUND_U":
-                scaled = mouth_crop.resize((int(mw * 0.75), int(mh * 1.10)), Image.Resampling.BICUBIC)
-                adjusted = Image.new("RGBA", (mw, mh), (0, 0, 0, 0))
-                adjusted.paste(scaled, (int(mw * 0.12), 0))
-                shadow_overlay = Image.new("RGBA", (mw, mh), (0, 0, 0, 0))
-                sd_draw = ImageDraw.Draw(shadow_overlay)
-                sd_draw.ellipse([int(mw * 0.42), int(mh * 0.45), int(mw * 0.58), int(mh * 0.58)], fill=(30, 10, 10, 160))
-                shadow_overlay = shadow_overlay.filter(ImageFilter.GaussianBlur(radius=2))
-                adjusted.paste(shadow_overlay, (0, 0), shadow_overlay)
+                # Lèvres en U
+                scaled = mouth_crop.resize((int(mw * 0.82), int(mh * 1.08)), Image.Resampling.LANCZOS)
+                adjusted = mouth_crop.copy()
+                adjusted.paste(scaled, (int(mw * 0.09), 0))
+                shadow = Image.new("RGBA", (mw, mh), (0, 0, 0, 0))
+                s_draw = ImageDraw.Draw(shadow)
+                s_draw.ellipse([int(mw * 0.43), int(mh * 0.46), int(mw * 0.57), int(mh * 0.56)], fill=(30, 12, 12, 140))
+                shadow = shadow.filter(ImageFilter.GaussianBlur(radius=2))
+                adjusted = Image.alpha_composite(adjusted, shadow)
                 frame.paste(adjusted, box, feather_mask)
 
             elif vid == "TEETH":
-                scaled = mouth_crop.resize((int(mw * 1.12), int(mh * 0.95)), Image.Resampling.BICUBIC)
+                # Dents visibles
+                scaled = mouth_crop.resize((int(mw * 1.08), mh), Image.Resampling.LANCZOS)
                 adjusted = scaled.crop((0, 0, mw, mh))
-                teeth_overlay = Image.new("RGBA", (mw, mh), (0, 0, 0, 0))
-                t_draw = ImageDraw.Draw(teeth_overlay)
-                t_draw.line([int(mw * 0.32), int(mh * 0.48), int(mw * 0.68), int(mh * 0.48)], fill=(245, 245, 240, 220), width=3)
-                teeth_overlay = teeth_overlay.filter(ImageFilter.GaussianBlur(radius=1))
-                adjusted.paste(teeth_overlay, (0, 0), teeth_overlay)
+                teeth = Image.new("RGBA", (mw, mh), (0, 0, 0, 0))
+                t_draw = ImageDraw.Draw(teeth)
+                t_draw.line([int(mw * 0.35), int(mh * 0.48), int(mw * 0.65), int(mh * 0.48)], fill=(245, 245, 240, 190), width=2)
+                teeth = teeth.filter(ImageFilter.GaussianBlur(radius=1))
+                adjusted = Image.alpha_composite(adjusted, teeth)
                 frame.paste(adjusted, box, feather_mask)
 
             elif vid == "SMILE":
-                scaled = mouth_crop.resize((int(mw * 1.15), int(mh * 1.05)), Image.Resampling.BICUBIC)
+                # Sourire naturel
+                scaled = mouth_crop.resize((int(mw * 1.08), int(mh * 1.04)), Image.Resampling.LANCZOS)
                 adjusted = scaled.crop((0, 0, mw, mh))
                 frame.paste(adjusted, box, feather_mask)
 
@@ -259,7 +267,7 @@ def generate_viseme_frames_from_image(img_path: Path, landmarks: Optional[dict] 
             visemes[vid] = f"/api/avatars/images/visemes/{out_file.name}"
 
     except Exception as e:
-        logger.error(f"Erreur lors de la synthèse des visèmes AI : {e}")
+        logger.error(f"Erreur lors de la synthèse des visèmes : {e}")
         photo_url = f"/api/avatars/images/{img_path.name}"
         for vid in viseme_ids:
             visemes[vid] = photo_url
@@ -658,14 +666,14 @@ async def generate_avatar_video(
         with open(temp_audio_path, "wb") as f:
             f.write(audio_bytes)
 
-        # 3. Inférence Vidéo SadTalker / GPU
-        service = SadTalkerService()
+        # 3. Inférence Vidéo LivePortrait / SadTalker / GPU
+        from alternia.talking_head.liveportrait_service import LivePortraitService
+        service = LivePortraitService()
         generated_video = service.generate_video(
             image_path=str(img_path),
             audio_path=str(temp_audio_path),
             output_dir=str(AVATARS_VIDEOS_DIR),
-            pose_style=0,
-            enhancement=False,
+            use_gpu=True,
         )
 
         if not generated_video:
