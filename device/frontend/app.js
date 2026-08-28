@@ -1,5 +1,5 @@
 /**
- * AlternIA Device Interface - Contrôleur Kiosk Épuré (Voice-First & Avatar 2.5D).
+ * AlternIA Device Interface - Contrôleur Kiosk Épuré (Voice-First & Logo Vortex Animé).
  */
 
 import { ApiService } from './js/services/api.js';
@@ -17,7 +17,6 @@ export class AlternIAApp {
     this.initDOM();
     this.initModules();
     this.bindEvents();
-    this.loadActiveAvatar();
   }
 
   initDOM() {
@@ -33,34 +32,12 @@ export class AlternIAApp {
     this.ragSourceBadge = document.getElementById('rag-source-badge');
     this.classSublabel = document.getElementById('alta-class-sublabel');
     this.classTabs = document.querySelectorAll('.class-tab-btn');
-
-    this.btnShowAvatar = document.getElementById('btn-show-avatar');
-    this.btnCloseAvatar = document.getElementById('btn-close-avatar');
-    this.avatarModal = document.getElementById('avatar-fullscreen-modal');
-    this.avatarTranscription = document.getElementById('avatar-fullscreen-transcription');
-    this.btnMicModal = document.getElementById('btn-mic-modal');
-    this.modalAvatarTitle = document.getElementById('modal-avatar-title');
-    this.modalAvatarSubtitle = document.getElementById('modal-avatar-subtitle');
-    this.modalStatusText = document.getElementById('modal-status-text');
-    this.modalStatusDot = document.getElementById('modal-status-dot');
-    this.avatarVideo = document.getElementById('alta-avatar-video');
-    this.avatarCanvas = document.getElementById('alta-avatar-canvas');
     this.vortexHub = document.getElementById('alta-vortex-hub');
-    this.avatarNameBox = document.getElementById('alta-avatar-name-box');
-    this.avatarNameText = document.getElementById('alta-avatar-name');
   }
 
   initModules() {
-    // 1. UI Vortex & Avatar 2.5D (Modal plein écran pour l'avatar actif du backoffice)
+    // 1. UI Vortex avec le Logo Officiel AlternIA (Halo chromatique & FFT audio)
     this.vortex = new VortexUI({
-      canvasId: 'alta-avatar-canvas',
-      statusTextId: 'modal-status-text',
-      statusDotId: 'modal-status-dot',
-      isLogoMode: false
-    });
-
-    // 1b. UI Vortex & Avatar 2.5D (Logo Principal en page d'accueil)
-    this.logoVortex = new VortexUI({
       canvasId: 'main-animated-logo-canvas',
       statusTextId: 'status-text',
       statusDotId: 'status-dot',
@@ -71,65 +48,43 @@ export class AlternIAApp {
     // 2. Moteur KaTeX
     this.katex = new KaTeXRenderer();
 
-    // 3. Moteur Audio & Synthèse Vocale avec analyseur FFT pour Lip-Sync et Contrôle Vidéo
+    // 3. Moteur Audio & Synthèse Vocale avec analyseur FFT
     this.audio = new AudioService({
       onSpeakingChange: (isSpeaking) => {
         if (isSpeaking) {
           this.vortex.setState('SPEAKING', 'Enseignant explique...');
-          this.logoVortex.setState('SPEAKING', 'Enseignant explique...');
-          if (this.avatarVideo && !this.avatarVideo.classList.contains('hidden')) {
-            this.avatarVideo.play().catch(() => {});
-          }
         } else if (this.vortex.currentState === 'SPEAKING') {
           this.vortex.setState('IDLE', 'Prêt à répondre');
-          this.logoVortex.setState('IDLE', 'Prêt à répondre');
-          if (this.avatarVideo && !this.avatarVideo.classList.contains('hidden')) {
-            this.avatarVideo.pause();
-          }
         }
       },
       onAnalyserReady: (analyser) => {
         this.vortex.setAudioAnalyser(analyser);
-        this.logoVortex.setAudioAnalyser(analyser);
       }
     });
 
-    // 4. Moteur Speech-To-Text (Microphone) avec mode interactif push-to-talk (Accueil + Modal Avatar)
+    // 4. Moteur Speech-To-Text (Microphone Push-To-Talk)
     this.speech = new SpeechService({
       onStart: () => {
         if (this.micBtn) this.micBtn.classList.add('is-recording');
-        if (this.btnMicModal) this.btnMicModal.classList.add('animate-ping', 'ring-4', 'ring-amber-300');
         this.vortex.setState('LISTENING', 'Écoute en cours...');
-        this.logoVortex.setState('LISTENING', 'Écoute en cours...');
         this.audio.stop();
-        if (this.avatarVideo && !this.avatarVideo.classList.contains('hidden')) {
-          this.avatarVideo.pause();
-        }
-        if (this.avatarTranscription) {
-          this.avatarTranscription.textContent = "Je vous écoute... Posez votre question au professeur.";
-        }
       },
       onTranscript: (transcript) => {
         if (this.questionInput) {
           this.questionInput.value = transcript;
         }
-        if (this.avatarTranscription) this.avatarTranscription.textContent = `"${transcript}"`;
       },
       onEnd: (finalTranscript) => {
         if (this.micBtn) this.micBtn.classList.remove('is-recording');
-        if (this.btnMicModal) this.btnMicModal.classList.remove('animate-ping', 'ring-4', 'ring-amber-300');
         if (finalTranscript && finalTranscript.trim().length > 1) {
           this.submitQuestion(finalTranscript.trim());
         } else {
           this.vortex.setState('IDLE', 'Prêt à répondre');
-          this.logoVortex.setState('IDLE', 'Prêt à répondre');
         }
       },
       onError: (err) => {
         if (this.micBtn) this.micBtn.classList.remove('is-recording');
-        if (this.btnMicModal) this.btnMicModal.classList.remove('animate-ping', 'ring-4', 'ring-amber-300');
         this.vortex.setState('IDLE', 'Prêt à répondre');
-        this.logoVortex.setState('IDLE', 'Prêt à répondre');
         console.warn("Erreur reconnaissance vocale :", err);
       }
     });
@@ -157,23 +112,27 @@ export class AlternIAApp {
       };
     }
 
-    // Boutons Microphone : Accueil + Modal Avatar (Push-To-Talk)
-    const toggleMic = () => {
-      if (this.audio && this.audio.audioCtx && this.audio.audioCtx.state === 'suspended') {
-        this.audio.audioCtx.resume();
-      }
-      this.speech.toggleListening();
-    };
-    if (this.micBtn) this.micBtn.onclick = toggleMic;
-    if (this.btnMicModal) this.btnMicModal.onclick = toggleMic;
+    // Bouton Microphone Push-To-Talk
+    if (this.micBtn) {
+      this.micBtn.onclick = () => {
+        if (this.audio && this.audio.audioCtx && this.audio.audioCtx.state === 'suspended') {
+          this.audio.audioCtx.resume();
+        }
+        this.speech.toggleListening();
+      };
+    }
+
+    // Clic sur le Vortex / Logo : focus sur la saisie
+    if (this.vortexHub) {
+      this.vortexHub.onclick = () => {
+        if (this.questionInput) this.questionInput.focus();
+      };
+    }
 
     // Reset Session
     if (this.btnReset) {
       this.btnReset.onclick = () => {
         this.audio.stop();
-        if (this.avatarVideo && !this.avatarVideo.classList.contains('hidden')) {
-          this.avatarVideo.pause();
-        }
         this.sessionId = 'kiosk_session_' + Date.now();
         if (this.questionInput) this.questionInput.value = '';
         if (this.studentQueryPreview) this.studentQueryPreview.classList.add('hidden');
@@ -187,48 +146,7 @@ export class AlternIAApp {
             </div>
           `;
         }
-        if (this.avatarTranscription) {
-          this.avatarTranscription.textContent = "Session réinitialisée. Touchez le micro pour me parler !";
-        }
         this.vortex.setState('IDLE', 'Prêt à répondre');
-        this.logoVortex.setState('IDLE', 'Prêt à répondre');
-      };
-    }
-
-    // Clic sur l'Avatar Principal / Logo / Nom pour lancer la présentation vidéo
-    const onAvatarClick = () => this.openAvatarModalAndPlayPresentation();
-    if (this.vortexHub) this.vortexHub.onclick = onAvatarClick;
-    if (this.avatarNameBox) this.avatarNameBox.onclick = onAvatarClick;
-    if (this.btnShowAvatar) this.btnShowAvatar.onclick = onAvatarClick;
-
-    // Clic dans la modale sur la vidéo ou le canvas pour relancer / basculer la vidéo
-    if (this.avatarVideo) {
-      this.avatarVideo.onclick = () => {
-        if (this.avatarVideo.paused) {
-          this.avatarVideo.play().catch(() => {});
-          this.vortex.setState('SPEAKING', 'Présentation en cours...');
-        } else {
-          this.avatarVideo.pause();
-          this.vortex.setState('IDLE', 'Prêt à répondre');
-        }
-      };
-    }
-    if (this.avatarCanvas) {
-      this.avatarCanvas.onclick = () => {
-        this.openAvatarModalAndPlayPresentation();
-      };
-    }
-
-    // Fermeture Modal Avatar
-    if (this.btnCloseAvatar) {
-      this.btnCloseAvatar.onclick = () => {
-        if (this.avatarModal) this.avatarModal.classList.add('hidden');
-        if (this.avatarVideo && !this.avatarVideo.paused) {
-          this.avatarVideo.pause();
-        }
-        this.audio.stop();
-        this.vortex.setState('IDLE', 'Prêt à répondre');
-        this.logoVortex.setState('IDLE', 'Prêt à répondre');
       };
     }
 
@@ -253,7 +171,6 @@ export class AlternIAApp {
       }
     });
 
-    // Débloquer l'AudioContext lors du clic
     if (this.audio && this.audio.audioCtx && this.audio.audioCtx.state === 'suspended') {
       this.audio.audioCtx.resume();
     }
@@ -277,118 +194,6 @@ export class AlternIAApp {
     }
   }
 
-  async loadActiveAvatar() {
-    try {
-      const res = await fetch('/api/avatars/actif');
-      if (res.ok) {
-        const data = await res.json();
-        if (data) {
-          this.activeAvatar = data;
-
-          // Mise à jour du nom en page d'accueil
-          if (this.avatarNameText && data.nom) {
-            this.avatarNameText.textContent = data.nom;
-          }
-
-          // Mise à jour de la photo dans le logo / halo principal
-          if (data.photoUrl) {
-            this.logoVortex.setAvatarImage(data.photoUrl, data.nom, data.landmarks);
-          }
-
-          // Mise à jour des informations de l'avatar dans le Modal Pédagogique
-          if (this.modalAvatarTitle && data.nom) {
-            this.modalAvatarTitle.textContent = data.nom;
-          }
-          if (this.modalAvatarSubtitle) {
-            const subject = data.matiere || 'Tuteur Pédagogique';
-            const style = data.stylePedagogique ? ` • Style ${data.stylePedagogique}` : '';
-            this.modalAvatarSubtitle.textContent = `${subject}${style}`;
-          }
-
-          // Support Avatar Vidéo Réel MP4 ou Portrait 2.5D
-          if (data.videoUrl) {
-            if (this.avatarVideo) {
-              this.avatarVideo.src = data.videoUrl;
-              this.avatarVideo.classList.remove('hidden');
-              if (this.avatarCanvas) this.avatarCanvas.classList.add('hidden');
-              this.avatarVideo.load();
-            }
-          } else if (data.photoUrl) {
-            if (this.avatarCanvas) this.avatarCanvas.classList.remove('hidden');
-            if (this.avatarVideo) this.avatarVideo.classList.add('hidden');
-            this.vortex.setAvatarImage(data.photoUrl, data.nom, data.landmarks);
-            if (data.visemePhotos && this.vortex.animator) {
-              this.vortex.animator.setVisemePhotos(data.visemePhotos);
-            }
-          }
-        }
-      }
-    } catch (e) {
-      console.warn("Avatar actif chargé :", e);
-    }
-  }
-
-  openAvatarModalAndPlayPresentation() {
-    if (!this.avatarModal) return;
-    this.avatarModal.classList.remove('hidden');
-
-    if (this.audio && this.audio.audioCtx && this.audio.audioCtx.state === 'suspended') {
-      this.audio.audioCtx.resume();
-    }
-
-    const nom = this.activeAvatar?.nom || "Assistant AlternIA";
-    const matiere = this.activeAvatar?.matiere || "toutes les matières du lycée";
-    const presentationText = this.activeAvatar?.phrase || `Bonjour ! Je suis ${nom}. Je suis prêt à t'expliquer toutes les notions de ${matiere}. Pose-moi toutes tes questions !`;
-
-    if (this.avatarTranscription) {
-      this.avatarTranscription.textContent = presentationText;
-    }
-
-    if (this.activeAvatar?.videoUrl && this.avatarVideo) {
-      this.avatarVideo.src = this.activeAvatar.videoUrl;
-      this.avatarVideo.classList.remove('hidden');
-      if (this.avatarCanvas) this.avatarCanvas.classList.add('hidden');
-      this.avatarVideo.currentTime = 0;
-      this.avatarVideo.muted = false;
-
-      this.vortex.setState('SPEAKING', 'Présentation en cours...');
-      this.avatarVideo.play().catch(err => {
-        console.warn("Autoplay vidéo bloqué :", err);
-      });
-
-      this.avatarVideo.onended = () => {
-        this.vortex.setState('IDLE', 'Prêt à répondre');
-        if (this.modalStatusText) this.modalStatusText.textContent = "Prêt à répondre • Touchez le micro pour me parler";
-      };
-    } else {
-      if (this.avatarCanvas) this.avatarCanvas.classList.remove('hidden');
-      if (this.avatarVideo) this.avatarVideo.classList.add('hidden');
-
-      this.audio.speakText(presentationText);
-
-      // Pré-génération automatique de la vidéo en tâche de fond si photo présente
-      if (this.activeAvatar?.photoUrl) {
-        fetch('/api/avatars/generate-video', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            avatar_id: this.activeAvatar.id,
-            photo_url: this.activeAvatar.photoUrl,
-            nom: nom,
-            matiere: matiere,
-            phrase: presentationText,
-            voice: this.activeAvatar.voixTts || 'vivienne'
-          })
-        }).then(r => r.json()).then(res => {
-          if (res && res.video_url) {
-            this.activeAvatar.videoUrl = res.video_url;
-            if (this.avatarVideo) this.avatarVideo.src = res.video_url;
-          }
-        }).catch(err => console.warn("Pré-génération vidéo background :", err));
-      }
-    }
-  }
-
   async submitQuestion(questionText) {
     const question = questionText || (this.questionInput ? this.questionInput.value.trim() : '');
     if (!question) return;
@@ -396,7 +201,6 @@ export class AlternIAApp {
     if (this.questionInput) this.questionInput.value = '';
     this.audio.stop();
     
-    // Débloquer l'AudioContext immédiatement sur l'interaction utilisateur pour éviter le blocage Autoplay (TTS)
     if (this.audio.audioCtx && this.audio.audioCtx.state === 'suspended') {
       this.audio.audioCtx.resume();
     }
@@ -406,10 +210,8 @@ export class AlternIAApp {
       if (this.studentQueryText) this.studentQueryText.textContent = question;
     }
 
-    this.vortex.setState('THINKING', 'Consultation du RAG malien...');
-    this.logoVortex.setState('THINKING', 'Consultation du RAG malien...');
+    this.vortex.setState('THINKING', 'Consultation du programme officiel...');
 
-    // Préparation de la zone d'explication
     if (this.speechContentArea) {
       this.speechContentArea.innerHTML = `
         <div class="flex items-center gap-3 text-cyan-300 py-4">
@@ -428,17 +230,13 @@ export class AlternIAApp {
     const streamSuccess = await ApiService.streamChat({
       question,
       studentClass: this.currentClass,
-      subject: this.currentSubject, // null => auto-détection multi-matières (SVT, Maths, Physique, etc.)
+      subject: this.currentSubject,
       sessionId: this.sessionId,
       onChunk: (chunk) => {
         fullText += chunk;
         if (this.speechContentArea) {
           this.speechContentArea.innerHTML = `<div class="formatted-text">${this.formatMarkdownText(fullText)}</div>`;
           this.katex.renderFormulasInElement(this.speechContentArea);
-        }
-        if (this.avatarTranscription) {
-          this.avatarTranscription.innerHTML = this.formatMarkdownText(fullText);
-          this.katex.renderFormulasInElement(this.avatarTranscription);
         }
 
         sentenceBuffer += chunk;
@@ -450,7 +248,6 @@ export class AlternIAApp {
           const segment = sentenceBuffer.substring(0, pos).trim();
           sentenceBuffer = sentenceBuffer.substring(pos);
           if (segment.length > 2) {
-            console.log("🔊 [TTS Stream Chunk]:", segment);
             this.audio.enqueueSentence(segment);
             firstSent = true;
           }
@@ -465,18 +262,12 @@ export class AlternIAApp {
           this.speechContentArea.innerHTML = `<div class="formatted-text">${this.formatMarkdownText(fullText)}</div>`;
           this.katex.renderFormulasInElement(this.speechContentArea);
         }
-        if (this.avatarTranscription) {
-          this.avatarTranscription.innerHTML = this.formatMarkdownText(fullText);
-          this.katex.renderFormulasInElement(this.avatarTranscription);
-        }
 
-        // Si le buffer contient encore du texte restant non émis
+        // Si le buffer contient encore du texte restant
         if (sentenceBuffer.trim().length > 2) {
-          console.log("🔊 [TTS Stream Restant]:", sentenceBuffer.trim());
           this.audio.enqueueSentence(sentenceBuffer.trim());
           firstSent = true;
         } else if (!firstSent && fullText.trim().length > 2) {
-          console.log("🔊 [TTS Stream Full Fallback]:", fullText.trim());
           this.audio.enqueueSentence(fullText.trim());
           firstSent = true;
         }
@@ -489,11 +280,9 @@ export class AlternIAApp {
       }
     }
 
-    // Sécurité : si la file audio est vide (ou TTS désactivé/échoué), on force le retour à l'état IDLE
     setTimeout(() => {
       if (!this.audio.isPlayingQueue && this.vortex.currentState === 'THINKING') {
         this.vortex.setState('IDLE', 'Prêt à répondre');
-        this.logoVortex.setState('IDLE', 'Prêt à répondre');
       }
     }, 500);
   }
