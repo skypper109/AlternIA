@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, of, map } from 'rxjs';
-import { AvatarPedagogique, VoixPedagogique } from '../../domain/entites/avatar-pedagogique.entite';
+import { AvatarPedagogique, VoixPedagogique, AvatarUploadResponse, VisemeUploadResponse } from '../../domain/entites/avatar-pedagogique.entite';
 import { CategorieMatiere, Matiere } from '../../core/enums';
 import { environment } from '../../../environments/environment';
 
@@ -68,16 +68,16 @@ export class AvatarRepository {
     );
   }
 
-  uploaderPhotoAvatar(file: File): Observable<{ photoUrl: string; fileName: string; compatibility?: any; landmarks?: any }> {
+  uploaderPhotoAvatar(file: File): Observable<AvatarUploadResponse> {
     const formData = new FormData();
     formData.append('file', file, file.name);
-    return this.http.post<{ photoUrl: string; fileName: string; compatibility?: any; landmarks?: any }>(`${environment.apiUrl}/avatars/upload`, formData);
+    return this.http.post<AvatarUploadResponse>(`${environment.apiUrl}/avatars/upload`, formData);
   }
 
-  uploaderVisemePhoto(file: File, visemeId: string): Observable<{ visemeId: string; photoUrl: string; fileName: string; compatibility?: any; landmarks?: any }> {
+  uploaderVisemePhoto(file: File, visemeId: string): Observable<VisemeUploadResponse> {
     const formData = new FormData();
     formData.append('file', file, file.name);
-    return this.http.post<{ visemeId: string; photoUrl: string; fileName: string; compatibility?: any; landmarks?: any }>(
+    return this.http.post<VisemeUploadResponse>(
       `${environment.apiUrl}/avatars/upload-viseme?viseme_id=${visemeId}`, formData
     );
   }

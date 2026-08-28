@@ -62,6 +62,7 @@ def ensure_environment():
         ("edge_tts", "edge-tts"),
         ("multipart", "python-multipart"),
         ("cv2", "opencv-python-headless"),
+        ("faster_whisper", "faster-whisper"),
     ]
     missing = []
     for mod_name, pkg_name in required:

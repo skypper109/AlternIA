@@ -392,8 +392,6 @@ export class CanvasAvatarInstance {
 
     this.headPitch += (this.targetPitch - this.headPitch) * 0.08;
     this.headYaw += (this.targetYaw - this.headYaw) * 0.08;
-    this.headRoll += (this.targetRoll - this.headRoll) * 0.08;
-
     const cx = width / 2;
     const cy = height / 2;
     const size = Math.min(width, height) * 0.88;
@@ -401,12 +399,9 @@ export class CanvasAvatarInstance {
     // 4. Halo lumineux audio-réactif
     this.drawHolographicAura(cx, cy, size, audio.volume || (this.state === 'SPEAKING' ? 0.3 : 0), timestamp);
 
-    // 5. Rendu du portrait avec cross-fade visème
+    // 5. Rendu du portrait avec morphing visème naturel (Fixe, sans rotation)
     this.ctx.save();
-    const parallaxX = cx + this.headYaw * 35;
-    const parallaxY = cy + breathOffset + this.headPitch * 25;
-    this.ctx.translate(parallaxX, parallaxY);
-    this.ctx.rotate(this.headRoll);
+    this.ctx.translate(cx, cy);
 
     this.ctx.beginPath();
     this.ctx.arc(0, 0, size / 2, 0, Math.PI * 2);

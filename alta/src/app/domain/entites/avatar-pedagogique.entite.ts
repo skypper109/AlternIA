@@ -30,3 +30,21 @@ export interface VoixPedagogique {
   cloneeDepuis?: string;
   dateCreation: Date;
 }
+
+export interface AvatarUploadResponse {
+  photoUrl: string;
+  fileName: string;
+  videoUrl?: string | null;
+  isVideo?: boolean;
+  compatibility?: any;
+  landmarks?: any;
+  visemePhotos?: Record<string, string>;
+}
+
+export interface VisemeUploadResponse {
+  visemeId: string;
+  photoUrl: string;
+  fileName: string;
+  compatibility?: any;
+  landmarks?: any;
+}

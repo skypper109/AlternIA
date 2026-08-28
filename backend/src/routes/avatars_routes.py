@@ -62,7 +62,6 @@ async def api_upload_viseme_photo(viseme_id: str, file: UploadFile = File(...)):
 def api_serve_avatar_image(filename: str):
     """Sert une image d'avatar enregistrée."""
     path = get_avatar_image_path(filename)
-    # Détermination du content-type
     ext = path.suffix.lower()
     media_type = "image/png"
     if ext in [".jpg", ".jpeg"]:
@@ -77,6 +76,17 @@ def api_serve_avatar_image(filename: str):
         "Cache-Control": "public, max-age=86400",
     }
     return FileResponse(str(path), media_type=media_type, headers=headers)
+
+
+@router.get("/images/visemes/{filename}")
+def api_serve_avatar_viseme_image(filename: str):
+    """Sert une frame de visème générée pour l'animation labiale."""
+    path = get_avatar_image_path(f"visemes/{filename}")
+    headers = {
+        "Access-Control-Allow-Origin": "*",
+        "Cache-Control": "public, max-age=86400",
+    }
+    return FileResponse(str(path), media_type="image/png", headers=headers)
 
 
 @router.post("/detect-landmarks")

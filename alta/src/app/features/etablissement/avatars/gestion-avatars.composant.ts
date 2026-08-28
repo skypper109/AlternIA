@@ -130,10 +130,15 @@ export class GestionAvatarsComposant implements OnInit, OnDestroy {
         if (res.landmarks) {
           this.landmarksDetectes.set(res.landmarks);
         }
-        if (this.previewAnimator) {
+        if (res.visemePhotos && Object.keys(res.visemePhotos).length > 0) {
+          this.visemePhotosMap.set(res.visemePhotos);
+          if (this.previewAnimator) {
+            this.previewAnimator.setVisemePhotos(res.visemePhotos);
+          }
+        } else if (this.previewAnimator) {
           this.previewAnimator.setImage(res.photoUrl);
         }
-        this.notifService.succes('Photo Uploadée', "L'image du professeur a été associée avec succès.");
+        this.notifService.succes('Photo Uploadée', "L'image et ses mimiques labiales ont été générées avec succès.");
         input.value = '';
       },
       error: () => {

@@ -293,21 +293,16 @@ export class DeviceAvatarAnimator {
 
     this.headPitch += (this.targetPitch - this.headPitch) * 0.08;
     this.headYaw += (this.targetYaw - this.headYaw) * 0.08;
-    this.headRoll += (this.targetRoll - this.headRoll) * 0.08;
-
     const cx = width / 2;
     const cy = height / 2;
     const size = Math.min(width, height) * 0.88;
 
-    // 4. Halo lumineux
+    // 4. Halo lumineux audio-réactif
     this.drawAura(cx, cy, size, audio.volume || (this.state === 'SPEAKING' ? 0.3 : 0), timestamp);
 
-    // 5. Rendu du Portrait en 2.5D
+    // 5. Rendu du Portrait Photoréaliste (Fixe et Naturel, sans rotation artificielle)
     this.ctx.save();
-    const parallaxX = cx + this.headYaw * 35;
-    const parallaxY = cy + breathOffset + this.headPitch * 25;
-    this.ctx.translate(parallaxX, parallaxY);
-    this.ctx.rotate(this.headRoll);
+    this.ctx.translate(cx, cy);
 
     this.ctx.beginPath();
     this.ctx.arc(0, 0, size / 2, 0, Math.PI * 2);
