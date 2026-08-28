@@ -104,53 +104,57 @@ class LivePortraitService:
         # 1. Tentative avec LivePortrait
         if self.liveportrait_dir and (self.liveportrait_dir / "inference.py").exists():
             try:
-                driving_candidates = list((self.liveportrait_dir / "assets").glob("**/*.mp4"))
-                driving_video = str(driving_candidates[0]) if driving_candidates else str(audio_path)
+                driving_dir = self.liveportrait_dir / "assets" / "examples" / "driving"
+                driving_candidates = list(driving_dir.glob("*.mp4")) if driving_dir.exists() else []
+                if not driving_candidates:
+                    driving_candidates = list((self.liveportrait_dir / "assets").glob("**/*.mp4"))
                 
-                cmd = [
-                    self.python_exe,
-                    str(self.liveportrait_dir / "inference.py"),
-                    "-s", str(image_path),
-                    "-d", str(driving_video),
-                    "-o", str(target_dir),
-                    "--flag_crop_driving_video", "True",
-                ]
-                logger.info(f"🚀 Lancement inférence LivePortrait : {' '.join(cmd)}")
-                subprocess.run(
-                    cmd,
-                    cwd=str(self.liveportrait_dir),
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True,
-                    check=True,
-                    timeout=300,
-                )
-                mp4_files = list(target_dir.glob("**/*.mp4"))
-                if mp4_files:
-                    latest = max(mp4_files, key=lambda p: p.stat().st_mtime)
-                    # Mixer l'audio TTS généré avec la vidéo LivePortrait
-                    final_path = target_dir / cache_filename
-                    try:
-                        mux_cmd = [
-                            "ffmpeg", "-y",
-                            "-i", str(latest),
-                            "-i", str(audio_path),
-                            "-c:v", "copy",
-                            "-c:a", "aac",
-                            "-map", "0:v:0",
-                            "-map", "1:a:0",
-                            "-shortest",
-                            "-movflags", "+faststart",
-                            str(final_path)
-                        ]
-                        subprocess.run(mux_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
-                        if final_path.exists() and final_path.stat().st_size > 5000:
-                            shutil.copy(str(final_path), str(cached_file))
-                            return str(final_path)
-                    except Exception:
-                        pass
-                    shutil.copy(str(latest), str(cached_file))
-                    return str(latest)
+                if driving_candidates:
+                    driving_video = str(driving_candidates[0])
+                    cmd = [
+                        self.python_exe,
+                        str(self.liveportrait_dir / "inference.py"),
+                        "-s", str(image_path),
+                        "-d", str(driving_video),
+                        "-o", str(target_dir),
+                    ]
+                    logger.info(f"🚀 Lancement inférence LivePortrait : {' '.join(cmd)}")
+                    subprocess.run(
+                        cmd,
+                        cwd=str(self.liveportrait_dir),
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        text=True,
+                        check=True,
+                        timeout=300,
+                    )
+                    mp4_files = list(target_dir.glob("**/*.mp4"))
+                    if mp4_files:
+                        latest = max(mp4_files, key=lambda p: p.stat().st_mtime)
+                        # Mixer l'audio TTS généré avec la vidéo LivePortrait
+                        final_path = target_dir / cache_filename
+                        try:
+                            mux_cmd = [
+                                "ffmpeg", "-y",
+                                "-stream_loop", "-1",
+                                "-i", str(latest),
+                                "-i", str(audio_path),
+                                "-c:v", "copy",
+                                "-c:a", "aac",
+                                "-map", "0:v:0",
+                                "-map", "1:a:0",
+                                "-shortest",
+                                "-movflags", "+faststart",
+                                str(final_path)
+                            ]
+                            subprocess.run(mux_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+                            if final_path.exists() and final_path.stat().st_size > 5000:
+                                shutil.copy(str(final_path), str(cached_file))
+                                return str(final_path)
+                        except Exception:
+                            pass
+                        shutil.copy(str(latest), str(cached_file))
+                        return str(latest)
             except Exception as e:
                 logger.error(f"Erreur LivePortrait : {e}")
 
