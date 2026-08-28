@@ -285,16 +285,45 @@ export class AlternIAApp {
               this.vortex.animator.setVisemePhotos(data.visemePhotos);
             }
           }
+
+          // 3. Lancement de la présentation vocale de bienvenue
+          this.playWelcomePresentation(data.nom || "AlternIA");
         }
+      } else {
+        this.playWelcomePresentation("AlternIA");
       }
     } catch (e) {
       console.warn("Avatar actif chargé :", e);
+      this.playWelcomePresentation("AlternIA");
     }
+  }
+
+  playWelcomePresentation(teacherName = "AlternIA") {
+    const welcomeSpeech = `Bonjour ! Je suis ${teacherName || 'AlternIA'}, ton tuteur pédagogique pour le secondaire au Mali. Choisis ta classe, 10ème, 11ème ou Terminale, puis pose-moi toutes tes questions au micro ou par écrit. Je suis prêt à t'expliquer !`;
     
-    // Message de bienvenue
-    setTimeout(() => {
-      this.audio.speakText("Bonjour ! Je suis AlternIA, ton assistant pédagogique. Choisis ta classe et pose-moi tes questions.");
-    }, 1000);
+    let hasSpoken = false;
+    const triggerWelcome = () => {
+      if (hasSpoken) return;
+      hasSpoken = true;
+      if (this.audio && this.audio.audioCtx && this.audio.audioCtx.state === 'suspended') {
+        this.audio.audioCtx.resume();
+      }
+      this.audio.speakText(welcomeSpeech);
+    };
+
+    // 1. Tentative de lecture immédiate
+    setTimeout(triggerWelcome, 600);
+
+    // 2. Déverrouillage garanti au premier geste tactile / clic de l'élève
+    const onFirstUserGesture = () => {
+      triggerWelcome();
+      window.removeEventListener('click', onFirstUserGesture);
+      window.removeEventListener('touchstart', onFirstUserGesture);
+      window.removeEventListener('keydown', onFirstUserGesture);
+    };
+    window.addEventListener('click', onFirstUserGesture);
+    window.addEventListener('touchstart', onFirstUserGesture);
+    window.addEventListener('keydown', onFirstUserGesture);
   }
 
   async submitQuestion(questionText) {
