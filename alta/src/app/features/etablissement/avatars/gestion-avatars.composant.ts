@@ -75,6 +75,8 @@ export class GestionAvatarsComposant implements OnInit, OnDestroy {
   // Modale Création / Édition
   modalAvatarOuverte = signal(false);
   isUploadingImage = signal(false);
+  isUploadingPhoto = signal(false);
+  @ViewChild('fileInputPhoto') fileInputPhoto?: ElementRef<HTMLInputElement>;
   diagnosticCompatibilite = signal<any>(null);
   landmarksDetectes = signal<any>(null);
   testPreviewAudioEnCours = signal(false);
@@ -106,6 +108,41 @@ export class GestionAvatarsComposant implements OnInit, OnDestroy {
   formImageUrl = signal<string | null>(null);
 
   avatarASupprimer = signal<AvatarPedagogique | null>(null);
+
+  declencherUploadPhoto(): void {
+    this.fileInputPhoto?.nativeElement.click();
+  }
+
+  onPhotoAvatarSelectionnee(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+
+    const file = input.files[0];
+    this.isUploadingPhoto.set(true);
+
+    this.repo.uploaderPhotoAvatar(file).subscribe({
+      next: (res) => {
+        this.isUploadingPhoto.set(false);
+        this.formImageUrl.set(res.photoUrl);
+        if (res.compatibility) {
+          this.diagnosticCompatibilite.set(res.compatibility);
+        }
+        if (res.landmarks) {
+          this.landmarksDetectes.set(res.landmarks);
+        }
+        if (this.previewAnimator) {
+          this.previewAnimator.setImage(res.photoUrl);
+        }
+        this.notifService.succes('Photo Uploadée', "L'image du professeur a été associée avec succès.");
+        input.value = '';
+      },
+      error: () => {
+        this.isUploadingPhoto.set(false);
+        this.notifService.erreur('Erreur Upload', "Impossible d'uploader la photo.");
+        input.value = '';
+      },
+    });
+  }
 
   ngOnInit(): void {
     this.chargerAvatars();
