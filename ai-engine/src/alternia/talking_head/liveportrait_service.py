@@ -156,10 +156,16 @@ class LivePortraitService:
                 img_bgr = cv2.imread(str(image_path))
                 if img_bgr is not None:
                     img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
-                    crop_info = LivePortraitService._in_process_pipeline.prepare_source(img_rgb)
-                    LivePortraitService._portrait_cache.set(image_path, crop_info)
-                    logger.info(f"⚡ Empreinte faciale pré-chargée en VRAM pour : {image_path}")
-                    return True
+                    crop_info = None
+                    p = LivePortraitService._in_process_pipeline
+                    if hasattr(p, "prepare_source"):
+                        crop_info = p.prepare_source(img_rgb)
+                    elif hasattr(p, "live_portrait_wrapper") and hasattr(p.live_portrait_wrapper, "prepare_source"):
+                        crop_info = p.live_portrait_wrapper.prepare_source(img_rgb)
+                    if crop_info is not None:
+                        LivePortraitService._portrait_cache.set(image_path, crop_info)
+                        logger.info(f"⚡ Empreinte faciale pré-chargée en VRAM pour : {image_path}")
+                        return True
             except Exception as e:
                 logger.warning(f"Note pré-chargement portrait : {e}")
         return False
@@ -441,11 +447,17 @@ class LivePortraitService:
         # Récupération ou calcul des caractéristiques
         cached_crop = LivePortraitService._portrait_cache.get(image_path)
         if cached_crop is None:
-            cached_crop = pipeline.prepare_source(img_rgb)
-            LivePortraitService._portrait_cache.set(image_path, cached_crop)
+            try:
+                if hasattr(pipeline, "prepare_source"):
+                    cached_crop = pipeline.prepare_source(img_rgb)
+                elif hasattr(pipeline, "live_portrait_wrapper") and hasattr(pipeline.live_portrait_wrapper, "prepare_source"):
+                    cached_crop = pipeline.live_portrait_wrapper.prepare_source(img_rgb)
+                if cached_crop is not None:
+                    LivePortraitService._portrait_cache.set(image_path, cached_crop)
+            except Exception as prep_e:
+                logger.debug(f"prepare_source non disponible : {prep_e}")
 
         # 2. Exécution du moteur d'animation (génération en mémoire)
-        # Obtenir les trames animées sous forme de tenseurs ou de tableaux NumPy
         driving_video = None
         if self.liveportrait_dir:
             d_dir = self.liveportrait_dir / "assets" / "examples" / "driving"
@@ -457,11 +469,47 @@ class LivePortraitService:
         if not driving_video:
             return None
 
-        # 3. Lancement de l'encodeur FFmpeg en tube direct (stdin)
-        h, w = img_bgr.shape[:2]
-        # Redimensionnement standard 512x512 pour rapidité optimale
-        out_w, out_h = 512, 512
+        # Tentative A : Exécution in-process via ArgumentConfig officiel de LivePortrait
+        try:
+            import importlib
+            arg_cfg_mod = importlib.import_module("src.config.argument_config")
+            ArgumentConfig = getattr(arg_cfg_mod, "ArgumentConfig")
+            temp_out = Path(tempfile.mkdtemp(prefix="lp_in_mem_"))
+            args = ArgumentConfig(
+                source_image=str(image_path),
+                driving_info=str(driving_video),
+                output_dir=str(temp_out),
+            )
+            pipeline.execute(args)
+            mp4s = list(temp_out.glob("**/*.mp4"))
+            if mp4s:
+                latest = max(mp4s, key=lambda p: p.stat().st_mtime)
+                if audio_path and Path(audio_path).exists():
+                    mux_cmd = [
+                        "ffmpeg", "-y",
+                        "-stream_loop", "-1",
+                        "-i", str(latest),
+                        "-i", str(audio_path),
+                        "-c:v", "copy",
+                        "-c:a", "aac",
+                        "-map", "0:v:0",
+                        "-map", "1:a:0",
+                        "-shortest",
+                        "-movflags", "+faststart",
+                        str(output_file)
+                    ]
+                    subprocess.run(mux_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+                else:
+                    shutil.copy(str(latest), str(output_file))
+                shutil.rmtree(temp_out, ignore_errors=True)
+                if output_file.exists() and output_file.stat().st_size > 1000:
+                    logger.info(f"⚡ Vidéo LivePortrait in-process générée avec succès : {output_file}")
+                    return str(output_file)
+        except Exception as e_arg:
+            logger.debug(f"ArgumentConfig in-process non applicable ({e_arg}), test du mode streaming trames.")
 
+        # Tentative B : Streaming direct des trames via le tube stdin FFmpeg
+        out_w, out_h = 512, 512
         ffmpeg_cmd = [
             "ffmpeg", "-y",
             "-f", "rawvideo",
@@ -484,47 +532,64 @@ class LivePortraitService:
             str(output_file)
         ])
 
-        proc = subprocess.Popen(
-            ffmpeg_cmd,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
+        frames_iter = None
+        if hasattr(pipeline, "execute_generator"):
+            try:
+                frames_iter = pipeline.execute_generator(cached_crop or img_rgb, driving_video)
+            except Exception as gen_e:
+                logger.debug(f"execute_generator non supporté : {gen_e}")
 
-        if proc.stdin is None:
-            logger.error("❌ Impossible d'accéder au flux stdin de FFmpeg")
-            if proc.poll() is None:
-                proc.kill()
-            return None
+        if frames_iter is None and hasattr(pipeline, "execute"):
+            try:
+                res = pipeline.execute(cached_crop or img_rgb, driving_video)
+                if isinstance(res, (list, tuple, Generator)):
+                    frames_iter = res
+            except Exception as exec_e:
+                logger.debug(f"execute frames non supporté : {exec_e}")
 
-        try:
-            # Exécution et injection des trames directement dans le tube FFmpeg
-            # Si le pipeline supporte execute_generator, streaming direct
-            if hasattr(pipeline, "execute_generator"):
-                for frame_bgr in pipeline.execute_generator(cached_crop, driving_video):
-                    frame_resized = cv2.resize(frame_bgr, (out_w, out_h))
-                    proc.stdin.write(frame_resized.tobytes())
-            else:
-                out_frames = pipeline.execute(cached_crop, driving_video)
-                for f in out_frames:
-                    if isinstance(f, np.ndarray):
-                        frame_resized = cv2.resize(f, (out_w, out_h))
-                        proc.stdin.write(frame_resized.tobytes())
-            
-            proc.stdin.close()
-            proc.wait(timeout=120)
-            if output_file.exists() and output_file.stat().st_size > 1000:
-                logger.info(f"⚡ Vidéo générée en mémoire vive (Zero-Disk) avec succès : {output_file}")
-                return str(output_file)
-        except Exception as e:
-            logger.warning(f"Erreur injection tube FFmpeg : {e}")
-            if proc.stdin and not proc.stdin.closed:
-                try:
-                    proc.stdin.close()
-                except Exception:
-                    pass
-            if proc.poll() is None:
-                proc.kill()
+        if frames_iter is not None:
+            proc = None
+            try:
+                proc = subprocess.Popen(
+                    ffmpeg_cmd,
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                )
+
+                if proc.stdin is not None:
+                    for f in frames_iter:
+                        if isinstance(f, np.ndarray) and proc.stdin and not proc.stdin.closed:
+                            frame_resized = cv2.resize(f, (out_w, out_h))
+                            try:
+                                proc.stdin.write(frame_resized.tobytes())
+                            except (BrokenPipeError, IOError, OSError):
+                                break
+
+                    if proc.stdin and not proc.stdin.closed:
+                        try:
+                            proc.stdin.close()
+                        except Exception:
+                            pass
+
+                proc.wait(timeout=120)
+                if output_file.exists() and output_file.stat().st_size > 1000:
+                    logger.info(f"⚡ Vidéo générée en streaming mémoire vive avec succès : {output_file}")
+                    return str(output_file)
+            except Exception as stream_e:
+                logger.warning(f"Erreur streaming trames FFmpeg : {stream_e}")
+            finally:
+                if proc:
+                    if proc.stdin and not proc.stdin.closed:
+                        try:
+                            proc.stdin.close()
+                        except Exception:
+                            pass
+                    if proc.poll() is None:
+                        try:
+                            proc.kill()
+                        except Exception:
+                            pass
         return None
 
     def _generate_fallback_video(self, image_path: str, audio_path: Optional[str], output_path: Path) -> Optional[str]:
