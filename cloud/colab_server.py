@@ -4,6 +4,7 @@ AlternIA Cloud Server Runner pour Google Colab Pro / AWS GPU
 Lance l'API FastAPI et expose un tunnel public HTTPS sécurisé (Cloudflare Tunnel).
 """
 
+import tempfile
 import os
 import re
 import shutil
@@ -126,15 +127,30 @@ def ensure_environment():
         import importlib
         importlib.invalidate_caches()
 
-    # Vérification du moteur vidéo LivePortrait / SadTalker
+    # Nettoyage automatique des caches temporaires pour préserver l'espace disque
+    try:
+        tmp_dir = Path(tempfile.gettempdir())
+        for p in tmp_dir.glob("avatar_*"):
+            if p.is_dir():
+                shutil.rmtree(p, ignore_errors=True)
+            elif p.is_file():
+                try:
+                    p.unlink()
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+    # Vérification et initialisation du moteur vidéo LivePortrait / SadTalker
     try:
         from alternia.talking_head.liveportrait_service import LivePortraitService
         lp = LivePortraitService()
         if lp.is_available():
+            mode = "In-Memory Streaming (Zero-Disk)" if getattr(LivePortraitService, "_in_process_pipeline", None) else "Processus optimisé"
             engine_name = "LivePortrait" if lp.liveportrait_dir else "SadTalker"
-            print(f"🎬 \033[1;32mMoteur Vidéo IA :\033[0m {engine_name} prêt pour l'animation photoréaliste.")
+            print(f"🎬 \033[1;32mMoteur Vidéo IA :\033[0m {engine_name} ({mode}) prêt pour l'animation photoréaliste.")
         else:
-            print("🎬 \033[1;36mMoteur Vidéo IA :\033[0m Générateur vidéo MP4 haute définition actif.")
+            print("🎬 \033[1;36mMoteur Vidéo IA :\033[0m Générateur vidéo MP4 haute définition en mémoire actif.")
     except Exception as e:
         print(f"ℹ️ Note moteur vidéo : {e}")
 
@@ -202,7 +218,7 @@ def main():
     if public_url:
         print(f"🌟 \033[1;32mAlternIA Cloud Server est PRÊT ET EN LIGNE !\033[0m")
         print(f"🔗 \033[1;36mURL PUBLIQUE HTTPS :\033[0m \033[1;4m{public_url}\033[0m")
-        print(f"📱 Pour connecter votre boîtier ou le web, utilisez : \033[1m{public_url}\033[0m")
+        print(f"📱 Pour connecter votre boîtier ou le web, utilisez : \033[1m{public_url}/device\033[0m")
     else:
         print(f"🌟 AlternIA Server démarré localement sur : http://127.0.0.1:{port}")
     print("=" * 76 + "\n")

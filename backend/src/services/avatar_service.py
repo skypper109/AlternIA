@@ -363,6 +363,13 @@ async def save_avatar_image(file: UploadFile) -> Dict[str, Any]:
         # 2. Génération automatique de la suite de morphings labiaux (Visèmes AI)
         visemes = generate_viseme_frames_from_image(target_path, analysis.get("landmarks"))
 
+        # 3. Pré-chargement des caractéristiques de l'avatar en mémoire VRAM (Zero-Disk pipeline)
+        try:
+            from alternia.talking_head.liveportrait_service import LivePortraitService
+            LivePortraitService().preload_portrait(str(target_path))
+        except Exception:
+            pass
+
         return {
             "photoUrl": f"/api/avatars/images/{clean_name}",
             "videoUrl": None,
