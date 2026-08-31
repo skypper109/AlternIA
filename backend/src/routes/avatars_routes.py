@@ -170,6 +170,43 @@ def api_servir_video_avatar(filename: str):
     return FileResponse(str(path), media_type="video/mp4", headers=headers)
 
 
+@router.post("/{avatar_id}/did-image")
+async def api_upload_avatar_to_did(avatar_id: str, db: Session = Depends(get_db)):
+    """Upload l'image de l'avatar sur les serveurs D-ID pour obtenir une source_url."""
+    import os
+    import httpx
+    
+    avatar = db.query(Avatar).filter(Avatar.id == avatar_id).first()
+    if not avatar or not avatar.photo_url:
+        raise HTTPException(status_code=404, detail="Avatar ou photo introuvable")
+        
+    filename = avatar.photo_url.split('/')[-1]
+    file_path = get_avatar_image_path(filename)
+    
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Fichier image local introuvable")
+        
+    did_api_key = os.getenv("DID_API_KEY")
+    if not did_api_key:
+        raise HTTPException(status_code=500, detail="Clé API D-ID non configurée")
+        
+    try:
+        async with httpx.AsyncClient() as client:
+            with open(file_path, "rb") as f:
+                response = await client.post(
+                    "https://api.d-id.com/images",
+                    headers={"Authorization": f"Basic {did_api_key}"},
+                    files={"image": (filename, f, "image/jpeg")}
+                )
+            
+            response.raise_for_status()
+            data = response.json()
+            return {"source_url": data.get("url")}
+    except Exception as e:
+        logger.error(f"Erreur d'upload vers D-ID: {e}")
+        raise HTTPException(status_code=500, detail="Échec de l'upload vers D-ID")
+
+
 # Route de test vocal dans le Studio Vocal
 vocal_router = APIRouter(tags=["Studio Vocal"])
 
