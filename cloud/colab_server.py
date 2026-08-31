@@ -65,6 +65,17 @@ def detect_hardware():
 
 def ensure_environment():
     """Vérifie et installe automatiquement les dépendances manquantes."""
+    # 1. Vérification stricte de compatibilité binaire NumPy 1.x (requis pour PyTorch 2.2 et ONNXRuntime)
+    try:
+        import numpy as np
+        if int(np.__version__.split(".")[0]) >= 2:
+            print(f"⚡ NumPy {np.__version__} détecté. Rétrogradation vers NumPy 1.26.4 (requis pour ONNXRuntime / PyTorch)...")
+            subprocess.run([sys.executable, "-m", "pip", "install", "-q", "--force-reinstall", "numpy<2.0.0"], check=False)
+            import importlib
+            importlib.invalidate_caches()
+    except Exception:
+        pass
+
     required = [
         ("uvicorn", "uvicorn[standard]"),
         ("fastapi", "fastapi"),
@@ -206,8 +217,8 @@ def start_tunnel(port: int = 8000) -> tuple[subprocess.Popen, str]:
 
 def main():
     print_banner()
-    detect_hardware()
     ensure_environment()
+    detect_hardware()
 
     port = int(os.environ.get("PORT", 8000))
 
