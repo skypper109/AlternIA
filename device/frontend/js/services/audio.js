@@ -18,10 +18,14 @@ export class AudioService {
     this.isPlayingQueue = false;
     this.currentPlayer = null;
     
-    this.initAudioContext();
-
-    // Initialisation du client Simli
-    this.simli = new SimliService('modal-avatar-video', 'simli-audio');
+    this.ENABLE_SIMLI = false; // Mettre à true dans 2 semaines
+    
+    // Initialisation du client Simli (Seulement si activé)
+    if (this.ENABLE_SIMLI) {
+        this.simli = new SimliService('modal-avatar-video', 'simli-audio');
+    } else {
+        this.simli = { isInitialized: false, init: () => {} };
+    }
   }
 
   initAudioContext() {
@@ -108,7 +112,7 @@ export class AudioService {
     if (cleanText.length < 2) return;
 
     // Assurez-vous que Simli est initialisé dès la première intention de parler
-    if (!this.simli.isInitialized) {
+    if (this.ENABLE_SIMLI && !this.simli.isInitialized) {
       this.simli.init();
     }
 
@@ -147,7 +151,7 @@ export class AudioService {
           let playedSuccessfully = false;
 
           // Streaming via Simli (prioritaire si initialisé et modal ouvert)
-          if (this.simli.isInitialized) {
+          if (this.ENABLE_SIMLI && this.simli.isInitialized) {
              try {
                 const arrayBuffer = await audioBlob.arrayBuffer();
                 

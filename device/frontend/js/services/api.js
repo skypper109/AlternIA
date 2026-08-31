@@ -143,4 +143,30 @@ export class ApiService {
       return false;
     }
   }
+
+  /**
+   * Génère une vidéo LivePortrait MP4 pour une phrase complète.
+   */
+  static async generateLivePortraitVideo({ phrase, photoUrl, voice, name, subject }) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/avatars/generate-video`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phrase,
+          photo_url: photoUrl,
+          voice: voice || 'vivienne',
+          nom: name || 'Assistant',
+          matiere: subject || 'Général'
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return data.video_url; // Retourne l'URL de la vidéo générée
+      }
+    } catch (e) {
+      console.warn("Erreur lors de la génération de la vidéo LivePortrait :", e);
+    }
+    return null;
+  }
 }

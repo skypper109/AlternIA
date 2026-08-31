@@ -433,20 +433,26 @@ export class AlternIAApp {
         }
 
         sentenceBuffer += chunk;
+        const isModalOpen = !this.avatarModal.classList.contains('hidden');
+        
+        // 🚨 CONFIGURATION : Mettre à `true` dans 2 semaines quand le compte Simli sera actif
+        const ENABLE_SIMLI_WEBRTC = false;
 
-        // Découpage et émission vocale TTS fluide
+        // Découpage et émission vocale TTS fluide (Seulement si modal fermé OU si Simli est activé)
         const match = sentDelim.exec(sentenceBuffer) || clauseDelim.exec(sentenceBuffer);
         if (match && sentenceBuffer.substring(0, match.index).trim().split(/\s+/).length >= 3) {
           const pos = match.index + match[0].length;
           const segment = sentenceBuffer.substring(0, pos).trim();
           sentenceBuffer = sentenceBuffer.substring(pos);
           if (segment.length > 2) {
-            this.audio.enqueueSentence(segment);
+            if (!isModalOpen || ENABLE_SIMLI_WEBRTC) {
+                this.audio.enqueueSentence(segment);
+            }
             firstSent = true;
           }
         }
       },
-      onDone: (data) => {
+      onDone: async (data) => {
         if (data.sources && data.sources.length > 0 && this.ragSourceBadge) {
           this.ragSourceBadge.textContent = data.sources[0].document;
         }
@@ -460,13 +466,54 @@ export class AlternIAApp {
           this.katex.renderFormulasInElement(this.avatarTranscription);
         }
 
+        const isModalOpen = !this.avatarModal.classList.contains('hidden');
+        const ENABLE_SIMLI_WEBRTC = false; // Doit correspondre au flag ci-dessus
+
         // Si le buffer contient encore du texte restant
         if (sentenceBuffer.trim().length > 2) {
-          this.audio.enqueueSentence(sentenceBuffer.trim());
+          if (!isModalOpen || ENABLE_SIMLI_WEBRTC) this.audio.enqueueSentence(sentenceBuffer.trim());
           firstSent = true;
         } else if (!firstSent && fullText.trim().length > 2) {
-          this.audio.enqueueSentence(fullText.trim());
+          if (!isModalOpen || ENABLE_SIMLI_WEBRTC) this.audio.enqueueSentence(fullText.trim());
           firstSent = true;
+        }
+
+        // Si Simli est DÉSACTIVÉ et que le modal est ouvert, on génère la vidéo LivePortrait 10s (Option Gratuit)
+        if (!ENABLE_SIMLI_WEBRTC && isModalOpen && fullText.length > 2 && this.activeAvatar?.photoUrl) {
+            if (this.modalStatusText) this.modalStatusText.textContent = "Génération de la vidéo en cours (Patientez ~10s)...";
+            if (this.modalStatusDot) {
+                this.modalStatusDot.className = "w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse";
+            }
+            
+            const videoUrl = await ApiService.generateLivePortraitVideo({
+                phrase: fullText,
+                photoUrl: this.activeAvatar.photoUrl,
+                voice: this.activeAvatar.voix_tts || this.activeAvatar.voix || 'vivienne',
+                name: this.activeAvatar.nom,
+                subject: this.currentSubject
+            });
+
+            if (videoUrl) {
+                if (this.modalStatusText) this.modalStatusText.textContent = "Réponse prête !";
+                if (this.modalStatusDot) this.modalStatusDot.className = "w-2.5 h-2.5 rounded-full bg-emerald-400";
+
+                if (this.modalAvatarCanvas) this.modalAvatarCanvas.classList.add('hidden');
+                if (this.modalAvatarVideo) {
+                    this.modalAvatarVideo.classList.remove('hidden');
+                    // Gérer l'URL relative vers le backend
+                    const backendUrl = window.location.origin; // or API_BASE_URL if imported
+                    this.modalAvatarVideo.src = `${videoUrl}?t=${Date.now()}`;
+                    this.modalAvatarVideo.muted = false;
+                    this.modalAvatarVideo.play().catch(e => {
+                        console.warn("Erreur lecture vidéo automatique :", e);
+                        this.audio.enqueueSentence(fullText); // Fallback TTS
+                    });
+                }
+            } else {
+                if (this.modalStatusText) this.modalStatusText.textContent = "Erreur vidéo (Fallback Audio)";
+                if (this.modalStatusDot) this.modalStatusDot.className = "w-2.5 h-2.5 rounded-full bg-red-500";
+                this.audio.enqueueSentence(fullText); // Fallback audio
+            }
         }
       }
     });
