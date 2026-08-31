@@ -91,7 +91,8 @@ class LivePortraitService:
                 break
 
         self.python_exe = sys.executable or "python3"
-        self.cache_dir = Path(tempfile.gettempdir()) / "alternia_avatar_cache"
+        base_tmp = Path("/dev/shm") if Path("/dev/shm").exists() else Path(tempfile.gettempdir())
+        self.cache_dir = base_tmp / "alternia_avatar_cache"
         self.cache_dir.mkdir(parents=True, exist_ok=True)
 
         if self.liveportrait_dir:
@@ -298,7 +299,8 @@ class LivePortraitService:
                 logger.warning(f"Tentative in-memory LivePortrait non aboutie ({e}), bascule sur exécution optimisée.")
 
         # 4. Inférence LivePortrait / SadTalker via sous-processus isolé et nettoyé
-        work_dir = Path(tempfile.mkdtemp(prefix="avatar_stream_work_"))
+        base_tmp = Path("/dev/shm") if Path("/dev/shm").exists() else Path(tempfile.gettempdir())
+        work_dir = Path(tempfile.mkdtemp(prefix="avatar_stream_work_", dir=str(base_tmp)))
         try:
             # Conversion audio WAV rapide
             wav_audio_path = audio_path
@@ -362,11 +364,15 @@ class LivePortraitService:
                                 "-movflags", "+faststart",
                                 str(local_final)
                             ]
-                            subprocess.run(mux_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
-                            if local_final.exists() and local_final.stat().st_size > 5000:
-                                shutil.copy(str(local_final), str(cached_file))
-                                shutil.copy(str(local_final), str(final_dest))
-                                return str(final_dest)
+                            try:
+                                subprocess.run(mux_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+                                if local_final.exists() and local_final.stat().st_size > 5000:
+                                    shutil.copy(str(local_final), str(cached_file))
+                                    shutil.copy(str(local_final), str(final_dest))
+                                    return str(final_dest)
+                            except subprocess.CalledProcessError as e:
+                                err = e.stderr.decode('utf-8', errors='ignore') if e.stderr else str(e)
+                                logger.error(f"Erreur FFmpeg mux LivePortrait : {err}")
                 except Exception as e:
                     logger.error(f"❌ Erreur LivePortrait : {e}")
 
@@ -474,7 +480,8 @@ class LivePortraitService:
             import importlib
             arg_cfg_mod = importlib.import_module("src.config.argument_config")
             ArgumentConfig = getattr(arg_cfg_mod, "ArgumentConfig")
-            temp_out = Path(tempfile.mkdtemp(prefix="lp_in_mem_"))
+            base_tmp = Path("/dev/shm") if Path("/dev/shm").exists() else Path(tempfile.gettempdir())
+            temp_out = Path(tempfile.mkdtemp(prefix="lp_in_mem_", dir=str(base_tmp)))
             args = ArgumentConfig(
                 source_image=str(image_path),
                 driving_info=str(driving_video),
@@ -604,6 +611,7 @@ class LivePortraitService:
                     "-c:v", "libx264",
                     "-preset", "veryfast",
                     "-tune", "stillimage",
+                    "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2",
                     "-c:a", "aac",
                     "-b:a", "192k",
                     "-pix_fmt", "yuv420p",
@@ -620,6 +628,7 @@ class LivePortraitService:
                     "-c:v", "libx264",
                     "-preset", "veryfast",
                     "-t", "3",
+                    "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2",
                     "-pix_fmt", "yuv420p",
                     "-c:a", "aac",
                     "-shortest",
@@ -629,6 +638,9 @@ class LivePortraitService:
             subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
             if output_path.exists() and output_path.stat().st_size > 1000:
                 return str(output_path)
+        except subprocess.CalledProcessError as e:
+            err = e.stderr.decode('utf-8', errors='ignore') if e.stderr else str(e)
+            logger.error(f"Erreur ffmpeg fallback video : {err}")
         except Exception as e:
             logger.error(f"Erreur ffmpeg fallback video : {e}")
         return None

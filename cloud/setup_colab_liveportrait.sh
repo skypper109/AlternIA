@@ -15,9 +15,9 @@ CMAKE_ARGS="-DGGML_CUDA=on -DGGML_AVX512=off" pip install -q --no-binary llama-c
 pip install -q --no-cache-dir faster-whisper ctranslate2 soundfile
 
 # 3. Installation optimisée de LivePortrait pour inférence en mémoire
-cd /content || cd /tmp
+cd /dev/shm
 if [ ! -d "LivePortrait" ]; then
-    echo "📦 Clonage de LivePortrait..."
+    echo "📦 Clonage de LivePortrait dans la RAM (/dev/shm)..."
     git clone --depth 1 https://github.com/KwaiVGI/LivePortrait.git
 fi
 

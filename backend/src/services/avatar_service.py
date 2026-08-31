@@ -25,8 +25,8 @@ AVATARS_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
 AVATARS_VIDEOS_DIR = AVATARS_STORAGE_DIR / "videos"
 AVATARS_VIDEOS_DIR.mkdir(parents=True, exist_ok=True)
 
-# Stockage ultra-rapide sur DISQUE LOCAL (/tmp / NVMe local) pour éviter les lenteurs de volume réseau (NFS / RunPod)
-LOCAL_STORAGE_DIR = Path(tempfile.gettempdir()) / "alternia_storage" / "avatars"
+# Stockage ultra-rapide en RAM (/dev/shm) pour éviter les lenteurs et l'usure du disque (NFS / RunPod)
+LOCAL_STORAGE_DIR = Path("/dev/shm/alternia_storage/avatars") if Path("/dev/shm").exists() else Path(tempfile.gettempdir()) / "alternia_storage" / "avatars"
 LOCAL_VIDEOS_DIR = LOCAL_STORAGE_DIR / "videos"
 LOCAL_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
 LOCAL_VIDEOS_DIR.mkdir(parents=True, exist_ok=True)
