@@ -3,7 +3,7 @@ Routes API pour la gestion des avatars pédagogiques, upload d'images et tests v
 """
 
 from pathlib import Path
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, BackgroundTasks
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
@@ -104,9 +104,46 @@ def api_detect_avatar_landmarks(req: dict):
 
 
 @router.post("")
-def api_creer_avatar(req: AvatarCreateRequest, db: Session = Depends(get_db)):
-    """Crée un nouvel avatar d'enseignant IA."""
-    return create_avatar(db, req)
+def api_creer_avatar(req: AvatarCreateRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    """Crée un nouvel avatar d'enseignant IA et génère sa vidéo de présentation en arrière-plan."""
+    avatar_dict = create_avatar(db, req)
+
+    # Si c'est un avatar photoréaliste (sans vidéo pré-existante)
+    if not avatar_dict.get("videoUrl") and avatar_dict.get("photoUrl") and not avatar_dict.get("photoUrl").endswith(".svg"):
+        phrase = req.phrase or f"Salut ! Je suis {avatar_dict.get('nom', 'ton prof')}. Je suis là pour t'expliquer de manière simple et interactive toutes les notions de {avatar_dict.get('matiere', 'sciences')}. Pose-moi toutes tes questions, on va apprendre ensemble !"
+        
+        async def bg_video_gen(av_id: str, photo: str, txt: str, nom: str, matiere: str, voice: str):
+            from backend.src.db.database import SessionLocal
+            bg_db = SessionLocal()
+            try:
+                print(f"🎬 [Background] Génération automatique de la vidéo LivePortrait pour {nom}...")
+                await generate_avatar_video(
+                    db=bg_db,
+                    avatar_id=av_id,
+                    photo_url=photo,
+                    phrase=txt,
+                    nom=nom,
+                    matiere=matiere,
+                    voice=voice
+                )
+                print(f"✅ [Background] Vidéo LivePortrait générée pour {nom} !")
+            except Exception as e:
+                print(f"❌ [Background] Erreur génération vidéo : {e}")
+            finally:
+                bg_db.close()
+
+        # Planifier la génération vidéo en arrière-plan sans bloquer la requête HTTP
+        background_tasks.add_task(
+            bg_video_gen,
+            avatar_dict["id"],
+            avatar_dict["photoUrl"],
+            phrase,
+            avatar_dict.get("nom", ""),
+            avatar_dict.get("matiere", ""),
+            avatar_dict.get("voixTts", "vivienne")
+        )
+
+    return avatar_dict
 
 
 @router.put("/{avatar_id}/activer")

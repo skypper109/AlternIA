@@ -76,11 +76,11 @@ def ensure_environment():
     except Exception:
         pass
 
-    # 0. Vérification de PyTorch 2.5+ (requis pour GPU Blackwell RTX PRO 4000 et Transformers)
+    # 0️⃣ Vérification de PyTorch ≥ 2.5 (obligatoire pour le GPU Blackwell et les dernières versions de transformers)
     try:
         import torch
         if tuple(map(int, torch.__version__.split(".")[:2])) < (2, 5):
-            print("⚡ Mise à niveau de PyTorch vers 2.5+ (requis pour GPU Blackwell RTX PRO 4000 & Transformers)...")
+            print("⚡ Mise à niveau de PyTorch vers ≥2.5... (GPU Blackwell & Transformers)")
             subprocess.run([sys.executable, "-m", "pip", "install", "-q", "--upgrade", "torch>=2.5.1", "torchvision", "torchaudio"], check=False)
             import importlib
             importlib.invalidate_caches()
@@ -98,12 +98,13 @@ def ensure_environment():
         ("multipart", "python-multipart"),
         ("cv2", "opencv-python-headless"),
         ("faster_whisper", "faster-whisper"),
+        ("onnxruntime-gpu", "onnxruntime-gpu"),
     ]
     missing = []
     for mod_name, pkg_name in required:
         try:
             __import__(mod_name)
-        except Exception:
+        except ImportError:
             missing.append(pkg_name)
 
     if missing:
@@ -114,12 +115,13 @@ def ensure_environment():
     try:
         from sentence_transformers import SentenceTransformer
         import transformers
-        import torch
+        if tuple(map(int, transformers.__version__.split(".")[:2])) < (4, 44):
+            raise ImportError("transformers trop ancien")
     except Exception:
-        print("⚡ Incompatibilité de version détectée (transformers / torch). Auto-réparation...")
+        print("⚡ Incompatibilité de version détectée (transformers / huggingface-hub). Auto-réparation...")
         subprocess.run(
             [sys.executable, "-m", "pip", "install", "-q", "--upgrade",
-             "torch>=2.5.1", "transformers>=4.46.0", "sentence-transformers>=3.3.0", "huggingface-hub>=0.24.0,<0.28.0", "numpy<2.0.0"],
+             "transformers>=4.44.0", "sentence-transformers>=3.0.0", "huggingface-hub>=0.24.0", "numpy<2.0.0"],
             check=False
         )
         import importlib
@@ -257,3 +259,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

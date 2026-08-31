@@ -18,6 +18,7 @@ class AvatarCreateRequest(BaseModel):
     par_defaut: Optional[bool] = False
     landmarks: Optional[Dict[str, Any]] = None
     viseme_photos: Optional[Dict[str, str]] = None  # {"REST": "/api/avatars/images/xxx.jpg", ...}
+    phrase: Optional[str] = None
 
 
 class AvatarUpdateRequest(BaseModel):
