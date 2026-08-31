@@ -85,8 +85,11 @@
       </button>
     </div>
 
-    <!-- Contrôles Épurés : Son / Reset -->
+    <!-- Contrôles Épurés : Avatar / Son / Reset -->
     <div class="flex items-center gap-2">
+      <button id="btn-show-avatar" class="kiosk-icon-btn text-indigo-500" title="Écouter la présentation de l'Enseignant">
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+      </button>
       <button id="btn-toggle-mute" class="kiosk-icon-btn text-cyan-500" title="Activer / Couper la voix">
         <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
@@ -106,15 +109,17 @@
   </header>
 
   <!-- =========================================================================
-       2. CORPS CENTRAL ÉPURÉ : LOGO OFFICIEL ANIMÉ + CE QUE DIT LE BOÎTIER
+       2. CORPS CENTRAL : AVATAR 2.5D / VIDÉO MP4 + EXPLICATION PÉDAGOGIQUE
        ========================================================================= -->
   <main class="kiosk-body">
 
-    <!-- Colonne Gauche : Logo Officiel AlternIA Animé et Microphone -->
+    <!-- Colonne Gauche : Avatar Réactif Photoréaliste et Microphone -->
     <div class="avatar-speaker-column">
       
-      <div class="avatar-canvas-wrapper" id="alta-vortex-hub">
-        <!-- Canvas pour le logo officiel animé et les cercles FFT -->
+      <div class="avatar-canvas-wrapper cursor-pointer" id="alta-vortex-hub" title="Toucher pour écouter la présentation du professeur">
+        <!-- Vidéo MP4 Haute Définition (LivePortrait / SadTalker) -->
+        <video id="alta-avatar-video" class="hidden avatar-canvas rounded-full shadow-[0_0_30px_rgba(2,132,199,0.35)] object-cover w-[220px] h-[220px] ring-2 ring-cyan-500/40" playsinline></video>
+        <!-- Canvas pour l'Avatar 2.5D Haute Définition avec Visèmes et cercles FFT -->
         <canvas id="main-animated-logo-canvas" width="220" height="220" class="avatar-canvas"></canvas>
         <div class="status-live-pill" id="status-pill">
           <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" id="status-dot"></span>
@@ -122,7 +127,7 @@
         </div>
       </div>
 
-      <div class="text-center mt-3" id="alta-avatar-name-box">
+      <div class="text-center mt-3 cursor-pointer" id="alta-avatar-name-box" title="Toucher pour écouter la présentation">
         <h2 class="text-lg font-bold text-slate-800 flex items-center justify-center gap-1.5 font-display">
           <span id="alta-avatar-name">Assistant AlternIA</span>
           <span class="w-2 h-2 rounded-full bg-cyan-500 shadow-[0_0_8px_#0284C7]"></span>
@@ -159,7 +164,7 @@
                 <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
               </svg>
             </div>
-            <span class="text-xs font-bold uppercase tracking-wider text-[#314999]">Explication Pédagogique</span>
+            <span class="text-xs font-bold uppercase tracking-wider text-[#314999]" id="teacher-header-label">Explication Pédagogique</span>
           </div>
 
           <span class="text-[11px] text-slate-400 font-mono" id="rag-source-badge">
@@ -210,7 +215,7 @@
   </main>
 
   <!-- =========================================================================
-       3. MODALE FORMULES KATEX PLEIN ÉCRAN
+       3. MODALES (FORMULES KATEX & AVATAR INTERACTIF)
        ========================================================================= -->
 
   <!-- Formule Plein Écran Modal -->
@@ -223,6 +228,54 @@
       <div id="formula-modal-math" class="text-2xl text-center py-4 text-[#314999] font-mono"></div>
       <div id="formula-modal-source" class="text-xs text-slate-500 text-right italic font-mono mt-2"></div>
     </div>
+  </div>
+
+  <!-- Avatar Interactif Plein Écran Modal -->
+  <div id="avatar-fullscreen-modal" class="hidden fixed inset-0 z-50 flex flex-col items-center justify-between bg-[#060911]/95 backdrop-blur-xl p-6 select-none">
+    
+    <!-- En-tête Avatar Modal -->
+    <div class="w-full max-w-4xl flex items-center justify-between border-b border-white/10 pb-4">
+      <div class="flex items-center gap-3">
+        <div class="w-3 h-3 rounded-full bg-emerald-400 animate-pulse"></div>
+        <div>
+          <h2 id="modal-avatar-title" class="text-xl font-bold text-white tracking-tight">Professeur Virtuel AlternIA</h2>
+          <p id="modal-avatar-subtitle" class="text-xs text-cyan-400 font-medium">Tuteur Pédagogique Officiel</p>
+        </div>
+      </div>
+      <button id="btn-close-avatar" class="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white text-xl transition-all cursor-pointer">✕</button>
+    </div>
+
+    <!-- Centre : Avatar Vidéo Réel MP4 ou Canvas 2.5D Haute Définition -->
+    <div class="flex-1 flex flex-col items-center justify-center my-4 relative w-full max-h-[50vh]">
+      <video id="modal-avatar-video" class="hidden rounded-full shadow-[0_0_60px_rgba(2,132,199,0.4)] w-[280px] h-[280px] md:w-[360px] md:h-[360px] object-cover ring-4 ring-cyan-500/50" playsinline></video>
+      <canvas id="modal-avatar-canvas" width="360" height="360" class="rounded-full shadow-[0_0_60px_rgba(2,132,199,0.35)]"></canvas>
+      
+      <!-- Statut Badge dans le Modal -->
+      <div class="mt-4 px-4 py-1.5 rounded-full bg-white/10 border border-white/15 backdrop-blur-md flex items-center gap-2">
+        <span id="modal-status-dot" class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+        <span id="modal-status-text" class="text-xs font-semibold text-slate-200">Prêt à répondre</span>
+      </div>
+    </div>
+
+    <!-- Zone de Transcription & Réponse -->
+    <div class="w-full max-w-3xl min-h-[70px] max-h-[120px] overflow-y-auto px-4 py-3 bg-white/5 border border-white/10 rounded-2xl text-center flex items-center justify-center mb-4">
+      <p id="avatar-fullscreen-transcription" class="text-base md:text-lg font-medium text-cyan-100 leading-relaxed">
+        Touchez le micro ci-dessous pour poser votre question au professeur !
+      </p>
+    </div>
+
+    <!-- Contrôle Microphone Push-To-Talk dans le Modal Avatar -->
+    <div class="flex flex-col items-center gap-2 pb-2">
+      <button id="btn-mic-modal" class="w-16 h-16 rounded-full bg-gradient-to-tr from-amber-500 to-[#F1851F] flex items-center justify-center shadow-[0_0_25px_rgba(241,133,31,0.5)] active:scale-95 transition-all text-white hover:scale-105 cursor-pointer" title="Toucher pour parler">
+        <svg class="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+          <line x1="12" y1="19" x2="12" y2="22"></line>
+        </svg>
+      </button>
+      <span class="text-xs text-slate-400 font-medium">Touchez pour parler, retouchez pour envoyer</span>
+    </div>
+
   </div>
 
   <!-- Logique applicative modulaire -->

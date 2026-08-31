@@ -42,6 +42,7 @@ export class VortexUI {
 
   setAvatarImage(imageUrl, name = null, landmarks = null) {
     if (this.animator && imageUrl) {
+      this.animator.isLogoMode = false;
       this.animator.setImage(imageUrl, landmarks);
     }
   }

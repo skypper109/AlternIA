@@ -1,5 +1,5 @@
 /**
- * AlternIA Device Interface - Contrôleur Kiosk Épuré (Voice-First & Logo Vortex Animé).
+ * AlternIA Device Interface - Contrôleur Kiosk Épuré (Voice-First & Avatar Photoréaliste / 2.5D).
  */
 
 import { ApiService } from './js/services/api.js';
@@ -13,10 +13,12 @@ export class AlternIAApp {
     this.currentClass = '10eme';
     this.currentSubject = null; // Auto-détection de matière par le RAG
     this.sessionId = 'kiosk_session_' + Date.now();
+    this.activeAvatar = null;
 
     this.initDOM();
     this.initModules();
     this.bindEvents();
+    this.loadActiveAvatar();
   }
 
   initDOM() {
@@ -25,6 +27,7 @@ export class AlternIAApp {
     this.micBtn = document.getElementById('btn-mic-main');
     this.btnReset = document.getElementById('btn-reset-session');
     this.btnMute = document.getElementById('btn-toggle-mute');
+    this.btnShowAvatar = document.getElementById('btn-show-avatar');
 
     this.speechContentArea = document.getElementById('speech-content-area');
     this.studentQueryPreview = document.getElementById('student-query-preview');
@@ -33,10 +36,27 @@ export class AlternIAApp {
     this.classSublabel = document.getElementById('alta-class-sublabel');
     this.classTabs = document.querySelectorAll('.class-tab-btn');
     this.vortexHub = document.getElementById('alta-vortex-hub');
+    this.avatarNameText = document.getElementById('alta-avatar-name');
+    this.avatarNameBox = document.getElementById('alta-avatar-name-box');
+    this.avatarVideo = document.getElementById('alta-avatar-video');
+    this.avatarCanvas = document.getElementById('main-animated-logo-canvas');
+    this.teacherHeaderLabel = document.getElementById('teacher-header-label');
+
+    // Modal Avatar Plein Écran
+    this.avatarModal = document.getElementById('avatar-fullscreen-modal');
+    this.modalAvatarTitle = document.getElementById('modal-avatar-title');
+    this.modalAvatarSubtitle = document.getElementById('modal-avatar-subtitle');
+    this.modalAvatarVideo = document.getElementById('modal-avatar-video');
+    this.modalAvatarCanvas = document.getElementById('modal-avatar-canvas');
+    this.modalStatusDot = document.getElementById('modal-status-dot');
+    this.modalStatusText = document.getElementById('modal-status-text');
+    this.avatarTranscription = document.getElementById('avatar-fullscreen-transcription');
+    this.btnCloseAvatar = document.getElementById('btn-close-avatar');
+    this.btnMicModal = document.getElementById('btn-mic-modal');
   }
 
   initModules() {
-    // 1. UI Vortex avec le Logo Officiel AlternIA (Halo chromatique & FFT audio)
+    // 1. UI Vortex avec le Logo / Avatar Photoréaliste (Halo chromatique & FFT audio)
     this.vortex = new VortexUI({
       canvasId: 'main-animated-logo-canvas',
       statusTextId: 'status-text',
@@ -44,6 +64,19 @@ export class AlternIAApp {
       defaultImageUrl: 'assets/logo-icon.jpeg',
       isLogoMode: true
     });
+
+    // Modal Vortex si présent
+    if (this.modalAvatarCanvas) {
+      this.modalVortex = new VortexUI({
+        canvasId: 'modal-avatar-canvas',
+        statusTextId: 'modal-status-text',
+        statusDotId: 'modal-status-dot',
+        defaultImageUrl: 'assets/logo-icon.jpeg',
+        isLogoMode: false
+      });
+    } else {
+      this.modalVortex = null;
+    }
 
     // 2. Moteur KaTeX
     this.katex = new KaTeXRenderer();
@@ -53,12 +86,15 @@ export class AlternIAApp {
       onSpeakingChange: (isSpeaking) => {
         if (isSpeaking) {
           this.vortex.setState('SPEAKING', 'Enseignant explique...');
+          if (this.modalVortex) this.modalVortex.setState('SPEAKING', 'Enseignant explique...');
         } else if (this.vortex.currentState === 'SPEAKING') {
           this.vortex.setState('IDLE', 'Prêt à répondre');
+          if (this.modalVortex) this.modalVortex.setState('IDLE', 'Prêt à répondre');
         }
       },
       onAnalyserReady: (analyser) => {
         this.vortex.setAudioAnalyser(analyser);
+        if (this.modalVortex) this.modalVortex.setAudioAnalyser(analyser);
       }
     });
 
@@ -66,28 +102,163 @@ export class AlternIAApp {
     this.speech = new SpeechService({
       onStart: () => {
         if (this.micBtn) this.micBtn.classList.add('is-recording');
+        if (this.btnMicModal) this.btnMicModal.classList.add('animate-pulse', 'ring-4', 'ring-amber-300');
         this.vortex.setState('LISTENING', 'Écoute en cours...');
+        if (this.modalVortex) this.modalVortex.setState('LISTENING', 'Écoute en cours...');
         this.audio.stop();
       },
       onTranscript: (transcript) => {
         if (this.questionInput) {
           this.questionInput.value = transcript;
         }
+        if (this.avatarTranscription) {
+          this.avatarTranscription.textContent = transcript;
+        }
       },
       onEnd: (finalTranscript) => {
         if (this.micBtn) this.micBtn.classList.remove('is-recording');
+        if (this.btnMicModal) this.btnMicModal.classList.remove('animate-pulse', 'ring-4', 'ring-amber-300');
         if (finalTranscript && finalTranscript.trim().length > 1) {
           this.submitQuestion(finalTranscript.trim());
         } else {
           this.vortex.setState('IDLE', 'Prêt à répondre');
+          if (this.modalVortex) this.modalVortex.setState('IDLE', 'Prêt à répondre');
         }
       },
       onError: (err) => {
         if (this.micBtn) this.micBtn.classList.remove('is-recording');
+        if (this.btnMicModal) this.btnMicModal.classList.remove('animate-pulse', 'ring-4', 'ring-amber-300');
         this.vortex.setState('IDLE', 'Prêt à répondre');
+        if (this.modalVortex) this.modalVortex.setState('IDLE', 'Prêt à répondre');
         console.warn("Erreur reconnaissance vocale :", err);
       }
     });
+  }
+
+  async loadActiveAvatar() {
+    try {
+      let resp = await fetch('/api/avatars/actif');
+      if (!resp.ok) {
+        resp = await fetch('/api/avatars');
+      }
+      if (resp.ok) {
+        const raw = await resp.json();
+        const data = Array.isArray(raw) ? (raw.find(a => a.parDefaut || a.actif) || raw[0]) : raw;
+        if (data) {
+          this.activeAvatar = data;
+          console.log("🎬 [Avatar Actif Chargé]:", data.nom, data.matiere, data.photoUrl);
+
+          if (this.avatarNameText && data.nom) {
+            this.avatarNameText.textContent = data.nom;
+          }
+          if (this.classSublabel && data.matiere) {
+            const style = data.stylePedagogique ? ` • ${data.stylePedagogique}` : '';
+            this.classSublabel.textContent = `${data.matiere}${style}`;
+          }
+          if (this.teacherHeaderLabel && data.nom) {
+            this.teacherHeaderLabel.textContent = `Explication de ${data.nom}`;
+          }
+
+          // Mise à jour de la photo et des visèmes dans le vortex principal
+          if (data.photoUrl) {
+            this.vortex.setAvatarImage(data.photoUrl, data.nom, data.landmarks);
+            if (data.visemePhotos && this.vortex.animator) {
+              this.vortex.animator.setVisemePhotos(data.visemePhotos);
+            }
+          }
+
+          // Mise à jour du modal plein écran
+          if (this.modalAvatarTitle && data.nom) {
+            this.modalAvatarTitle.textContent = data.nom;
+          }
+          if (this.modalAvatarSubtitle) {
+            const subject = data.matiere || 'Tuteur Pédagogique';
+            const style = data.stylePedagogique ? ` • Style ${data.stylePedagogique}` : '';
+            this.modalAvatarSubtitle.textContent = `${subject}${style}`;
+          }
+          if (data.photoUrl && this.modalVortex) {
+            this.modalVortex.setAvatarImage(data.photoUrl, data.nom, data.landmarks);
+            if (data.visemePhotos && this.modalVortex.animator) {
+              this.modalVortex.animator.setVisemePhotos(data.visemePhotos);
+            }
+          }
+
+          // Si une vidéo MP4 existe
+          if (data.videoUrl) {
+            if (this.avatarVideo) {
+              this.avatarVideo.src = data.videoUrl;
+              this.avatarVideo.load();
+            }
+            if (this.modalAvatarVideo) {
+              this.modalAvatarVideo.src = data.videoUrl;
+              this.modalAvatarVideo.load();
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("Note chargement avatar :", e);
+    }
+  }
+
+  playAvatarPresentation() {
+    if (this.audio && this.audio.audioCtx && this.audio.audioCtx.state === 'suspended') {
+      this.audio.audioCtx.resume();
+    }
+
+    const nom = this.activeAvatar?.nom || "Assistant AlternIA";
+    const matiere = this.activeAvatar?.matiere || "toutes les matières du lycée";
+    const presentationText = this.activeAvatar?.phrase || `Bonjour ! Je suis ${nom}. Je suis à ta disposition pour t'expliquer toutes les notions de ${matiere}. Pose-moi toutes tes questions !`;
+
+    if (this.speechContentArea) {
+      this.speechContentArea.innerHTML = `
+        <div class="speech-welcome-text">
+          <h3 class="text-xl font-bold text-slate-800 mb-2">Présentation de ${nom}</h3>
+          <p class="text-base text-slate-600 leading-relaxed">${presentationText}</p>
+        </div>
+      `;
+    }
+
+    if (this.avatarTranscription) {
+      this.avatarTranscription.textContent = presentationText;
+    }
+
+    if (this.activeAvatar?.videoUrl && this.avatarVideo) {
+      this.avatarVideo.classList.remove('hidden');
+      if (this.avatarCanvas) this.avatarCanvas.classList.add('hidden');
+      this.avatarVideo.currentTime = 0;
+      this.avatarVideo.muted = false;
+      this.vortex.setState('SPEAKING', 'Présentation en cours...');
+
+      this.avatarVideo.play().catch(err => {
+        console.warn("Autoplay vidéo :", err);
+        this.audio.speakText(presentationText);
+      });
+
+      this.avatarVideo.onended = () => {
+        this.avatarVideo.classList.add('hidden');
+        if (this.avatarCanvas) this.avatarCanvas.classList.remove('hidden');
+        this.vortex.setState('IDLE', 'Prêt à répondre');
+      };
+    } else {
+      if (this.avatarCanvas) this.avatarCanvas.classList.remove('hidden');
+      if (this.avatarVideo) this.avatarVideo.classList.add('hidden');
+      this.audio.speakText(presentationText);
+    }
+  }
+
+  openAvatarModal() {
+    if (!this.avatarModal) return;
+    this.avatarModal.classList.remove('hidden');
+    this.playAvatarPresentation();
+  }
+
+  closeAvatarModal() {
+    if (!this.avatarModal) return;
+    this.avatarModal.classList.add('hidden');
+    if (this.modalAvatarVideo) {
+      this.modalAvatarVideo.pause();
+    }
   }
 
   bindEvents() {
@@ -112,7 +283,7 @@ export class AlternIAApp {
       };
     }
 
-    // Bouton Microphone Push-To-Talk
+    // Bouton Microphone Push-To-Talk principal
     if (this.micBtn) {
       this.micBtn.onclick = () => {
         if (this.audio && this.audio.audioCtx && this.audio.audioCtx.state === 'suspended') {
@@ -122,11 +293,28 @@ export class AlternIAApp {
       };
     }
 
-    // Clic sur le Vortex / Logo : focus sur la saisie
-    if (this.vortexHub) {
-      this.vortexHub.onclick = () => {
-        if (this.questionInput) this.questionInput.focus();
+    // Bouton Microphone dans le Modal
+    if (this.btnMicModal) {
+      this.btnMicModal.onclick = () => {
+        if (this.audio && this.audio.audioCtx && this.audio.audioCtx.state === 'suspended') {
+          this.audio.audioCtx.resume();
+        }
+        this.speech.toggleListening();
       };
+    }
+
+    // Clic sur le Vortex / Avatar : jouer la présentation
+    if (this.vortexHub) {
+      this.vortexHub.onclick = () => this.playAvatarPresentation();
+    }
+    if (this.avatarNameBox) {
+      this.avatarNameBox.onclick = () => this.playAvatarPresentation();
+    }
+    if (this.btnShowAvatar) {
+      this.btnShowAvatar.onclick = () => this.openAvatarModal();
+    }
+    if (this.btnCloseAvatar) {
+      this.btnCloseAvatar.onclick = () => this.closeAvatarModal();
     }
 
     // Reset Session
@@ -147,6 +335,7 @@ export class AlternIAApp {
           `;
         }
         this.vortex.setState('IDLE', 'Prêt à répondre');
+        if (this.modalVortex) this.modalVortex.setState('IDLE', 'Prêt à répondre');
       };
     }
 
@@ -211,6 +400,7 @@ export class AlternIAApp {
     }
 
     this.vortex.setState('THINKING', 'Consultation du programme officiel...');
+    if (this.modalVortex) this.modalVortex.setState('THINKING', 'Consultation du programme...');
 
     if (this.speechContentArea) {
       this.speechContentArea.innerHTML = `
@@ -219,6 +409,10 @@ export class AlternIAApp {
           <span class="text-sm font-medium">Recherche dans les manuels officiels et génération...</span>
         </div>
       `;
+    }
+
+    if (this.avatarTranscription) {
+      this.avatarTranscription.textContent = "Recherche dans le programme officiel...";
     }
 
     let fullText = "";
@@ -237,6 +431,10 @@ export class AlternIAApp {
         if (this.speechContentArea) {
           this.speechContentArea.innerHTML = `<div class="formatted-text">${this.formatMarkdownText(fullText)}</div>`;
           this.katex.renderFormulasInElement(this.speechContentArea);
+        }
+        if (this.avatarTranscription) {
+          this.avatarTranscription.innerHTML = this.formatMarkdownText(fullText);
+          this.katex.renderFormulasInElement(this.avatarTranscription);
         }
 
         sentenceBuffer += chunk;
@@ -262,6 +460,10 @@ export class AlternIAApp {
           this.speechContentArea.innerHTML = `<div class="formatted-text">${this.formatMarkdownText(fullText)}</div>`;
           this.katex.renderFormulasInElement(this.speechContentArea);
         }
+        if (this.avatarTranscription) {
+          this.avatarTranscription.innerHTML = this.formatMarkdownText(fullText);
+          this.katex.renderFormulasInElement(this.avatarTranscription);
+        }
 
         // Si le buffer contient encore du texte restant
         if (sentenceBuffer.trim().length > 2) {
@@ -283,6 +485,7 @@ export class AlternIAApp {
     setTimeout(() => {
       if (!this.audio.isPlayingQueue && this.vortex.currentState === 'THINKING') {
         this.vortex.setState('IDLE', 'Prêt à répondre');
+        if (this.modalVortex) this.modalVortex.setState('IDLE', 'Prêt à répondre');
       }
     }, 500);
   }
@@ -301,3 +504,4 @@ export class AlternIAApp {
 document.addEventListener('DOMContentLoaded', () => {
   window.alternia = new AlternIAApp();
 });
+
