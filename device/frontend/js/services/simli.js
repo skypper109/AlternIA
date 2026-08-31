@@ -1,5 +1,3 @@
-import { SimliClient } from 'https://esm.sh/simli-client@1.2.0-beta.0';
-
 export class SimliService {
   constructor(videoElementId, audioElementId) {
     this.videoElement = document.getElementById(videoElementId);
@@ -16,14 +14,16 @@ export class SimliService {
       this.faceId = customFaceId;
     }
 
-    this.client = new SimliClient();
-    this.client.Initialize({
-      apiKey: this.apiKey,
-      faceID: this.faceId,
-      handleSilence: true,
-      videoRef: this.videoElement,
-      audioRef: this.audioElement,
-    });
+    try {
+      const { SimliClient } = await import('https://esm.sh/simli-client@1.2.0-beta.0');
+      this.client = new SimliClient();
+      this.client.Initialize({
+        apiKey: this.apiKey,
+        faceID: this.faceId,
+        handleSilence: true,
+        videoRef: this.videoElement,
+        audioRef: this.audioElement,
+      });
 
     console.log("🚀 [SimliService] Initialisation du client WebRTC Simli...");
     
@@ -44,8 +44,11 @@ export class SimliService {
       console.error("❌ [SimliService] Échec de la connexion Simli.");
     });
 
-    await this.client.start();
-    this.isInitialized = true;
+      await this.client.start();
+      this.isInitialized = true;
+    } catch (err) {
+      console.warn("⚠️ [SimliService] Impossible de charger SimliClient depuis esm.sh :", err);
+    }
   }
 
   async sendAudioBuffer(audioBuffer) {
