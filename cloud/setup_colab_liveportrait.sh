@@ -24,8 +24,10 @@ fi
 cd LivePortrait
 pip install -q --no-cache-dir -r requirements.txt
 
-# Restauration immédiate des versions requises par AlternIA (évite les conflits LivePortrait)
+# Restauration immédiate des versions requises par AlternIA et forçage GPU (évite les conflits LivePortrait)
+pip uninstall -y onnxruntime >/dev/null 2>&1 || true
 pip install -q --no-cache-dir "numpy<2.0.0" "transformers>=4.46.0,<4.49.0" "sentence-transformers>=3.3.0" "huggingface-hub>=0.24.0,<0.28.0" "markupsafe~=2.0" "websockets<13.0"
+pip install -q --no-cache-dir onnxruntime-gpu torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu121
 
 echo "📥 Téléchargement des checkpoints pré-entraînés LivePortrait..."
 python3 -c "
