@@ -25,7 +25,7 @@ cd LivePortrait
 pip install -q --no-cache-dir -r requirements.txt
 
 # Restauration immédiate des versions requises par AlternIA (évite les conflits LivePortrait)
-pip install -q --no-cache-dir "numpy<2.0.0" "transformers>=4.44.0" "sentence-transformers>=3.0.0" "huggingface-hub>=0.24.0"
+pip install -q --no-cache-dir "numpy<2.0.0" "transformers>=4.46.0,<4.49.0" "sentence-transformers>=3.3.0" "huggingface-hub>=0.24.0,<0.28.0"
 
 echo "📥 Téléchargement des checkpoints pré-entraînés LivePortrait..."
 python3 -c "

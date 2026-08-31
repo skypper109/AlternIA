@@ -15,10 +15,10 @@ pymysql>=1.1.0
 # Calcul Scientifique & IA (Versions compatibles)
 numpy<2.0.0
 scipy<1.14.0
-torch==2.2.2
-transformers==4.46.3
-sentence-transformers==3.4.1
-huggingface-hub>=0.20.0
+torch>=2.4.0
+transformers>=4.46.0,<4.49.0
+sentence-transformers>=3.3.0
+huggingface-hub>=0.24.0,<0.28.0
 opencv-python-headless<=4.10.0.84
 
 # LLM Local (GGUF / Llama.cpp)

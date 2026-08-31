@@ -103,13 +103,12 @@ def ensure_environment():
     try:
         from sentence_transformers import SentenceTransformer
         import transformers
-        if tuple(map(int, transformers.__version__.split(".")[:2])) < (4, 44):
-            raise ImportError("transformers trop ancien")
+        import torch
     except Exception:
-        print("⚡ Incompatibilité de version détectée (transformers / huggingface-hub). Auto-réparation...")
+        print("⚡ Incompatibilité de version détectée (transformers / torch). Auto-réparation...")
         subprocess.run(
             [sys.executable, "-m", "pip", "install", "-q", "--upgrade",
-             "transformers>=4.44.0", "sentence-transformers>=3.0.0", "huggingface-hub>=0.24.0", "numpy<2.0.0"],
+             "transformers>=4.46.0,<4.49.0", "sentence-transformers>=3.3.0", "huggingface-hub>=0.24.0,<0.28.0", "numpy<2.0.0"],
             check=False
         )
         import importlib
