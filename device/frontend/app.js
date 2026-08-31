@@ -61,7 +61,7 @@ export class AlternIAApp {
       canvasId: 'main-animated-logo-canvas',
       statusTextId: 'status-text',
       statusDotId: 'status-dot',
-      defaultImageUrl: 'assets/logo-icon.jpeg',
+      defaultImageUrl: 'assets/Alternia.svg',
       isLogoMode: true
     });
 
@@ -71,7 +71,7 @@ export class AlternIAApp {
         canvasId: 'modal-avatar-canvas',
         statusTextId: 'modal-status-text',
         statusDotId: 'modal-status-dot',
-        defaultImageUrl: 'assets/logo-icon.jpeg',
+        defaultImageUrl: 'assets/Alternia.svg',
         isLogoMode: false
       });
     } else {
