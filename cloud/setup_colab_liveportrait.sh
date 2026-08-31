@@ -9,8 +9,9 @@ echo "🚀 Préparation de l'environnement GPU AlternIA (Zero-Disk I/O)..."
 # 1. Dépendances système
 apt-get update -qq && apt-get install -y -qq ffmpeg
 
-# 2. Dépendances Python sans mise en cache superflue (gain de 10+ Go d'espace disque)
+# 2. Dépendances Python et accélération CUDA GPU pour le LLM Qwen 14B
 pip install -q --no-cache-dir -r requirements.txt
+pip install -q --no-cache-dir --force-reinstall llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cu121 || CMAKE_ARGS="-DGGML_CUDA=on" pip install -q --no-cache-dir --force-reinstall llama-cpp-python
 pip install -q --no-cache-dir faster-whisper ctranslate2 soundfile
 
 # 3. Installation optimisée de LivePortrait pour inférence en mémoire

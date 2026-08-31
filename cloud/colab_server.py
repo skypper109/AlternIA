@@ -100,30 +100,30 @@ def ensure_environment():
         import importlib
         importlib.invalidate_caches()
 
-    # Vérification intelligente de llama-cpp-python (sans réinstallation superflue)
-    is_llama_ready = False
+    # Vérification intelligente du support GPU CUDA dans llama-cpp-python
+    is_llama_cuda_ready = False
     try:
         import llama_cpp
-        is_llama_ready = True
-    except Exception:
-        is_llama_ready = False
-
-    if not is_llama_ready:
-        print("⚡ Installation et compilation native de llama-cpp-python pour CUDA...")
-        try:
-            import torch
-            cuda_available = torch.cuda.is_available()
-        except ImportError:
-            cuda_available = False
-
-        env = os.environ.copy()
-        if cuda_available:
-            env["CMAKE_ARGS"] = "-DGGML_CUDA=on -DGGML_AVX512=off"
-            cmd = [sys.executable, "-m", "pip", "install", "--no-cache-dir", "llama-cpp-python"]
+        if hasattr(llama_cpp, "llama_supports_gpu_offload"):
+            is_llama_cuda_ready = llama_cpp.llama_supports_gpu_offload()
         else:
-            cmd = [sys.executable, "-m", "pip", "install", "-q", "llama-cpp-python"]
+            is_llama_cuda_ready = getattr(llama_cpp, "GGML_USE_CUDA", False)
+    except Exception:
+        is_llama_cuda_ready = False
 
-        subprocess.run(cmd, env=env, check=False)
+    if not is_llama_cuda_ready:
+        print("⚡ Installation de llama-cpp-python avec accélération matérielle CUDA GPU...")
+        # 1. Tenter la wheel pré-compilée CUDA 121 (instantanée, ~10s)
+        res = subprocess.run(
+            [sys.executable, "-m", "pip", "install", "--upgrade", "--force-reinstall", "--no-cache-dir",
+             "llama-cpp-python", "--extra-index-url", "https://abetlen.github.io/llama-cpp-python/whl/cu121"],
+            check=False
+        )
+        # 2. Si échec, compiler avec CMAKE_ARGS="-DGGML_CUDA=on"
+        if res.returncode != 0:
+            env = os.environ.copy()
+            env["CMAKE_ARGS"] = "-DGGML_CUDA=on"
+            subprocess.run([sys.executable, "-m", "pip", "install", "--upgrade", "--force-reinstall", "--no-cache-dir", "llama-cpp-python"], env=env, check=False)
         import importlib
         importlib.invalidate_caches()
 
