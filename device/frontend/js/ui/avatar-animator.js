@@ -101,35 +101,8 @@ export class DeviceAvatarAnimator {
   }
 
   setVisemePhotos(visemePhotos) {
-    if (!visemePhotos || Object.keys(visemePhotos).length === 0) {
-      this.hasVisemes = false;
-      return;
-    }
-
-    this.visemeImages.clear();
-    this.visemeLoadedCount = 0;
-    const totalToLoad = Object.keys(visemePhotos).length;
-
-    for (const [visemeId, url] of Object.entries(visemePhotos)) {
-      const img = new Image();
-      if (url.startsWith('http')) {
-        img.crossOrigin = 'anonymous';
-      }
-      img.src = url;
-      img.onload = () => {
-        this.visemeImages.set(visemeId, img);
-        this.visemeLoadedCount++;
-        if (this.visemeLoadedCount >= totalToLoad) {
-          this.hasVisemes = true;
-          // Utiliser REST comme image principale de fallback
-          const restImg = this.visemeImages.get('REST');
-          if (restImg) {
-            this.image = restImg;
-            this.isLoaded = true;
-          }
-        }
-      };
-    }
+    // Désactivé à la demande de l'utilisateur. Plus de visèmes bizarres.
+    this.hasVisemes = false;
   }
 
   setAudioAnalyser(analyser) {
@@ -367,27 +340,9 @@ export class DeviceAvatarAnimator {
     const speechScale = this.isLogoMode ? 1.0 : (1.0 + this.mouthOpenness * 0.025);
     const totalScale = breathScale * speechScale;
 
-    // Légère inclinaison et hochement naturel de la tête pendant la parole
-    const headTilt = (this.state === 'SPEAKING') ? Math.sin(this.time * 0.004) * 0.025 : 0;
-    const headBobY = (this.state === 'SPEAKING') ? Math.abs(Math.sin(this.time * 0.008)) * 3 : 0;
-
     this.ctx.save();
-    this.ctx.translate(0, headBobY);
-    this.ctx.rotate(headTilt);
     this.ctx.scale(totalScale, totalScale);
     this.ctx.drawImage(img, -half, -half, size, size);
-
-    // Effet d'ouverture dynamique de la bouche/mâchoire si pas de visèmes
-    if (!this.isLogoMode && this.mouthOpenness > 0.05) {
-      const mouthY = size * 0.18;
-      const mouthW = size * 0.16 * (1.0 + this.mouthOpenness * 0.3);
-      const mouthH = size * 0.06 * this.mouthOpenness;
-      this.ctx.fillStyle = `rgba(30, 20, 20, ${Math.min(0.45, this.mouthOpenness * 0.7)})`;
-      this.ctx.beginPath();
-      this.ctx.ellipse(0, mouthY, mouthW / 2, mouthH, 0, 0, Math.PI * 2);
-      this.ctx.fill();
-    }
-
     this.ctx.restore();
   }
 
