@@ -99,13 +99,17 @@ def ensure_environment():
         print(f"📦 Installation automatique des dépendances manquantes : {', '.join(missing)}...")
         subprocess.run([sys.executable, "-m", "pip", "install", "-q"] + missing, check=False)
 
-    # Vérification et auto-réparation du couplage transformers / sentence-transformers
+    # Vérification et auto-réparation du couplage transformers / sentence-transformers / huggingface_hub
     try:
         from sentence_transformers import SentenceTransformer
-    except Exception as exc:
-        print("⚡ Incompatibilité de version détectée (transformers / sentence-transformers). Auto-réparation en cours...")
+        import transformers
+        if tuple(map(int, transformers.__version__.split(".")[:2])) < (4, 44):
+            raise ImportError("transformers trop ancien")
+    except Exception:
+        print("⚡ Incompatibilité de version détectée (transformers / huggingface-hub). Auto-réparation...")
         subprocess.run(
-            [sys.executable, "-m", "pip", "install", "-q", "--upgrade", "transformers>=4.44.0", "sentence-transformers>=3.0.0"],
+            [sys.executable, "-m", "pip", "install", "-q", "--upgrade",
+             "transformers>=4.44.0", "sentence-transformers>=3.0.0", "huggingface-hub>=0.24.0", "numpy<2.0.0"],
             check=False
         )
         import importlib
