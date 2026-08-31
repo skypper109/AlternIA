@@ -2,12 +2,16 @@
 Routes API pour la gestion des avatars pédagogiques, upload d'images et tests vocaux.
 """
 
+import logging
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, BackgroundTasks
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from backend.src.db.database import get_db
+from backend.src.db.models import AvatarPedagogique
 from backend.src.models.avatar import AvatarCreateRequest, AvatarUpdateRequest, StudioVocalTestRequest
 from backend.src.services.avatar_service import (
     create_avatar,
@@ -176,7 +180,7 @@ async def api_upload_avatar_to_did(avatar_id: str, db: Session = Depends(get_db)
     import os
     import httpx
     
-    avatar = db.query(Avatar).filter(Avatar.id == avatar_id).first()
+    avatar = db.query(AvatarPedagogique).filter(AvatarPedagogique.id == avatar_id).first()
     if not avatar or not avatar.photo_url:
         raise HTTPException(status_code=404, detail="Avatar ou photo introuvable")
         
