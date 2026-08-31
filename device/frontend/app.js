@@ -159,13 +159,8 @@ export class AlternIAApp {
             this.teacherHeaderLabel.textContent = `Explication de ${data.nom}`;
           }
 
-          // Mise à jour de la photo et des visèmes dans le vortex principal
-          if (data.photoUrl) {
-            this.vortex.setAvatarImage(data.photoUrl, data.nom, data.landmarks);
-            if (data.visemePhotos && this.vortex.animator) {
-              this.vortex.animator.setVisemePhotos(data.visemePhotos);
-            }
-          }
+          // La photo de l'avatar n'est appliquée qu'au modal plein écran (comme demandé)
+          // Le vortex principal garde l'icône AlternIA par défaut.
 
           // Mise à jour du modal plein écran
           if (this.modalAvatarTitle && data.nom) {

@@ -4,6 +4,7 @@
  */
 
 import { ApiService } from './api.js';
+import { SimliService } from './simli.js';
 
 export class AudioService {
   constructor({ onSpeakingChange, onAnalyserReady } = {}) {
@@ -16,8 +17,11 @@ export class AudioService {
     this.audioQueue = [];
     this.isPlayingQueue = false;
     this.currentPlayer = null;
-
+    
     this.initAudioContext();
+
+    // Initialisation du client Simli
+    this.simli = new SimliService('modal-avatar-video', 'simli-audio');
   }
 
   initAudioContext() {
@@ -103,10 +107,26 @@ export class AudioService {
     const cleanText = this.cleanTextForTTS(sentence);
     if (cleanText.length < 2) return;
 
+    // Assurez-vous que Simli est initialisé dès la première intention de parler
+    if (!this.simli.isInitialized) {
+      this.simli.init();
+    }
+
     // Pré-chargement immédiat du blob en arrière-plan
     const audioPromise = ApiService.fetchTTSBlob(cleanText);
     this.audioQueue.push({ text: cleanText, audioPromise });
     this.processQueue();
+  }
+
+  // Convertisseur vers PCM16 à 16000Hz (Format requis par Simli)
+  audioBufferToPCM16(audioBuffer) {
+    const channelData = audioBuffer.getChannelData(0);
+    const pcm16 = new Int16Array(channelData.length);
+    for (let i = 0; i < channelData.length; i++) {
+        let s = Math.max(-1, Math.min(1, channelData[i]));
+        pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+    }
+    return new Uint8Array(pcm16.buffer);
   }
 
   async processQueue() {
@@ -123,12 +143,42 @@ export class AudioService {
         console.log("🔊 [AudioService] Préparation lecture :", item.text);
         const audioBlob = await item.audioPromise;
         if (audioBlob && audioBlob.size > 100) {
-          console.log("🔊 [AudioService] Blob TTS reçu :", audioBlob.size, "octets");
           
           let playedSuccessfully = false;
 
-          // Tentative 1 : Web Audio API directe (BufferSource)
-          if (this.audioCtx) {
+          // Streaming via Simli (prioritaire si initialisé et modal ouvert)
+          if (this.simli.isInitialized) {
+             try {
+                const arrayBuffer = await audioBlob.arrayBuffer();
+                
+                // Utiliser un OfflineAudioContext pour forcer le rééchantillonnage à 16000 Hz
+                const offlineCtx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, 48000 * 10, 16000);
+                const decodedBuffer = await offlineCtx.decodeAudioData(arrayBuffer);
+                
+                // Extraire exactement la durée nécessaire
+                const actualCtx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, decodedBuffer.length, 16000);
+                const source = actualCtx.createBufferSource();
+                source.buffer = decodedBuffer;
+                source.connect(actualCtx.destination);
+                source.start(0);
+                
+                const resampledBuffer = await actualCtx.startRendering();
+                const pcm16Data = this.audioBufferToPCM16(resampledBuffer);
+                
+                console.log("🚀 [Simli] Envoi de l'audio PCM16 au WebRTC...");
+                await this.simli.sendAudioBuffer(pcm16Data);
+                
+                // Simuler le délai de lecture pour ne pas consommer toute la queue
+                await new Promise(resolve => setTimeout(resolve, resampledBuffer.duration * 1000));
+                
+                playedSuccessfully = true;
+             } catch (e) {
+                console.warn("⚠️ [SimliService] Échec du streaming Simli :", e);
+             }
+          }
+
+          // Fallback : Web Audio API directe
+          if (!playedSuccessfully && this.audioCtx) {
             try {
               if (this.audioCtx.state === 'suspended') {
                 await this.audioCtx.resume();
@@ -159,31 +209,15 @@ export class AudioService {
                 source.start(0);
               });
               playedSuccessfully = true;
-              console.log("🔊 [AudioService] Phrase jouée avec succès via Web Audio");
-            } catch (webAudioErr) {
-              console.warn("⚠️ [AudioService] Web Audio BufferSource a échoué :", webAudioErr);
-            }
+            } catch (webAudioErr) {}
           }
 
-          // Tentative 2 : HTMLAudioElement si BufferSource a échoué
           if (!playedSuccessfully) {
-            try {
-              await this.playWithAudioElement(audioBlob);
-              playedSuccessfully = true;
-              console.log("🔊 [AudioService] Phrase jouée via HTMLAudioElement");
-            } catch (elErr) {
-              console.warn("⚠️ [AudioService] HTMLAudioElement a échoué :", elErr);
-            }
-          }
-
-          // Tentative 3 : Synthèse vocale navigateur WebSpeech de secours
-          if (!playedSuccessfully && this.speechSynthesis) {
-            console.log("🔊 [AudioService] Fallback vers WebSpeech pour :", item.text);
-            await this.speakWithWebSpeech(item.text);
+             await this.playWithAudioElement(audioBlob);
+             playedSuccessfully = true;
           }
 
         } else if (this.speechSynthesis) {
-          console.log("🔊 [AudioService] Aucun blob TTS reçu, lecture via WebSpeech");
           await this.speakWithWebSpeech(item.text);
         }
       } catch (err) {
@@ -200,23 +234,9 @@ export class AudioService {
       const audioUrl = URL.createObjectURL(audioBlob);
       const player = new Audio(audioUrl);
       this.currentPlayer = player;
-      
-      player.onended = () => {
-        URL.revokeObjectURL(audioUrl);
-        this.currentPlayer = null;
-        resolve();
-      };
-      player.onerror = () => {
-        URL.revokeObjectURL(audioUrl);
-        this.currentPlayer = null;
-        resolve();
-      };
-      player.play().catch((e) => {
-        console.warn("AudioElement play failed (Autoplay policy?):", e);
-        URL.revokeObjectURL(audioUrl);
-        this.currentPlayer = null;
-        resolve();
-      });
+      player.onended = () => { URL.revokeObjectURL(audioUrl); this.currentPlayer = null; resolve(); };
+      player.onerror = () => { URL.revokeObjectURL(audioUrl); this.currentPlayer = null; resolve(); };
+      player.play().catch((e) => { URL.revokeObjectURL(audioUrl); this.currentPlayer = null; resolve(); });
     });
   }
 
@@ -225,11 +245,9 @@ export class AudioService {
     return new Promise((resolve) => {
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = 'fr-FR';
-      utterance.rate = 1.0;
       const voices = this.speechSynthesis.getVoices();
-      const frVoice = voices.find(v => v.lang.startsWith('fr') && (v.name.includes('Denise') || v.name.includes('Google') || v.name.includes('Natural') || v.name.includes('Thomas')));
+      const frVoice = voices.find(v => v.lang.startsWith('fr'));
       if (frVoice) utterance.voice = frVoice;
-
       utterance.onend = resolve;
       utterance.onerror = resolve;
       this.speechSynthesis.speak(utterance);
