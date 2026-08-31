@@ -61,6 +61,7 @@ class LivePortraitService:
         liveportrait_candidates = [
             os.environ.get("LIVEPORTRAIT_DIR"),
             engine_dir,
+            "/dev/shm/LivePortrait",
             "/workspace/LivePortrait",
             "/content/LivePortrait",
             str(Path.cwd() / "LivePortrait"),
@@ -356,7 +357,8 @@ class LivePortraitService:
                                 "-stream_loop", "-1",
                                 "-i", str(latest),
                                 "-i", str(audio_path),
-                                "-c:v", "copy",
+                                "-c:v", "libx264",
+                                "-preset", "ultrafast",
                                 "-c:a", "aac",
                                 "-map", "0:v:0",
                                 "-map", "1:a:0",
