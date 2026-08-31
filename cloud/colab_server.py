@@ -123,18 +123,14 @@ def ensure_environment():
         is_llama_cuda_ready = False
 
     if not is_llama_cuda_ready:
-        print("⚡ Installation de llama-cpp-python avec accélération matérielle CUDA GPU...")
-        # 1. Tenter la wheel pré-compilée CUDA 121 (instantanée, ~10s)
-        res = subprocess.run(
-            [sys.executable, "-m", "pip", "install", "--upgrade", "--force-reinstall", "--no-cache-dir",
-             "llama-cpp-python", "--extra-index-url", "https://abetlen.github.io/llama-cpp-python/whl/cu121"],
+        print("⚡ Compilation native unique de llama-cpp-python avec accélération CUDA GPU (sans AVX512)...")
+        env = os.environ.copy()
+        env["CMAKE_ARGS"] = "-DGGML_CUDA=on -DGGML_AVX512=off"
+        subprocess.run(
+            [sys.executable, "-m", "pip", "install", "--no-binary", "llama-cpp-python", "--upgrade", "--force-reinstall", "--no-cache-dir", "llama-cpp-python"],
+            env=env,
             check=False
         )
-        # 2. Si échec, compiler avec CMAKE_ARGS="-DGGML_CUDA=on"
-        if res.returncode != 0:
-            env = os.environ.copy()
-            env["CMAKE_ARGS"] = "-DGGML_CUDA=on"
-            subprocess.run([sys.executable, "-m", "pip", "install", "--upgrade", "--force-reinstall", "--no-cache-dir", "llama-cpp-python"], env=env, check=False)
         import importlib
         importlib.invalidate_caches()
 
