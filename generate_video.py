@@ -14,7 +14,8 @@ async def main():
             phrase=av.get('phrase', f"Bonjour ! Je suis {av['nom']}. Je suis à ta disposition pour t'expliquer toutes les notions de {av.get('matiere', 'SVT')}. Pose-moi toutes tes questions !"),
             nom=av['nom']
         )
-        print(f"✅ Vidéo générée avec succès : {res['videoUrl']}")
+        video_url = res.get('video_url', res.get('videoUrl', ''))
+        print(f"✅ Vidéo générée avec succès : {video_url}")
     except Exception as e:
         print(f"❌ Erreur : {e}")
     finally:
