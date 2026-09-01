@@ -1,28 +1,73 @@
+/**
+ * Service de streaming d'avatar vidéo interactif photoréaliste via l'API WebRTC de D-ID.
+ */
+
 export class DidService {
-    constructor(videoElementId) {
+    constructor(videoElementId = 'modal-avatar-video', onConnectedCallback = null) {
+        this.videoElementId = videoElementId;
         this.videoElement = document.getElementById(videoElementId);
+        this.onConnectedCallback = onConnectedCallback;
         this.peerConnection = null;
         this.streamId = null;
         this.sessionId = null;
         this.isInitialized = false;
-        // La clé doit en théorie être stockée de façon sécurisée via le backend
-        // Pour les tests en local et selon la clé fournie :
+        this.isConnecting = false;
+        
+        // Clé API D-ID (Peut être injectée par l'environnement ou les headers)
         this.apiKey = "Z29vZ2xlLW9hdXRoMnwxMTQyMTA0MDM5NTY3ODQzNzUzMDFAYWtfMmVUSmYzdGhkRDUyTkQ4TkppYVp6:Ydp-hWUy2wQ_rRxQ6Usrc";
         
-        // Mapping de la voix locale vers une voix Microsoft équivalente
+        // Image par défaut si l'avatar n'a pas de photo distante disponible
+        this.defaultSourceUrl = "https://create-images-results.d-id.com/DefaultPresenters/Noam_m/image.jpeg";
+
+        // Mapping des voix locales AlternIA vers les voix neurales haute fidélité Microsoft D-ID
         this.voiceMapping = {
             'vivienne': 'fr-FR-DeniseNeural',
             'henri': 'fr-FR-HenriNeural',
+            'alain': 'fr-FR-HenriNeural',
             'default': 'fr-FR-DeniseNeural'
         };
     }
 
-    async init(sourceUrl) {
-        if (this.isInitialized) return;
-        console.log("🚀 [DidService] Initialisation du client WebRTC D-ID...");
+    getVideoElement() {
+        if (!this.videoElement) {
+            this.videoElement = document.getElementById(this.videoElementId);
+        }
+        return this.videoElement;
+    }
+
+    async initFromAvatar(avatar) {
+        if (this.isInitialized || this.isConnecting) return;
+        
+        let sourceUrl = this.defaultSourceUrl;
+
+        if (avatar) {
+            if (avatar.photoUrl && avatar.photoUrl.startsWith('https://')) {
+                sourceUrl = avatar.photoUrl;
+            } else if (avatar.id) {
+                try {
+                    const resp = await fetch(`/api/avatars/${avatar.id}/did-image`, { method: 'POST' });
+                    if (resp.ok) {
+                        const data = await resp.json();
+                        if (data.source_url) {
+                            sourceUrl = data.source_url;
+                        }
+                    }
+                } catch (e) {
+                    console.warn("⚠️ [DidService] Note upload image locale vers D-ID, utilisation du fallback :", e);
+                }
+            }
+        }
+
+        await this.init(sourceUrl);
+    }
+
+    async init(sourceUrl = this.defaultSourceUrl) {
+        if (this.isInitialized || this.isConnecting) return;
+        this.isConnecting = true;
+        console.log("🚀 [DidService] Initialisation du client WebRTC D-ID avec l'image :", sourceUrl);
         
         try {
-            // 1. Créer le stream WebRTC côté serveur D-ID
+            // 1. Créer la session de streaming WebRTC sur l'API D-ID
             const sessionResponse = await fetch("https://api.d-id.com/talks/streams", {
                 method: "POST",
                 headers: {
@@ -34,40 +79,54 @@ export class DidService {
                 })
             });
 
+            if (!sessionResponse.ok) {
+                const errText = await sessionResponse.text();
+                throw new Error(`D-ID stream creation failed: ${sessionResponse.status} ${errText}`);
+            }
+
             const sessionData = await sessionResponse.json();
             this.streamId = sessionData.id;
             this.sessionId = sessionData.session_id;
 
-            // 2. Initialiser la connexion locale avec les serveurs ICE fournis
+            // 2. Créer l'objet RTCPeerConnection avec les serveurs STUN/TURN fournis par D-ID
             this.peerConnection = new RTCPeerConnection({ iceServers: sessionData.ice_servers });
 
             this.peerConnection.addEventListener('icecandidate', async (event) => {
-                if (event.candidate) {
-                    await fetch(`https://api.d-id.com/talks/streams/${this.streamId}/ice`, {
-                        method: "POST",
-                        headers: {
-                            Authorization: `Basic ${this.apiKey}`,
-                            "Content-Type": "application/json"
-                        },
-                        body: JSON.stringify({
-                            candidate: event.candidate.candidate,
-                            sdpMid: event.candidate.sdpMid,
-                            sdpMLineIndex: event.candidate.sdpMLineIndex,
-                            session_id: this.sessionId
-                        })
-                    });
+                if (event.candidate && this.streamId) {
+                    try {
+                        await fetch(`https://api.d-id.com/talks/streams/${this.streamId}/ice`, {
+                            method: "POST",
+                            headers: {
+                                Authorization: `Basic ${this.apiKey}`,
+                                "Content-Type": "application/json"
+                            },
+                            body: JSON.stringify({
+                                candidate: event.candidate.candidate,
+                                sdpMid: event.candidate.sdpMid,
+                                sdpMLineIndex: event.candidate.sdpMLineIndex,
+                                session_id: this.sessionId
+                            })
+                        });
+                    } catch (e) {
+                        console.warn("⚠️ [DidService] ICE candidate error:", e);
+                    }
                 }
             });
 
             this.peerConnection.addEventListener('track', (event) => {
-                console.log("✅ [DidService] Flux vidéo WebRTC reçu !");
-                if (!this.videoElement.srcObject) {
-                    this.videoElement.srcObject = event.streams[0];
-                    this.videoElement.play().catch(console.warn);
+                console.log("🎬 [DidService] Flux vidéo WebRTC en direct reçu de D-ID !");
+                const videoEl = this.getVideoElement();
+                if (videoEl) {
+                    videoEl.srcObject = event.streams[0];
+                    videoEl.classList.remove('hidden');
+                    videoEl.play().catch(console.warn);
+                }
+                if (this.onConnectedCallback) {
+                    this.onConnectedCallback();
                 }
             });
 
-            // 3. Définir l'offre SDP distante et envoyer la réponse locale
+            // 3. Négociation SDP WebRTC
             await this.peerConnection.setRemoteDescription(
                 new RTCSessionDescription(sessionData.offer)
             );
@@ -88,19 +147,31 @@ export class DidService {
             });
 
             this.isInitialized = true;
-            console.log("✅ [DidService] WebRTC établi avec succès.");
+            this.isConnecting = false;
+            console.log("✅ [DidService] Connexion WebRTC D-ID établie avec succès.");
         } catch (error) {
-            console.error("❌ [DidService] Erreur lors de l'initialisation :", error);
+            this.isConnecting = false;
+            console.error("❌ [DidService] Erreur lors de l'initialisation D-ID :", error);
         }
     }
 
-    async speak(text, localVoiceName) {
-        if (!this.isInitialized || !text) return;
+    async speak(text, localVoiceName = 'vivienne') {
+        if (!text || !text.trim()) return;
+        
+        if (!this.isInitialized) {
+            console.log("⏳ [DidService] Initialisation en tâche de fond avant envoi du texte...");
+            await this.init();
+        }
+
+        if (!this.isInitialized || !this.streamId) {
+            console.warn("⚠️ [DidService] Impossible d'envoyer le script : flux D-ID non prêt.");
+            return false;
+        }
         
         const mappedVoice = this.voiceMapping[localVoiceName] || this.voiceMapping['default'];
         
         try {
-            await fetch(`https://api.d-id.com/talks/streams/${this.streamId}`, {
+            const resp = await fetch(`https://api.d-id.com/talks/streams/${this.streamId}`, {
                 method: "POST",
                 headers: {
                     Authorization: `Basic ${this.apiKey}`,
@@ -124,15 +195,24 @@ export class DidService {
                     session_id: this.sessionId
                 })
             });
-            console.log(`🔊 [DidService] Phrase envoyée à D-ID : "${text}" avec la voix ${mappedVoice}`);
+
+            if (resp.ok) {
+                console.log(`🔊 [DidService] Phrase envoyée à D-ID : "${text}" (Voix: ${mappedVoice})`);
+                return true;
+            } else {
+                const errText = await resp.text();
+                console.warn(`⚠️ [DidService] Échec envoi script D-ID (${resp.status}):`, errText);
+                return false;
+            }
         } catch (error) {
-            console.error("❌ [DidService] Erreur d'envoi du script :", error);
+            console.error("❌ [DidService] Erreur réseau d'envoi du script D-ID :", error);
+            return false;
         }
     }
 
     close() {
         if (this.peerConnection) {
-            this.peerConnection.close();
+            try { this.peerConnection.close(); } catch (e) {}
         }
         if (this.streamId && this.sessionId) {
             fetch(`https://api.d-id.com/talks/streams/${this.streamId}`, {
@@ -148,8 +228,10 @@ export class DidService {
         this.streamId = null;
         this.sessionId = null;
         this.isInitialized = false;
-        if (this.videoElement) {
-            this.videoElement.srcObject = null;
+        this.isConnecting = false;
+        const videoEl = this.getVideoElement();
+        if (videoEl) {
+            videoEl.srcObject = null;
         }
     }
 }

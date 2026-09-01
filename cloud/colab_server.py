@@ -65,85 +65,92 @@ def detect_hardware():
 
 def ensure_environment():
     """Vérifie et installe automatiquement les dépendances manquantes."""
-    # 1. Vérification stricte de compatibilité binaire NumPy 1.x (requis pour PyTorch 2.2 et ONNXRuntime)
+    # 1. Vérification et réparation stricte de la pile NumPy / SciPy / Transformers
+    needs_numpy_repair = False
     try:
         import numpy as np
         if int(np.__version__.split(".")[0]) >= 2:
-            print(f"⚡ NumPy {np.__version__} détecté. Rétrogradation vers NumPy 1.26.4 (requis pour ONNXRuntime / PyTorch)...")
-            subprocess.run([sys.executable, "-m", "pip", "install", "-q", "--force-reinstall", "numpy<2.0.0"], check=False)
-            import importlib
-            importlib.invalidate_caches()
+            needs_numpy_repair = True
+        else:
+            # Tester l'intégrité des C-extensions SciPy & Scikit-Learn
+            import scipy.sparse
+            import sklearn
     except Exception:
-        pass
+        needs_numpy_repair = True
 
-    # 0️⃣ Vérification de PyTorch ≥ 2.5 (obligatoire pour le GPU Blackwell et les dernières versions de transformers)
+    if needs_numpy_repair:
+        print("⚡ Correction de compatibilité NumPy 1.26.4 / SciPy / Scikit-Learn...")
+        subprocess.run(
+            [
+                sys.executable, "-m", "pip", "install", "-q",
+                "numpy==1.26.4",
+                "scipy==1.13.1",
+                "scikit-learn>=1.4.0,<1.6.0",
+                "opencv-python-headless>=4.8.0,<4.11.0",
+            ],
+            check=False
+        )
+        import importlib
+        importlib.invalidate_caches()
+
+    # 2. Vérification de PyTorch
     try:
         import torch
-        if tuple(map(int, torch.__version__.split(".")[:2])) < (2, 5):
-            print("⚡ Mise à niveau de PyTorch vers ≥2.5... (GPU Blackwell & Transformers)")
-            subprocess.run([sys.executable, "-m", "pip", "install", "-q", "--upgrade", "torch>=2.5.1", "torchvision", "torchaudio"], check=False)
-            import importlib
-            importlib.invalidate_caches()
-    except Exception:
-        pass
+    except ImportError:
+        print("⚡ Installation de PyTorch...")
+        subprocess.run([sys.executable, "-m", "pip", "install", "-q", "torch>=2.4.0", "torchvision", "torchaudio"], check=False)
 
+    # 3. Dépendances requises avec verrouillage de compatibilité
     required = [
         ("uvicorn", "uvicorn[standard]"),
         ("fastapi", "fastapi"),
         ("pydantic_settings", "pydantic-settings"),
         ("sqlalchemy", "sqlalchemy"),
         ("pymysql", "pymysql"),
-        ("sentence_transformers", "sentence-transformers"),
+        ("sentence_transformers", "sentence-transformers>=3.0.0"),
         ("edge_tts", "edge-tts"),
         ("multipart", "python-multipart"),
-        ("cv2", "opencv-python-headless"),
+        ("cv2", "opencv-python-headless>=4.8.0,<4.11.0"),
         ("faster_whisper", "faster-whisper"),
-        ("onnxruntime-gpu", "onnxruntime-gpu"),
     ]
     missing = []
     for mod_name, pkg_name in required:
         try:
             __import__(mod_name)
-        except ImportError:
+        except Exception:
             missing.append(pkg_name)
 
     if missing:
-        print(f"📦 Installation automatique des dépendances manquantes : {', '.join(missing)}...")
-        subprocess.run([sys.executable, "-m", "pip", "install", "-q"] + missing, check=False)
+        print(f"📦 Installation des dépendances manquantes : {', '.join(missing)}...")
+        subprocess.run([sys.executable, "-m", "pip", "install", "-q"] + missing + ["numpy==1.26.4"], check=False)
 
-    # Vérification et auto-réparation du couplage transformers / sentence-transformers / huggingface_hub
+    # 4. Vérification et auto-réparation de sentence-transformers
     try:
         from sentence_transformers import SentenceTransformer
-        import transformers
-        if tuple(map(int, transformers.__version__.split(".")[:2])) < (4, 44):
-            raise ImportError("transformers trop ancien")
-    except Exception:
-        print("⚡ Incompatibilité de version détectée (transformers / huggingface-hub). Auto-réparation...")
+    except Exception as exc:
+        print(f"⚡ Réparation sentence-transformers / transformers ({exc})...")
         subprocess.run(
             [sys.executable, "-m", "pip", "install", "-q", "--upgrade",
-             "transformers>=4.44.0", "sentence-transformers>=3.0.0", "huggingface-hub>=0.24.0", "numpy<2.0.0"],
+             "transformers>=4.44.0", "sentence-transformers>=3.0.0", "huggingface-hub>=0.24.0", "numpy==1.26.4"],
             check=False
         )
         import importlib
         importlib.invalidate_caches()
 
-    # Vérification intelligente du support GPU CUDA dans llama-cpp-python
-    is_llama_cuda_ready = False
+    # 5. Vérification du support GPU CUDA dans llama-cpp-python
+    is_llama_ready = False
     try:
         import llama_cpp
-        if hasattr(llama_cpp, "llama_supports_gpu_offload"):
-            is_llama_cuda_ready = llama_cpp.llama_supports_gpu_offload()
-        else:
-            is_llama_cuda_ready = getattr(llama_cpp, "GGML_USE_CUDA", False)
+        is_llama_ready = True
     except Exception:
-        is_llama_cuda_ready = False
+        is_llama_ready = False
 
-    if not is_llama_cuda_ready:
-        print("⚡ Compilation native unique de llama-cpp-python avec accélération CUDA GPU (sans AVX512)...")
+    if not is_llama_ready:
+        print("⚡ Installation et compilation de llama-cpp-python avec accélération CUDA GPU...")
         env = os.environ.copy()
         env["CMAKE_ARGS"] = "-DGGML_CUDA=on -DGGML_AVX512=off"
         subprocess.run(
-            [sys.executable, "-m", "pip", "install", "--no-binary", "llama-cpp-python", "--upgrade", "--force-reinstall", "--no-cache-dir", "llama-cpp-python"],
+            [sys.executable, "-m", "pip", "install", "--no-cache-dir", "llama-cpp-python", "numpy==1.26.4"],
             env=env,
             check=False
         )

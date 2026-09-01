@@ -18,14 +18,10 @@ export class AudioService {
     this.isPlayingQueue = false;
     this.currentPlayer = null;
     
-    this.ENABLE_SIMLI = false; // Mettre à true dans 2 semaines
+    this.ENABLE_SIMLI = true; // Simli WebRTC activé pour l'avatar temps réel
     
-    // Initialisation du client Simli (Seulement si activé)
-    if (this.ENABLE_SIMLI) {
-        this.simli = new SimliService('modal-avatar-video', 'simli-audio');
-    } else {
-        this.simli = { isInitialized: false, init: () => {} };
-    }
+    // Initialisation du client Simli
+    this.simli = new SimliService('modal-avatar-video', 'simli-audio');
   }
 
   initAudioContext() {
