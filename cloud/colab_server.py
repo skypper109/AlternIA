@@ -147,10 +147,13 @@ def ensure_environment():
         is_llama_ready = False
 
     if not is_llama_ready:
-        print("⚡ Installation de llama-cpp-python avec accélération CUDA GPU (Wheel Pré-compilé)...")
-        # Utilisation du wheel précompilé pour CUDA 12.2 (standard Colab/RunPod) pour éviter la compilation silencieuse sans CUDA
+        print("⚡ Compilation de llama-cpp-python avec accélération matérielle CUDA...")
+        env = os.environ.copy()
+        env["CMAKE_ARGS"] = "-DGGML_CUDA=on -DGGML_AVX512=off"
+        # --no-binary force pip à compiler le code source localement au lieu de télécharger le wheel PyPI (CPU)
         subprocess.run(
-            [sys.executable, "-m", "pip", "install", "--no-cache-dir", "--force-reinstall", "llama-cpp-python", "--extra-index-url", "https://abetlen.github.io/llama-cpp-python/whl/cu122", "numpy==1.26.4"],
+            [sys.executable, "-m", "pip", "install", "--no-cache-dir", "--force-reinstall", "--no-binary", "llama-cpp-python", "llama-cpp-python", "numpy==1.26.4"],
+            env=env,
             check=False
         )
         import importlib
