@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="fr" class="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>AlternIA – Tuteur Pédagogique Intelligent</title>
+  <meta name="description" content="Interface tactile et vocale épurée du boîtier AlternIA pour les lycéens du Mali.">
+  <meta name="theme-color" content="#FDFBF7">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/x-icon" href="./assets/icone-ByiDXqo4.ico">
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            display: ['Plus Jakarta Sans', 'Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            alternia: {
+              primaire: '#314999',
+              secondaire: '#F1851F',
+              innovation: '#0284C7',
+              dark: '#060911',
+              surface: '#0B1120',
+              card: '#0F172A',
+              border: '#1E293B'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- KaTeX pour les formules scientifiques -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+
+  <!-- Styles personnalisés épurés Kiosk -->
+  <script type="module" crossorigin src="./assets/index-CyeK0tgt.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-DN_ZCGnb.css">
+</head>
+
+<body class="bg-[#FDFBF7] text-slate-800 font-display min-h-screen flex flex-col justify-between overflow-hidden select-none">
+
+  <!-- Arrière-plan lumineux d'ambiance -->
+  <div class="ambient-glow-layer">
+    <div class="ambient-orb orb-primary"></div>
+    <div class="ambient-orb orb-innovation"></div>
+  </div>
+
+  <!-- =========================================================================
+       1. EN-TÊTE : LOGO + SÉLECTION RAPIDE DE CLASSE (10e / 11e / Terminale)
+       ========================================================================= -->
+  <header class="kiosk-topbar">
+    <div class="flex items-center gap-3">
+      <img src="data:image/svg+xml,%3c?xml%20version='1.0'%20encoding='UTF-8'?%3e%3csvg%20id='Calque_1'%20data-name='Calque%201'%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%204422.04%204428.57'%3e%3cpath%20d='M4422.04,2743.67c-1.07,1.4-2.16,2.76-3.24,4.12-336.86-742.29-1039.5-1214.98-1809.03-1292.45-352.17-35.47-718.34,11.82-1069.9,153.93-331.91,134.16-614.47,338.15-837.39,587.94-12.29-27.26-24.11-54.88-35.41-82.85C373.91,1389.13,489.5,599.83,905.57.45c119.15,19.87,239.9,45.69,361.66,77.48,468.23,122.24,951.11,332.62,1413.44,631.28,861.39,556.43,1472.83,1303.92,1741.37,2034.47Z'%20style='fill:%20%23f1851f;'/%3e%3cpath%20d='M4418.79,2747.79c-30.42,38.69-62.04,77.08-94.81,115.13-441.05,512.14-1091.63,963.43-1877.36,1254.08-659.48,243.95-1320.3,340.02-1910.68,304.37,265.63-4.94,534.82-57.66,795.74-163.13,414.73-167.64,751.8-445.61,991.14-786.5,400.3-570.09,527.25-1316.15,286.94-2016.4,769.53,77.47,1472.17,550.16,1809.03,1292.45Z'%20style='fill:%20%2340bbcc;'/%3e%3cpath%20d='M2322.82,3471.75c-239.33,340.9-576.41,618.86-991.14,786.5-260.92,105.47-530.11,158.19-795.74,163.13-89.84-5.41-178.06-13.88-264.37-25.34-42.75-121.72-80.95-247.81-114.24-377.7C62.82,3649.58,7.85,3250.06.78,2832.27-18.95,1665.94,339.29,629.26,902.83,0c.9.14,1.82.31,2.74.45-416.07,599.38-531.67,1388.68-238.51,2113.91,11.31,27.97,23.12,55.58,35.41,82.85,308.85,684.48,926.01,1141.85,1620.35,1274.54Z'%20style='fill:%20%23314999;'/%3e%3c/svg%3e" alt="AlternIA" class="h-9 w-auto object-contain rounded-lg shadow-sm">
+      <span class="text-lg font-bold text-[#314999] tracking-tight">AlternIA</span>
+    </div>
+
+    <!-- Sélecteur de Classe Minimaliste Direct (10ème, 11ème, Terminale) -->
+    <div class="class-selector-group" id="class-selector-tabs">
+      <button class="class-tab-btn class-tab--active" data-class="10eme" id="tab-class-10eme">
+        <span class="class-tab-badge">10ème</span>
+        <span class="class-tab-sub">Tronc Commun</span>
+      </button>
+      <button class="class-tab-btn" data-class="11eme" id="tab-class-11eme">
+        <span class="class-tab-badge">11ème</span>
+        <span class="class-tab-sub">Sciences / Lettres</span>
+      </button>
+      <button class="class-tab-btn" data-class="12eme" id="tab-class-12eme">
+        <span class="class-tab-badge">Terminale</span>
+        <span class="class-tab-sub">Baccalauréat</span>
+      </button>
+    </div>
+
+    <!-- Contrôles Épurés : Avatar / Son / Reset -->
+    <div class="flex items-center gap-2">
+      <button id="btn-show-avatar" class="kiosk-icon-btn text-indigo-500" title="Écouter la présentation de l'Enseignant">
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+      </button>
+      <button id="btn-toggle-mute" class="kiosk-icon-btn text-cyan-500" title="Activer / Couper la voix">
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+          <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+          <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+        </svg>
+      </button>
+      <button id="btn-reset-session" class="kiosk-icon-btn text-amber-500" title="Nouvelle question">
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path>
+          <path d="M21 3v5h-5"></path>
+          <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path>
+          <path d="M8 16H3v5"></path>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- =========================================================================
+       2. CORPS CENTRAL : AVATAR 2.5D / VIDÉO MP4 + EXPLICATION PÉDAGOGIQUE
+       ========================================================================= -->
+  <main class="kiosk-body">
+
+    <!-- Colonne Gauche : Avatar Réactif Photoréaliste et Microphone -->
+    <div class="avatar-speaker-column">
+      
+      <div class="avatar-canvas-wrapper cursor-pointer" id="alta-vortex-hub" title="Toucher pour écouter la présentation du professeur">
+        <!-- Vidéo MP4 Haute Définition (LivePortrait / SadTalker) -->
+        <video id="alta-avatar-video" class="hidden avatar-canvas rounded-full shadow-[0_0_30px_rgba(2,132,199,0.35)] object-cover w-[220px] h-[220px] ring-2 ring-cyan-500/40" playsinline></video>
+        <!-- Canvas pour l'Avatar 2.5D Haute Définition avec Visèmes et cercles FFT -->
+        <canvas id="main-animated-logo-canvas" width="220" height="220" class="avatar-canvas"></canvas>
+        <div class="status-live-pill" id="status-pill">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" id="status-dot"></span>
+          <span class="text-xs font-semibold text-slate-700" id="status-text">Prêt à répondre</span>
+        </div>
+      </div>
+
+      <div class="text-center mt-3 cursor-pointer" id="alta-avatar-name-box" title="Toucher pour écouter la présentation">
+        <h2 class="text-lg font-bold text-slate-800 flex items-center justify-center gap-1.5 font-display">
+          <span id="alta-avatar-name">Assistant AlternIA</span>
+          <span class="w-2 h-2 rounded-full bg-cyan-500 shadow-[0_0_8px_#0284C7]"></span>
+        </h2>
+        <p class="text-xs text-slate-500 font-medium" id="alta-class-sublabel">Programme Officiel du Mali</p>
+      </div>
+
+      <!-- Grand Bouton Microphone Push-To-Talk -->
+      <div class="mt-6 flex flex-col items-center">
+        <button id="btn-mic-main" class="kiosk-mic-btn" title="Toucher pour parler">
+          <svg class="w-8 h-8 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+            <line x1="12" y1="19" x2="12" y2="22"></line>
+          </svg>
+        </button>
+        <p class="text-[11px] text-slate-400 font-medium mt-3" id="mic-instruction-label">Appuyez pour parler, réappuyez pour envoyer</p>
+      </div>
+
+    </div>
+
+    <!-- Colonne Droite : Ce que dit le boîtier (Explication & Champ de saisie) -->
+    <div class="speech-display-column">
+      
+      <!-- Carte d'explication de l'enseignant -->
+      <div class="speech-bubble-card" id="main-speech-card">
+        
+        <!-- En-tête de la bulle -->
+        <div class="speech-card-header">
+          <div class="flex items-center gap-2">
+            <div class="icon-indicator">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+              </svg>
+            </div>
+            <span class="text-xs font-bold uppercase tracking-wider text-[#314999]" id="teacher-header-label">Explication Pédagogique</span>
+          </div>
+
+          <span class="text-[11px] text-slate-400 font-mono" id="rag-source-badge">
+            Programme Officiel du Mali
+          </span>
+        </div>
+
+        <!-- Aperçu de la question posée par l'élève -->
+        <div id="student-query-preview" class="student-query-box hidden">
+          <p class="text-xs text-amber-800 font-medium">
+            <span class="font-bold text-amber-900">Votre question :</span> <em id="student-query-text"></em>
+          </p>
+        </div>
+
+        <!-- Zone du texte de la réponse (Support KaTeX + Markdown) -->
+        <div id="speech-content-area" class="speech-content-area">
+          <div class="speech-welcome-text">
+            <div>
+              <h3 class="text-xl font-bold text-slate-800 mb-2">Bienvenue sur votre tuteur AlternIA !</h3>
+              <p class="text-base text-slate-600 leading-relaxed">
+                Sélectionnez votre classe ci-dessus (10ème, 11ème ou Terminale), puis <strong>touchez le micro orange</strong> ou écrivez une question pour réviser avec les manuels officiels du Mali.
+              </p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Barre de saisie intégrée en bas de la colonne de réponse -->
+      <div class="kiosk-input-bar">
+        <input 
+          type="text" 
+          id="question-input" 
+          class="kiosk-input" 
+          placeholder="Ou écrivez votre question ici..."
+          autocomplete="off"
+        >
+        <button id="btn-send" class="kiosk-send-btn" title="Envoyer la question">
+          <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          </svg>
+        </button>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- =========================================================================
+       3. MODALES (FORMULES KATEX & AVATAR INTERACTIF)
+       ========================================================================= -->
+
+  <!-- Formule Plein Écran Modal -->
+  <div id="formula-modal" class="formula-modal-overlay hidden">
+    <div class="formula-modal-content">
+      <div class="flex items-center justify-between border-b border-black/10 pb-3 mb-3">
+        <h3 class="text-base font-bold text-slate-800">Formule Officielle</h3>
+        <button id="btn-close-formula-modal" class="text-slate-500 hover:text-slate-800 text-lg">✕</button>
+      </div>
+      <div id="formula-modal-math" class="text-2xl text-center py-4 text-[#314999] font-mono"></div>
+      <div id="formula-modal-source" class="text-xs text-slate-500 text-right italic font-mono mt-2"></div>
+    </div>
+  </div>
+
+  <!-- Avatar Interactif Plein Écran Modal -->
+  <div id="avatar-fullscreen-modal" class="hidden fixed inset-0 z-50 flex flex-col items-center justify-between bg-[#060911]/95 backdrop-blur-xl p-6 select-none">
+    
+    <!-- En-tête Avatar Modal -->
+    <div class="w-full max-w-4xl flex items-center justify-between border-b border-white/10 pb-4">
+      <div class="flex items-center gap-3">
+        <div class="w-3 h-3 rounded-full bg-emerald-400 animate-pulse"></div>
+        <div>
+          <h2 id="modal-avatar-title" class="text-xl font-bold text-white tracking-tight">Professeur Virtuel AlternIA</h2>
+          <p id="modal-avatar-subtitle" class="text-xs text-cyan-400 font-medium">Tuteur Pédagogique Officiel</p>
+        </div>
+      </div>
+      <button id="btn-close-avatar" class="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white text-xl transition-all cursor-pointer">✕</button>
+    </div>
+
+    <!-- Centre : Avatar Vidéo Réel Simli WebRTC ou Canvas 2.5D Haute Définition -->
+    <div class="flex-1 flex flex-col items-center justify-center my-4 relative w-full max-h-[50vh]">
+      <div class="relative w-[280px] h-[280px] md:w-[360px] md:h-[360px] rounded-full overflow-hidden shadow-[0_0_60px_rgba(2,132,199,0.4)] ring-4 ring-cyan-500/50 bg-[#0c1220] cursor-pointer" id="modal-avatar-wrapper">
+        <video id="modal-avatar-video" class="absolute inset-0 w-full h-full object-cover z-20 opacity-0 transition-opacity duration-500" autoplay playsinline></video>
+        <audio id="simli-audio" autoplay hidden></audio>
+        <canvas id="modal-avatar-canvas" width="360" height="360" class="absolute inset-0 w-full h-full z-10"></canvas>
+      </div>
+      
+      <!-- Statut Badge dans le Modal -->
+      <div class="mt-4 px-4 py-1.5 rounded-full bg-white/10 border border-white/15 backdrop-blur-md flex items-center gap-2">
+        <span id="modal-status-dot" class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+        <span id="modal-status-text" class="text-xs font-semibold text-slate-200">Prêt à répondre</span>
+      </div>
+    </div>
+
+    <!-- Zone de Transcription & Réponse -->
+    <div class="w-full max-w-3xl min-h-[70px] max-h-[120px] overflow-y-auto px-4 py-3 bg-white/5 border border-white/10 rounded-2xl text-center flex items-center justify-center mb-4">
+      <p id="avatar-fullscreen-transcription" class="text-base md:text-lg font-medium text-cyan-100 leading-relaxed">
+        Touchez le micro ci-dessous pour poser votre question au professeur !
+      </p>
+    </div>
+
+    <!-- Contrôle Microphone Push-To-Talk dans le Modal Avatar -->
+    <div class="flex flex-col items-center gap-2 pb-2">
+      <button id="btn-mic-modal" class="w-16 h-16 rounded-full bg-gradient-to-tr from-amber-500 to-[#F1851F] flex items-center justify-center shadow-[0_0_25px_rgba(241,133,31,0.5)] active:scale-95 transition-all text-white hover:scale-105 cursor-pointer" title="Toucher pour parler">
+        <svg class="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+          <line x1="12" y1="19" x2="12" y2="22"></line>
+        </svg>
+      </button>
+      <span class="text-xs text-slate-400 font-medium">Touchez pour parler, retouchez pour envoyer</span>
+    </div>
+
+  </div>
+
+  <!-- Logique applicative modulaire -->
+</body>
+</html>
