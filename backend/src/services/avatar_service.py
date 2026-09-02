@@ -590,19 +590,36 @@ async def generate_avatar_video(
         with open(temp_audio_path, "wb") as f:
             f.write(audio_bytes)
 
-        # 3. Inférence Vidéo LivePortrait / SadTalker / GPU sur DISQUE LOCAL
-        from alternia.talking_head.liveportrait_service import LivePortraitService
-        service = LivePortraitService()
-        generated_video = service.generate_video(
-            image_path=str(img_path),
-            audio_path=str(temp_audio_path),
-            output_dir=str(LOCAL_VIDEOS_DIR),
-            phrase=text_to_speak,
-            voice=chosen_voice,
-            teacher_name=nom_prof,
-            subject=matiere_nom,
-            use_gpu=True,
-        )
+        # 3. Inférence Vidéo : Simli AI (Prioritaire avec le Face ID) ou LivePortrait / GPU local
+        generated_video = None
+
+        # Tentative avec le service officiel Simli AI
+        try:
+            from backend.src.services.simli_service import SimliBackendService, SIMLI_FACE_ID
+            simli_svc = SimliBackendService()
+            target_mp4 = LOCAL_VIDEOS_DIR / f"avatar_simli_{int(asyncio.get_event_loop().time())}.mp4"
+            generated_video = await simli_svc.generate_video(
+                audio_path=str(temp_audio_path),
+                output_path=str(target_mp4),
+                face_id=avatar.face_id if (avatar and hasattr(avatar, 'face_id') and avatar.face_id) else SIMLI_FACE_ID
+            )
+        except Exception as simli_err:
+            logger.warning(f"Note Simli AI backend : {simli_err}")
+
+        # Fallback si Simli n'est pas utilisé : LivePortrait / SadTalker
+        if not generated_video:
+            from alternia.talking_head.liveportrait_service import LivePortraitService
+            service = LivePortraitService()
+            generated_video = service.generate_video(
+                image_path=str(img_path),
+                audio_path=str(temp_audio_path),
+                output_dir=str(LOCAL_VIDEOS_DIR),
+                phrase=text_to_speak,
+                voice=chosen_voice,
+                teacher_name=nom_prof,
+                subject=matiere_nom,
+                use_gpu=True,
+            )
 
         if not generated_video:
             raise HTTPException(status_code=500, detail="Échec de la génération vidéo de l'avatar.")

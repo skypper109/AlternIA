@@ -112,6 +112,7 @@ def ensure_environment():
         ("multipart", "python-multipart"),
         ("cv2", "opencv-python-headless>=4.8.0,<4.11.0"),
         ("faster_whisper", "faster-whisper"),
+        ("simli", "simli-ai"),
     ]
     missing = []
     for mod_name, pkg_name in required:
