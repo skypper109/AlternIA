@@ -1,5 +1,5 @@
 /**
- * Service de streaming d'avatar vidéo interactif photoréaliste via le SDK Simli WebRTC.
+ * Service de streaming d'avatar vidéo interactif photoréaliste via le SDK Simli WebRTC v2.0.0 (LiveKit SFU).
  */
 
 export class SimliService {
@@ -42,18 +42,18 @@ export class SimliService {
 
     const statusText = document.getElementById('modal-status-text');
     const statusDot = document.getElementById('modal-status-dot');
-    if (statusText) statusText.textContent = "Connexion à l'avatar en direct...";
+    if (statusText) statusText.textContent = "Connexion à l'avatar Simli...";
     if (statusDot) statusDot.className = "w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse";
 
     try {
-      console.log(`🚀 [SimliService] Initialisation du client WebRTC Simli (Face ID: ${this.faceId})...`);
+      console.log(`🚀 [SimliService] Connexion WebRTC LiveKit Simli (Face ID: ${this.faceId})...`);
 
       let SimliClientModule;
       try {
-        SimliClientModule = await import('https://esm.sh/simli-client@1.2.20');
+        SimliClientModule = await import('https://esm.sh/simli-client@2.0.0');
       } catch (err) {
-        console.warn("⚠️ [SimliService] Échec esm.sh 1.2.20, tentative unpkg...");
-        SimliClientModule = await import('https://unpkg.com/simli-client@1.2.20/dist/index.js');
+        console.warn("⚠️ [SimliService] Échec esm.sh 2.0.0, tentative jsdelivr...");
+        SimliClientModule = await import('https://cdn.jsdelivr.net/npm/simli-client@2.0.0/+esm');
       }
 
       const SimliClient = SimliClientModule.SimliClient || SimliClientModule.default?.SimliClient || SimliClientModule.default;
@@ -68,6 +68,7 @@ export class SimliService {
         handleSilence: true,
         videoRef: videoEl,
         audioRef: audioEl,
+        enableConsoleLogs: true,
       });
 
       if (videoEl) {
