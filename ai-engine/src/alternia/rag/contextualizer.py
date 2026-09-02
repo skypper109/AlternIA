@@ -1,4 +1,5 @@
 import re
+import time
 from typing import Any
 from alternia.pedagogical.curriculum_keywords import detect_malian_curriculum_subject
 
@@ -74,6 +75,61 @@ class QueryContextualizer:
         r"^(et\s+)?(quel(le)?s?\s+(est|sont)\s+)?(son|sa|ses|leur|leurs|ce|cette|cet|ces)\s+[a-zàâéèêëîïôùûç\s-]{1,35}\??$",
     ]
 
+    CONVERSATIONAL_PREFIXES = [
+        # 1. Accords, Remerciements & Compréhension passée
+        r"^(?:ok|okay|d'accord|dac|dacc|très bien|tres bien|super|cool|parfait|merci( beaucoup)?|c'est bon|c'est clair|j'ai (bien )?compris|j'ai (bien )?pigé|j'ai (bien )?capté|ah d'accord|ah oui|ah ok|ah super)\b",
+        # 2. Salutations & Interpellations
+        r"^(?:salut|bonjour|bonsoir|coucou|wesh|yo)?\s*(?:alta|dis alta|cher alta)?\b",
+        # 3. Formules de politesse & attentes
+        r"^(?:s'il te plaît|s'il te plait|stp|s'il vous plaît|s'il vous plait|svp|merci de)\b",
+        r"^(?:attends|attendez)?\s*(?:une minute|une seconde|un peu|un instant)?\b",
+        # 4. Incompréhensions passées / relances
+        r"^(?:je n'ai pas (bien )?compris|j'ai pas (bien )?compris|je comprends? pas|j'ai rien compris|j'avais pas compris)\s*(?:la dernière fois|hier|tout à l'heure|tout a l'heure|avant)?\b",
+        # 5. Connecteurs & Transitions
+        r"^(?:mais|et|donc|alors|du coup|en fait|au fait|bref|maintenant|à présent|a present|actuellement|ensuite|après ça|apres ca|puis)\b",
+        # 6. Hésitations orales
+        r"^(?:euh|hum|ben|bah|ouais|ah|oh)\b",
+        # 7. Méta-questions & Annonces de matière
+        r"^(?:j'ai une (?:autre |petite )?question (?:à te poser|a te poser)?\s*(?:sur|concernant)?\s*(?:les maths|la physique|la chimie|la biologie|la svt|l'histoire|la géographie|la philo|le français|l'économie)?)\b",
+        # 8. Méta-intentions & Déclarations de désir
+        r"^(?:je (?:veux|v|voudrais|voulais|souhaite|cherche à|cherche a) (?:comprendre|savoir|découvrir|apprendre|te demander|poser une question)?)\b",
+        r"^(?:j'(?:aimerais|aimerai) (?:comprendre|savoir|découvrir|apprendre)?)\b",
+        r"^(?:je (?:veux|v) que tu m'(?:expliques|apprennes|dises)?)\b",
+        r"^(?:peux-tu|peux tu|pourrais-tu|pourrais tu|est-ce que tu peux|est ce que tu peux) (?:m'expliquer|me dire|m'apprendre|m'aider sur)?\b",
+        r"^(?:aide-moi à (?:comprendre|résoudre)?)\b",
+        r"^(?:dis-moi|dis moi|dis|explique-moi|explique moi)?\b",
+        r"^(?:je me demande)\b",
+    ]
+
+    @classmethod
+    def extract_core_question(cls, raw_question: str) -> str:
+        """
+        Extrait la véritable question pédagogique en éliminant tous les préambules
+        conversationnels, hésitations orales, remerciements et annonces d'intention.
+        
+        Exemple : "ok j'ai compris mais maintenant je v comprendre c'est quoi la mitose"
+               -> "c'est quoi la mitose"
+        """
+        if not raw_question:
+            return ""
+        cleaned = raw_question.strip()
+
+        prev = ""
+        while prev != cleaned:
+            prev = cleaned
+            # Supprimer ponctuation ou tirets orphelins en début de chaîne
+            cleaned = re.sub(r"^[,\.;:!?\-\s«»\"\'—]+", "", cleaned)
+            for pat in cls.CONVERSATIONAL_PREFIXES:
+                subbed = re.sub(pat, "", cleaned, count=1, flags=re.IGNORECASE).strip()
+                if subbed:
+                    cleaned = subbed
+                cleaned = re.sub(r"^[,\.;:!?\-\s«»\"\'—]+", "", cleaned)
+
+        if len(cleaned) < 3:
+            return raw_question.strip()
+
+        return cleaned
+
     @classmethod
     def clean_core_terms(cls, text: str) -> str:
         """Extrait les termes substantiels d'une question en retirant les formules introductives."""
@@ -133,6 +189,7 @@ class QueryContextualizer:
         """
         Génère une requête RAG enrichie et adaptée à l'intention spécifique de l'élève curieux.
         """
+        t0 = time.perf_counter()
         if not past_student_messages and not current_topic:
             return current_question.strip()
 
@@ -159,34 +216,29 @@ class QueryContextualizer:
 
         # 1. Formule, calcul, équation, unité
         if re.search(r"\b(formule|calcul|calculer|calcule|equation|équation|unités?|unites?|système international|unite(s)?\s+si|unité(s)?\s+si)\b", q_lower):
-            return f"{prev_topic} formule calcul unité expression cours"
-
+            enriched = f"{prev_topic} formule calcul unité expression cours"
         # 2. Étapes, mécanisme, fonctionnement, processus
-        if re.search(r"\b(étapes?|etapes?|phases?|mécanismes?|mecanismes?|fonctionne|marche|processus)\b", q_lower):
-            return f"{prev_topic} étapes phases mécanisme processus fonctionnement"
-
+        elif re.search(r"\b(étapes?|etapes?|phases?|mécanismes?|mecanismes?|fonctionne|marche|processus)\b", q_lower):
+            enriched = f"{prev_topic} étapes phases mécanisme processus fonctionnement"
         # 3. Rôle, utilité, importance, but, fonction
-        if re.search(r"\b(importance|rôle|role|fonction|but|utilité|utilite|sert)\b", q_lower):
-            return f"{prev_topic} rôle importance utilité but fonction"
-
+        elif re.search(r"\b(importance|rôle|role|fonction|but|utilité|utilite|sert)\b", q_lower):
+            enriched = f"{prev_topic} rôle importance utilité but fonction"
         # 4. Exemples, vie réelle, applications pratiques
-        if re.search(r"\b(exemples?|vie|réel|reel|pratique|analogie|quotidien)\b", q_lower):
-            return f"{prev_topic} exemple concret application pratique vie courante"
-
+        elif re.search(r"\b(exemples?|vie|réel|reel|pratique|analogie|quotidien)\b", q_lower):
+            enriched = f"{prev_topic} exemple concret application pratique vie courante"
         # 5. Causes, conséquences, conditions
-        if re.search(r"\b(causes?|conséquences?|consequences?|provoque|impact|effet|conditions?)\b", q_lower):
-            return f"{prev_topic} causes conséquences effets impact conditions"
-
+        elif re.search(r"\b(causes?|conséquences?|consequences?|provoque|impact|effet|conditions?)\b", q_lower):
+            enriched = f"{prev_topic} causes conséquences effets impact conditions"
         # 6. Caractéristiques, propriétés, types, classification
-        if re.search(r"\b(propriétés?|proprietes?|caractéristiques?|caracteristiques?|types?|limites?)\b", q_lower):
-            return f"{prev_topic} caractéristiques propriétés types classification"
-
+        elif re.search(r"\b(propriétés?|proprietes?|caractéristiques?|caracteristiques?|types?|limites?)\b", q_lower):
+            enriched = f"{prev_topic} caractéristiques propriétés types classification"
         # 7. Réexplication, simplification, vulgarisation, concision, résumé
-        if re.search(r"\b(reexplique|réexplique|détails?|details?|bref|court|résume|resume|simple|simplement|simplifie|vulgarise|vulgariser|compris|capté|capte)\b", q_lower):
-            return f"{prev_topic} explication cours définition essentiel résumé"
+        elif re.search(r"\b(reexplique|réexplique|détails?|details?|bref|court|résume|resume|simple|simplement|simplifie|vulgarise|vulgariser|compris|capté|capte)\b", q_lower):
+            enriched = f"{prev_topic} explication cours définition essentiel résumé"
+        else:
+            curr_clean = cls.clean_core_terms(current_question)
+            enriched = f"{prev_topic} {curr_clean}".strip() if curr_clean else prev_topic
 
-        curr_clean = cls.clean_core_terms(current_question)
-        if curr_clean:
-            return f"{prev_topic} {curr_clean}".strip()
-
-        return prev_topic
+        dt = time.perf_counter() - t0
+        print(f"\033[36m⏱️  [contextualizer.py]\033[0m Requête contextualisée : '{enriched}' (auparavant: '{current_question}') en \033[1;33m{dt:.4f}s\033[0m")
+        return enriched

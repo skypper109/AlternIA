@@ -1,25 +1,35 @@
 /**
- * Service de reconnaissance vocale (Speech-to-Text) hybride :
- * 1. Web Speech API (interim streaming en direct)
- * 2. MediaRecorder + Faster-Whisper local (/api/stt) pour une précision 100% hors-ligne.
+ * Service de reconnaissance vocale Speech-to-Text (STT) haute fidélité.
+ * Hybride & 100% Résilient :
+ * 1. Web Speech API (transcription temps réel continue)
+ * 2. MediaRecorder local automatique vers /api/stt (Faster-Whisper GPU)
+ * 3. Feedback visuel réactif en direct.
  */
 
 import { ApiService } from './api.js';
 
 export class SpeechService {
-  constructor({ onStart, onResult, onEnd, onError, onSimulationStart } = {}) {
+  constructor({ onStart, onTranscript, onResult, onEnd, onError, onAudioLevel } = {}) {
     this.onStart = onStart;
-    this.onResult = onResult;
+    this.onTranscript = onTranscript || onResult;
+    this.onResult = this.onTranscript;
     this.onEnd = onEnd;
     this.onError = onError;
-    this.onSimulationStart = onSimulationStart;
+    this.onAudioLevel = onAudioLevel;
 
     this.recognition = null;
+    this.isRecording = false;
+    this.isStarting = false;
+    this.isStopping = false;
+    this.currentTranscript = '';
+    this.finalTranscriptAccumulated = '';
+
     this.mediaRecorder = null;
     this.audioChunks = [];
     this.stream = null;
-    this.isRecording = false;
-    this.currentTranscript = '';
+    this.audioCtx = null;
+    this.analyser = null;
+    this.animFrameId = null;
 
     this.initWebSpeech();
   }
@@ -27,42 +37,65 @@ export class SpeechService {
   initWebSpeech() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
-      this.recognition = new SpeechRecognition();
-      this.recognition.lang = 'fr-FR';
-      this.recognition.continuous = false;
-      this.recognition.interimResults = true;
+      try {
+        this.recognition = new SpeechRecognition();
+        this.recognition.lang = 'fr-FR';
+        this.recognition.continuous = true;
+        this.recognition.interimResults = true;
+        this.recognition.maxAlternatives = 1;
 
-      this.recognition.onstart = () => {
-        this.isRecording = true;
-        this.currentTranscript = '';
-        if (this.onStart) this.onStart();
-      };
+        this.recognition.onstart = () => {
+          this.isRecording = true;
+        };
 
-      this.recognition.onresult = (event) => {
-        let transcript = '';
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          transcript += event.results[i][0].transcript;
-        }
-        this.currentTranscript = transcript.trim();
-        if (this.onResult) this.onResult(this.currentTranscript);
-      };
+        this.recognition.onresult = (event) => {
+          let interimTranscript = '';
+          let finalChunk = '';
+          for (let i = event.resultIndex; i < event.results.length; ++i) {
+            const transcript = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+              finalChunk += transcript + ' ';
+            } else {
+              interimTranscript += transcript;
+            }
+          }
+          if (finalChunk) {
+            this.finalTranscriptAccumulated += finalChunk;
+          }
+          this.currentTranscript = (this.finalTranscriptAccumulated + interimTranscript).trim();
+          if (this.onTranscript && this.currentTranscript) {
+            this.onTranscript(this.currentTranscript);
+          }
+        };
 
-      this.recognition.onerror = (event) => {
-        console.warn('Erreur Web Speech :', event.error);
-        if (event.error !== 'no-speech') {
-          if (this.onError) this.onError(event.error);
-        }
-      };
+        this.recognition.onerror = (event) => {
+          console.warn('Statut Web Speech :', event.error);
+        };
 
-      this.recognition.onend = async () => {
-        if (!this.isRecording) return;
-        this.isRecording = false;
-        await this.finalizeRecording();
-      };
+        this.recognition.onend = () => {
+          if (this.isRecording && this.recognition && !this.isStopping) {
+            try {
+              this.recognition.start();
+            } catch (e) {}
+          }
+        };
+      } catch (e) {
+        console.warn("Web Speech API non disponible :", e);
+      }
     }
   }
 
+  toggleListening() {
+    return this.toggle();
+  }
+
+  isListening() {
+    return this.isRecording;
+  }
+
   async toggle() {
+    if (this.isStarting || this.isStopping) return;
+
     if (this.isRecording) {
       await this.stop();
     } else {
@@ -71,44 +104,99 @@ export class SpeechService {
   }
 
   async start() {
-    this.isRecording = true;
+    if (this.isRecording || this.isStarting) return;
+    this.isStarting = true;
     this.currentTranscript = '';
+    this.finalTranscriptAccumulated = '';
     this.audioChunks = [];
 
     if (this.onStart) this.onStart();
 
-    // 1. Démarrer l'enregistrement audio matériel via MediaRecorder
+    // 1. Démarrer l'enregistrement micro physique MediaRecorder
     try {
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        this.mediaRecorder = new MediaRecorder(this.stream);
+        this.stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            channelCount: 1,
+            sampleRate: 16000,
+            echoCancellation: true,
+            noiseSuppression: true
+          }
+        });
+
+        this.setupAudioAnalyser(this.stream);
+
+        let mimeType = 'audio/webm';
+        if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+          mimeType = 'audio/webm;codecs=opus';
+        } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+          mimeType = 'audio/mp4';
+        }
+
+        this.mediaRecorder = new MediaRecorder(this.stream, { mimeType });
         this.mediaRecorder.ondataavailable = (e) => {
           if (e.data && e.data.size > 0) {
             this.audioChunks.push(e.data);
           }
         };
-        this.mediaRecorder.start(250); // morceaux de 250ms
+        this.mediaRecorder.start(100);
       }
     } catch (err) {
-      console.warn("Microphone MediaRecorder non disponible ou accès refusé :", err);
+      console.warn("Accès microphone refusé :", err);
+      if (this.onError) this.onError("Accès microphone requis.");
+      this.isStarting = false;
+      this.isRecording = false;
+      return;
     }
 
-    // 2. Démarrer Web Speech pour le retour visuel en temps réel
+    // 2. Démarrer Web Speech en parallèle
     if (this.recognition) {
       try {
         this.recognition.start();
-      } catch (err) {
-        // En cas d'erreur de recognition, on se repose sur MediaRecorder
-      }
-    } else if (!this.mediaRecorder) {
-      // Si ni Web Speech ni MediaRecorder ne sont dispo, mode simulation
-      this.simulateVoiceInput();
+      } catch (err) {}
     }
+
+    this.isRecording = true;
+    this.isStarting = false;
+  }
+
+  setupAudioAnalyser(stream) {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtx) {
+        this.audioCtx = new AudioCtx();
+        if (this.audioCtx.state === 'suspended') {
+          this.audioCtx.resume();
+        }
+        const source = this.audioCtx.createMediaStreamSource(stream);
+        this.analyser = this.audioCtx.createAnalyser();
+        this.analyser.fftSize = 256;
+        source.connect(this.analyser);
+
+        const dataArray = new Uint8Array(this.analyser.frequencyBinCount);
+        const checkLevel = () => {
+          if (!this.isRecording) return;
+          this.analyser.getByteFrequencyData(dataArray);
+          let sum = 0;
+          for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+          const avg = sum / dataArray.length / 255;
+          if (this.onAudioLevel) this.onAudioLevel(avg);
+          this.animFrameId = requestAnimationFrame(checkLevel);
+        };
+        this.animFrameId = requestAnimationFrame(checkLevel);
+      }
+    } catch (e) {}
   }
 
   async stop() {
-    if (!this.isRecording) return;
+    if (!this.isRecording || this.isStopping) return;
+    this.isStopping = true;
     this.isRecording = false;
+
+    if (this.animFrameId) {
+      cancelAnimationFrame(this.animFrameId);
+      this.animFrameId = null;
+    }
 
     if (this.recognition) {
       try {
@@ -117,7 +205,9 @@ export class SpeechService {
     }
 
     if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
-      this.mediaRecorder.stop();
+      try {
+        this.mediaRecorder.stop();
+      } catch (e) {}
     }
 
     if (this.stream) {
@@ -125,42 +215,39 @@ export class SpeechService {
       this.stream = null;
     }
 
+    if (this.audioCtx) {
+      try {
+        this.audioCtx.close();
+      } catch (e) {}
+      this.audioCtx = null;
+    }
+
+    // Délai pour s'assurer que tous les chunks sont dans audioChunks
+    await new Promise(r => setTimeout(r, 150));
+
     await this.finalizeRecording();
+    this.isStopping = false;
   }
 
   async finalizeRecording() {
-    let finalTranscription = this.currentTranscript;
+    let text = (this.finalTranscriptAccumulated + ' ' + this.currentTranscript).trim();
 
-    // Si Web Speech n'a rien capté ou n'est pas dispo, envoyer l'audio au STT Faster-Whisper local
-    if (!finalTranscription && this.audioChunks.length > 0) {
-      const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
-      if (audioBlob.size > 1000) {
-        finalTranscription = await ApiService.transcribeAudioBlob(audioBlob);
+    // Si Web Speech n'a pas capté de texte mais qu'on a un enregistrement audio
+    if (!text && this.audioChunks.length > 0) {
+      try {
+        console.log("🎙️ [SpeechService] Transcription via Faster-Whisper GPU...");
+        const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
+        if (audioBlob.size > 200) {
+          text = await ApiService.transcribeAudioBlob(audioBlob);
+          console.log("📝 [SpeechService] Texte transcrit :", text);
+        }
+      } catch (e) {
+        console.warn("Erreur transcription locale :", e);
       }
     }
 
     if (this.onEnd) {
-      this.onEnd(finalTranscription);
+      this.onEnd(text);
     }
-  }
-
-  simulateVoiceInput() {
-    if (this.onSimulationStart) this.onSimulationStart();
-    this.isRecording = true;
-    if (this.onStart) this.onStart();
-
-    setTimeout(() => {
-      const sampleQueries = [
-        "C'est quoi la photosynthèse de façon simple ?",
-        "Donne-moi la formule de Moivre pour les nombres complexes",
-        "Quelle est la deuxième loi de Newton en physique ?",
-        "Comment calcule-t-on le pH d'une solution aqueuse ?",
-        "Explique-moi la formule de l'énergie cinétique"
-      ];
-      const query = sampleQueries[Math.floor(Math.random() * sampleQueries.length)];
-      this.isRecording = false;
-      if (this.onResult) this.onResult(query);
-      if (this.onEnd) this.onEnd(query);
-    }, 2000);
   }
 }

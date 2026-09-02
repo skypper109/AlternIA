@@ -22,6 +22,7 @@ import numpy as np
 
 from alternia.config.settings import PROJECT_ROOT
 
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 logger = logging.getLogger("AlternIA.STT")
 
 
@@ -34,12 +35,22 @@ class STTEngine:
 
     def __init__(
         self,
-        model_size: str = "base",
+        model_size: str = "tiny",
         language: str = "fr",
         device: str = "cpu",
         compute_type: str = "int8",
         models_dir: Optional[Path] = None,
     ):
+        # Auto-détection CUDA pour accélération GPU
+        if device == "cpu":
+            try:
+                import torch
+                if torch.cuda.is_available() and torch.cuda.device_count() > 0:
+                    device = "cuda"
+                    compute_type = "float16"
+            except Exception:
+                pass
+
         self.model_size = model_size
         self.language = language
         self.device = device
@@ -51,6 +62,7 @@ class STTEngine:
         self._is_recording = False
         self._audio_frames: list[np.ndarray] = []
         self._record_thread: Optional[threading.Thread] = None
+        self._lock = threading.Lock()
 
     def _get_whisper_model(self):
         """Initialise de façon paresseuse le modèle Faster-Whisper."""
@@ -60,15 +72,23 @@ class STTEngine:
         try:
             from faster_whisper import WhisperModel
 
+            local_tiny = self.models_dir / "tiny"
+            if local_tiny.exists() and (local_tiny / "model.bin").exists():
+                model_target = str(local_tiny)
+            else:
+                model_target = self.model_size
+
+            import sys
+            safe_compute = "float32" if sys.platform == "darwin" else self.compute_type
             logger.info(
-                f"Chargement du modèle STT Faster-Whisper ({self.model_size}, {self.compute_type})..."
+                f"Chargement du modèle STT Faster-Whisper ({model_target}, {safe_compute})..."
             )
             self._whisper_model = WhisperModel(
-                self.model_size,
+                model_target,
                 device=self.device,
-                compute_type=self.compute_type,
+                compute_type=safe_compute,
                 download_root=str(self.models_dir),
-                cpu_threads=4,
+                cpu_threads=2,
             )
             return self._whisper_model
         except Exception as exc:
@@ -179,6 +199,7 @@ class STTEngine:
         self,
         audio_data_or_path: str | Path | np.ndarray | bytes,
         language: Optional[str] = None,
+        suffix: str = ".wav",
     ) -> str:
         """
         Transcrit un enregistrement audio en texte français.
@@ -203,7 +224,7 @@ class STTEngine:
                 self._save_numpy_to_wav(audio_data_or_path, temp_wav_path)
                 input_source = str(temp_wav_path)
             elif isinstance(audio_data_or_path, bytes):
-                temp_file = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+                temp_file = tempfile.NamedTemporaryFile(suffix=suffix or ".wav", delete=False)
                 temp_wav_path = Path(temp_file.name)
                 temp_file.write(audio_data_or_path)
                 temp_file.close()
@@ -211,18 +232,18 @@ class STTEngine:
             else:
                 return ""
 
-            segments, info = model.transcribe(
-                input_source,
-                language=lang,
-                beam_size=5,
-                vad_filter=True,
-                vad_parameters=dict(min_silence_duration_ms=400),
-            )
+            with self._lock:
+                segments, info = model.transcribe(
+                    input_source,
+                    language=lang,
+                    beam_size=1,
+                    vad_filter=False,
+                )
 
-            text_parts = [segment.text.strip() for segment in segments]
-            full_text = " ".join(text_parts).strip()
-            logger.info(f"📝 Transcription STT : '{full_text}' (prob={info.language_probability:.2f})")
-            return full_text
+                text_parts = [segment.text.strip() for segment in segments]
+                full_text = " ".join(text_parts).strip()
+                logger.info(f"📝 Transcription STT : '{full_text}' (prob={info.language_probability:.2f})")
+                return full_text
 
         except Exception as exc:
             logger.error(f"Erreur transcription Whisper : {exc}")
@@ -246,11 +267,12 @@ class STTEngine:
         """Transcription de secours via SpeechRecognition."""
         try:
             import speech_recognition as sr  # pyrefly: ignore
-            r = sr.Recognizer()
+            r: Any = sr.Recognizer()
             if isinstance(audio_data_or_path, (str, Path)):
                 with sr.AudioFile(str(audio_data_or_path)) as source:
                     audio = r.record(source)
-                    return r.recognize_google(audio, language="fr-FR")
-        except Exception:
-            pass
+                    return str(r.recognize_google(audio, language="fr-FR"))  # pyrefly: ignore
+        except Exception as exc:
+            logger.debug(f"Erreur transcription de secours SpeechRecognition : {exc}")
         return ""
+

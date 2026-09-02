@@ -60,7 +60,8 @@ export class ApiService {
   static async transcribeAudioBlob(audioBlob) {
     try {
       const formData = new FormData();
-      formData.append('audio', audioBlob, 'recording.wav');
+      const ext = (audioBlob.type && audioBlob.type.includes('webm')) ? 'webm' : ((audioBlob.type && audioBlob.type.includes('mp4')) ? 'mp4' : 'wav');
+      formData.append('audio', audioBlob, `recording.${ext}`);
       formData.append('language', 'fr');
       const res = await fetch(`${API_BASE_URL}/api/stt`, {
         method: 'POST',
@@ -141,5 +142,31 @@ export class ApiService {
       if (onError) onError(err);
       return false;
     }
+  }
+
+  /**
+   * Génère une vidéo LivePortrait MP4 pour une phrase complète.
+   */
+  static async generateLivePortraitVideo({ phrase, photoUrl, voice, name, subject }) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/avatars/generate-video`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phrase,
+          photo_url: photoUrl,
+          voice: voice || 'vivienne',
+          nom: name || 'Assistant',
+          matiere: subject || 'Général'
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return data.video_url; // Retourne l'URL de la vidéo générée
+      }
+    } catch (e) {
+      console.warn("Erreur lors de la génération de la vidéo LivePortrait :", e);
+    }
+    return null;
   }
 }

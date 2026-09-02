@@ -55,4 +55,18 @@ export class ApprenantRepository {
       map(list => list.filter(a => a.actif))
     );
   }
+
+  creerApprenant(data: { nom: string; prenom: string; classe: string; serie?: string; boitierId?: string }): Observable<Apprenant> {
+    return this.http.post<any>(`${environment.apiUrl}/apprenants`, {
+      nom: data.nom,
+      prenom: data.prenom,
+      classe: data.classe,
+      serie: data.serie || 'generale',
+      boitier_id: data.boitierId || null,
+    }).pipe(map((dto) => this.mapDtoToApprenant(dto, 0)));
+  }
+
+  supprimerApprenant(apprenantId: string): Observable<any> {
+    return this.http.delete<any>(`${environment.apiUrl}/apprenants/${apprenantId}`);
+  }
 }

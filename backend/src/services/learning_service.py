@@ -35,6 +35,71 @@ CONFUSION_KEYWORDS = [
 ]
 
 
+def sanitize_pedagogical_context(
+    subject: Optional[str],
+    topic: Optional[str],
+    chapter: Optional[str],
+    question: str
+) -> tuple[str, str, str]:
+    q_low = (question or "").lower()
+    
+    # 1. Biologie / SVT
+    if any(k in q_low for k in ["photosynth", "chlorophyl", "amidon", "calvin"]):
+        return "SVT", "La Photosynthèse et Métabolisme", "Biochimie végétale"
+    if any(k in q_low for k in ["mitose", "meiose", "chromosome", "cellule", "membrane", "adn", "genetique"]):
+        return "SVT", "Division Cellulaire & Génétique", "Génétique et Biologie Cellulaire"
+    if any(k in q_low for k in ["zonation", "ecologie", "ecosysteme", "sahel", "biotop"]):
+        return "SVT", "Écologie & Zonation végétale", "Environnement et Écosystèmes Sahéliens"
+    
+    # 2. Chimie
+    if any(k in q_low for k in ["oxydo", "redox", "oxydant", "reducteur", "couple"]):
+        return "Chimie", "Oxydoréduction & Couples Redox", "Chimie Générale"
+    if any(k in q_low for k in ["alcool", "aldehide", "aldehyde", "cetone", "ester", "acide carboxylique"]):
+        return "Chimie", "Chimie Organique & Fonctions Oxygénées", "Chimie Organique"
+    if any(k in q_low for k in ["ph", "acide", "base", "solution aqueuse", "pka"]):
+        return "Chimie", "Réactions Acido-Basiques & Calculs de pH", "Solutions Aqueuses"
+    if any(k in q_low for k in ["chatelier", "equilibre chimique"]):
+        return "Chimie", "Équilibres Chimiques", "Cinétique et Équilibres"
+
+    # 3. Physique
+    if any(k in q_low for k in ["gravitation", "newton", "satellite", "attraction"]):
+        return "Physique", "Gravitation Universelle & Lois de Newton", "Mécanique Classique"
+    if any(k in q_low for k in ["doppler", "onde", "frequence", "longueur d'onde", "sonore"]):
+        return "Physique", "Ondes Mécaniques & Effet Doppler", "Physique Ondulatoire"
+    if any(k in q_low for k in ["cinematique", "vitesse", "acceleration", "trajectoire", "vecteur position"]):
+        return "Physique", "Cinématique du Point Matériel", "Mécanique du Point"
+
+    # 4. Mathématiques
+    if any(k in q_low for k in ["complexe", "module", "argument", "forme trigonometrique", "z ="]):
+        return "Mathématiques", "Nombres Complexes & Trigonométrie", "Analyse et Algèbre"
+    if any(k in q_low for k in ["equation", "polynome", "discriminant", "delta", "racine"]):
+        return "Mathématiques", "Équations & Polynômes du Second Degré", "Algèbre"
+    if any(k in q_low for k in ["derivee", "derivation", "tangente", "limite", "continuite"]):
+        return "Mathématiques", "Dérivation & Étude de Fonctions", "Analyse Fonctionnelle"
+    if any(k in q_low for k in ["integrale", "primitive", "integration par parties"]):
+        return "Mathématiques", "Calcul Intégral & Primitives", "Analyse"
+
+    # 5. Économie
+    if any(k in q_low for k in ["pib", "comptabilite", "macroeconomie", "inflation", "chomage"]):
+        return "Économie", "Comptabilité Nationale & Agrégats Économiques", "Macroéconomie"
+
+    # 6. Français & Philosophie
+    if any(k in q_low for k in ["dissertation", "commentaire", "these", "antithese"]):
+        return "Français", "Méthodologie de la Dissertation et du Commentaire", "Expression et Littérature"
+
+    clean_topic = topic or "Programme officiel"
+    for noisy in ["CONTENU DE COURS", "Guide", "Chap", "Cours 11", ".pdf", ".docx", "(6h)", "(4h)"]:
+        clean_topic = clean_topic.replace(noisy, "").strip(" -_:")
+    if not clean_topic or clean_topic.lower() == "general":
+        clean_topic = "Méthodologie et Synthèse"
+
+    clean_subject = (subject or "Général").capitalize()
+    if clean_subject.lower() in ["biologie", "svt"]:
+        clean_subject = "SVT"
+
+    return clean_subject, clean_topic, chapter or "Programme National"
+
+
 def record_student_interaction(
     student_id: str = "appr-amadou-diallo",
     student_class: str = "11eme",
@@ -61,17 +126,10 @@ def record_student_interaction(
 
     db = SessionLocal()
     try:
-        # Résolution de la matière et du sujet
-        effective_subject = (subject or "Général").capitalize()
-        effective_topic = topic
-        effective_chapter = chapter
-
-        if sources and not effective_topic:
-            first_src = sources[0]
-            if hasattr(first_src, "lesson") and first_src.lesson:
-                effective_topic = first_src.lesson
-            elif hasattr(first_src, "chapter") and first_src.chapter:
-                effective_chapter = first_src.chapter
+        # Résolution didactique propre de la matière, de la notion et du chapitre
+        effective_subject, effective_topic, effective_chapter = sanitize_pedagogical_context(
+            subject, topic, chapter, question
+        )
 
         # 1. Vérification ou création de l'apprenant
         apprenant = db.query(Apprenant).filter(

@@ -1,4 +1,5 @@
 import re
+import time
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -655,6 +656,7 @@ class CurriculumScopeChecker:
         """
         Vérifie si la question de l'élève dépasse son niveau scolaire actuel.
         """
+        t0 = time.perf_counter()
         current_rank = self.CLASS_RANKS.get(student_class.strip().lower(), 10)
         norm_q = self._normalize_text(question)
 
@@ -671,6 +673,8 @@ class CurriculumScopeChecker:
                             student_class=student_class,
                             topic=topic,
                         )
+                        dt = time.perf_counter() - t0
+                        print(f"\033[36m⏱️  [curriculum_scope.py]\033[0m Notion de niveau supérieur détectée : '{topic.name}' ({topic.target_class}) en \033[1;33m{dt:.4f}s\033[0m")
                         return ScopeAnalysisResult(
                             is_higher_level=True,
                             current_class=student_class,
@@ -684,6 +688,8 @@ class CurriculumScopeChecker:
                             pedagogical_guidance=guidance,
                         )
 
+        dt = time.perf_counter() - t0
+        print(f"\033[36m⏱️  [curriculum_scope.py]\033[0m Cadrage curriculaire vérifié (conforme à la {student_class}) en \033[1;33m{dt:.4f}s\033[0m")
         return ScopeAnalysisResult(
             is_higher_level=False,
             current_class=student_class,

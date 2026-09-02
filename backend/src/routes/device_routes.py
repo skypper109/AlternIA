@@ -4,6 +4,7 @@ Routes API pour l'état système, le statut santé, la synthèse vocale, l'analy
 
 import asyncio
 import json
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, File, Form, HTTPException, Response, UploadFile, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
@@ -20,7 +21,6 @@ from backend.src.services.orchestrator_service import (
 router = APIRouter(tags=["Système & Dispositif"])
 
 
-@router.get("/")
 @router.get("/health")
 @router.get("/api/health")
 def health():
@@ -67,22 +67,47 @@ def get_device_info():
 
 
 @router.post("/api/tts")
-@router.get("/api/tts")
-async def tts_endpoint(text: Optional[str] = None, req: Optional[TTSRequest] = None):
-    """Synthèse vocale neurale haute fidélité (voix Vivienne par défaut)."""
-    raw_text = (req.text if req else None) or text or ""
-    if not raw_text.strip():
+async def tts_post_endpoint(req: TTSRequest):
+    """Synthèse vocale neurale haute fidélité (POST JSON body)."""
+    if not req.text or not req.text.strip():
         raise HTTPException(status_code=400, detail="Texte manquant pour la synthèse vocale")
 
-    voice_name = (req.voice if req else None) or settings.tts_voice or "vivienne"
+    voice_name = req.voice or settings.tts_voice or "vivienne"
     tts_engine = TTSEngine(voice=voice_name)
     try:
-        audio_bytes = await tts_engine.synthesize_to_bytes(raw_text)
+        audio_bytes = await tts_engine.synthesize_to_bytes(req.text)
         if not audio_bytes:
             raise HTTPException(status_code=500, detail="Échec de la synthèse vocale")
         return Response(content=audio_bytes, media_type="audio/mpeg")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur TTS : {str(e)}")
+
+
+@router.get("/api/tts")
+async def tts_get_endpoint(text: str, voice: Optional[str] = "vivienne"):
+    """Synthèse vocale neurale haute fidélité (GET query param)."""
+    if not text.strip():
+        raise HTTPException(status_code=400, detail="Texte manquant pour la synthèse vocale")
+
+    tts_engine = TTSEngine(voice=voice or "vivienne")
+    try:
+        audio_bytes = await tts_engine.synthesize_to_bytes(text)
+        if not audio_bytes:
+            raise HTTPException(status_code=500, detail="Échec de la synthèse vocale")
+        return Response(content=audio_bytes, media_type="audio/mpeg")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur TTS : {str(e)}")
+
+
+_stt_engine = None
+
+
+def get_stt_engine():
+    global _stt_engine
+    if _stt_engine is None:
+        from alternia.stt.engine import STTEngine
+        _stt_engine = STTEngine(model_size="tiny", language="fr")
+    return _stt_engine
 
 
 @router.post("/api/stt")
@@ -92,16 +117,20 @@ async def stt_endpoint(
 ):
     """Transcription vocale Speech-to-Text via Faster-Whisper local embarqué."""
     try:
-        from alternia.stt.engine import STTEngine
-        stt = STTEngine(model_size="base", language=language or "fr")
+        stt = get_stt_engine()
         content = await audio.read()
         if not content:
             raise HTTPException(status_code=400, detail="Fichier audio vide")
 
-        text = stt.transcribe(content, language=language or "fr")
+        suffix = Path(audio.filename or "recording.wav").suffix or ".wav"
+        text = stt.transcribe(content, language=language or "fr", suffix=suffix)
         return {"text": text, "status": "success"}
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erreur STT : {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {"text": "", "status": "error", "message": f"Erreur STT : {str(e)}"}
 
 
 @router.post("/api/rag/analyze")
@@ -181,6 +210,23 @@ async def websocket_session_endpoint(websocket: WebSocket):
                 query = msg.get("query") or msg.get("text") or "Bonjour AlternIA"
                 student_class = normalize_student_class(msg.get("class", "11eme"))
                 subject = msg.get("subject", "général")
+                student_id = msg.get("student_id", "device-kiosk")
+                session_id = msg.get("session_id", "device-session")
+                series = msg.get("series")
+
+                # Récupération du contexte RAG
+                context = None
+                if orch.rag_service:
+                    try:
+                        context = orch.rag_service.retrieve(
+                            question=query,
+                            student_class=student_class,
+                            subject=subject,
+                            student_id=student_id,
+                            series=series,
+                        )
+                    except Exception:
+                        context = None
 
                 # 1. State: Thinking
                 await websocket.send_text(json.dumps({"type": "ai_state", "state": "thinking"}))
@@ -190,8 +236,12 @@ async def websocket_session_endpoint(websocket: WebSocket):
                 try:
                     res = orch.ask(
                         question=query,
+                        context=context,
                         student_class=student_class,
                         subject=subject,
+                        student_id=student_id,
+                        session_id=session_id,
+                        series=series,
                     )
                     answer = res.get("answer", "Voici l'explication demandée.")
                 except Exception as e:

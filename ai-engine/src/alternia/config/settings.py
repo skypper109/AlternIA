@@ -16,16 +16,29 @@ class Settings(BaseSettings):
     llm_model: str = ""
     llm_api_key: str = ""
     
-    # Local LLM
-    local_llm_model_path: str = str(
-        PROJECT_ROOT
-        / "ai-engine"
-        / "models"
-        / "llm"
-        / "qwen2.5-3b-instruct-q4_k_m.gguf"
-        if (PROJECT_ROOT / "ai-engine" / "models" / "llm" / "qwen2.5-3b-instruct-q4_k_m.gguf").exists()
-        else PROJECT_ROOT / "ai-engine" / "models" / "llm" / "qwen2.5-1.5b-instruct-q4_k_m.gguf"
-    )
+    # Local LLM (Hiérarchie par puissance : 14B > 7B > 3B > 1.5B)
+    @staticmethod
+    def _find_best_llm_model() -> Path:
+        models_dir = PROJECT_ROOT / "ai-engine" / "models" / "llm"
+        candidates = [
+            "qwen2.5-14b-instruct-q4_k_m.gguf",
+            "qwen2.5-7b-instruct-q5_k_m.gguf",
+            "qwen2.5-7b-instruct-q4_k_m.gguf",
+            "qwen2.5-3b-instruct-q4_k_m.gguf",
+            "qwen2.5-1.5b-instruct-q4_k_m.gguf",
+        ]
+        for candidate in candidates:
+            p = models_dir / candidate
+            if p.exists():
+                return p
+        # Si un autre fichier .gguf existe dans le dossier
+        if models_dir.exists():
+            ggufs = list(models_dir.glob("*.gguf"))
+            if ggufs:
+                return ggufs[0]
+        return models_dir / "qwen2.5-7b-instruct-q4_k_m.gguf"
+
+    local_llm_model_path: str = str(_find_best_llm_model())
 
     local_llm_context_size: int = 4096
     local_llm_threads: int = 4

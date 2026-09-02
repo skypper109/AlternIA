@@ -1,3 +1,4 @@
+import time
 from typing import Any
 
 from alternia.context.models import (
@@ -32,7 +33,7 @@ class ContextBuilder:
         self,
         max_sources: int = 2,
         min_score: float = 0.15,
-        max_content_length: int = 800,
+        max_content_length: int = 350,
     ):
         self.max_sources = max_sources
         self.min_score = min_score
@@ -50,6 +51,7 @@ class ContextBuilder:
         subject: str | None = None,
     ) -> PedagogicalContext:
 
+        t0_ctx = time.perf_counter()
         sources: list[ContextSource] = []
 
         for result in results:
@@ -75,7 +77,7 @@ class ContextBuilder:
 
             result_subject = str(payload.get("subject", "")).strip().lower()
 
-            # Compatibilité étendue des matières (les manuels de 10ème sont souvent catégorisés 'sciences')
+            # Compatibilité étendue des matières
             if subject is not None:
                 subj_norm = str(subject).strip().lower()
                 subject_compatibility = {
@@ -87,10 +89,10 @@ class ContextBuilder:
                     "biologie": {"biologie", "svt", "sciences", "autre", ""},
                     "svt": {"biologie", "svt", "sciences", "autre", ""},
                     "sciences": {"sciences", "mathematiques", "physique", "chimie", "biologie", "svt", "autre", ""},
-                    "francais": {"francais", "lettres", "litterature", "linguistique", "autre", ""},
-                    "philosophie": {"philosophie", "lettres", "autre", ""},
-                    "histoire": {"histoire", "geographie", "histoire-geo", "autre", ""},
-                    "geographie": {"geographie", "histoire", "histoire-geo", "geologie", "autre", ""},
+                    "francais": {"francais", "lettres", "litterature", "linguistique", "histoire", "philosophie", "autre", ""},
+                    "philosophie": {"philosophie", "lettres", "francais", "autre", ""},
+                    "histoire": {"histoire", "geographie", "histoire-geo", "francais", "autre", ""},
+                    "geographie": {"geographie", "histoire", "histoire-geo", "geologie", "sciences", "autre", ""},
                     "economie": {"economie", "seco", "comptabilite", "autre", ""},
                     "comptabilite": {"comptabilite", "economie", "seco", "autre", ""},
                     "linguistique": {"linguistique", "francais", "lettres", "autre", ""},
@@ -98,8 +100,8 @@ class ContextBuilder:
                     "anglais": {"anglais", "langues", "autre", ""},
                 }
 
-                allowed_subj = subject_compatibility.get(subj_norm, {subj_norm, "sciences", "autre", ""})
-                if result_subject and result_subject not in allowed_subj:
+                allowed_subj = subject_compatibility.get(subj_norm, {subj_norm, "sciences", "francais", "autre", ""})
+                if result_subject and result_subject not in allowed_subj and float(getattr(result, "score", 0.0)) < 0.60:
                     continue
 
             score = float(
@@ -194,6 +196,9 @@ class ContextBuilder:
         context_text = self._build_text(
             sources
         )
+
+        dt_ctx = time.perf_counter() - t0_ctx
+        print(f"\033[36m⏱️  [context_builder.py]\033[0m Contexte pédagogique assemblé ({len(sources)} sources, {len(context_text)} chars) en \033[1;33m{dt_ctx:.4f}s\033[0m")
 
         return PedagogicalContext(
             query=query,
@@ -320,7 +325,7 @@ class ContextBuilder:
             sources,
             start=1,
         ):
-            header = f"[Source {index}"
+            header = f"[Extrait {index}"
             if source.subject:
                 header += f" - {str(source.subject).capitalize()}"
             if source.chapter and str(source.chapter).lower() not in {"non défini", "none", ""}:
@@ -328,8 +333,4 @@ class ContextBuilder:
             header += "]"
             sections.append(f"{header} : {source.content}")
 
-        return (
-            "CONTEXTE PÉDAGOGIQUE ALTERNIA\n\n"
-            + "\n".join(sections)
-            + "\n\nFIN DU CONTEXTE"
-        )
+        return "\n".join(sections)

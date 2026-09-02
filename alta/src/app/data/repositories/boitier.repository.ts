@@ -69,4 +69,16 @@ export class BoitierRepository {
       mot_de_passe: motDePasse || null,
     });
   }
+
+  ajouterBoitier(data: { nom: string; codeUnique: string; modele?: string }): Observable<Boitier> {
+    return this.http.post<any>(`${environment.apiUrl}/boitiers`, {
+      nom: data.nom,
+      code_unique: data.codeUnique,
+      modele: data.modele || 'Alternia Box v2',
+    }).pipe(map(b => this.mapDtoToBoitier(b)));
+  }
+
+  supprimerBoitier(boitierId: string): Observable<any> {
+    return this.http.delete<any>(`${environment.apiUrl}/boitiers/${boitierId}`);
+  }
 }

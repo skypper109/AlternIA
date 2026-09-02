@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <defs>
+    <linearGradient id="fatouGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8B5CF6"/>
+      <stop offset="50%" stop-color="#EC4899"/>
+      <stop offset="100%" stop-color="#F59E0B"/>
+    </linearGradient>
+    <linearGradient id="skinGradF" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#F59E0B"/>
+      <stop offset="100%" stop-color="#D97706"/>
+    </linearGradient>
+  </defs>
+  <circle cx="60" cy="60" r="58" fill="url(#fatouGrad)" stroke="#ffffff" stroke-width="3"/>
+  <!-- Coiffe / Cheveux stylisés -->
+  <path d="M 36 50 C 36 30 84 30 84 50 C 84 36 75 22 60 22 C 45 22 36 36 36 50 Z" fill="#312E81"/>
+  <circle cx="60" cy="50" r="23" fill="url(#skinGradF)"/>
+  <circle cx="52" cy="48" r="3" fill="#1F2937"/>
+  <circle cx="68" cy="48" r="3" fill="#1F2937"/>
+  <path d="M 52 58 Q 60 65 68 58" fill="none" stroke="#1F2937" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- Robe -->
+  <path d="M 28 106 C 28 85 42 76 60 76 C 78 76 92 85 92 106 Z" fill="#6D28D9"/>
+  <circle cx="60" cy="90" r="4" fill="#FCD34D"/>
+</svg>

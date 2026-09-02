@@ -1,8 +1,10 @@
-import { Component } from '@angular/core';
+import { Component, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { HttpClient } from '@angular/common/http';
 import { RouterLink } from '@angular/router';
 import { Matiere, MatiereLabels, MatiereCouleurs } from '../../../core/enums';
 import { ROUTES_APP } from '../../../core/constantes/routes.constantes';
+import { environment } from '../../../../environments/environment';
 
 interface TendanceBoitierMatiere {
   matiere: Matiere;
@@ -37,12 +39,12 @@ interface TendanceBoitierMatiere {
         <svg viewBox="0 0 120 120" class="score-svg">
           <circle cx="60" cy="60" r="52" fill="none" stroke="var(--color-bg-surface-2)" stroke-width="8"/>
           <circle cx="60" cy="60" r="52" fill="none" stroke="var(--color-secondaire)" stroke-width="8"
-            [style.stroke-dasharray]="(74 / 100) * 327 + ' 327'"
+            [style.stroke-dasharray]="(tauxActivite() / 100) * 327 + ' 327'"
             stroke-linecap="round"
             transform="rotate(-90 60 60)"
             style="transition: stroke-dasharray 1s ease;"/>
         </svg>
-        <div class="global-score-value">74%</div>
+        <div class="global-score-value">{{ tauxActivite() }}%</div>
       </div>
       <div>
         <div class="fw-bold text-xl" style="color:var(--color-text-primary);">Taux d'activité du dispositif</div>
@@ -51,15 +53,15 @@ interface TendanceBoitierMatiere {
       </div>
     </div>
     <div class="global-score-right">
-      <div class="global-stat"><span class="global-stat__val">5</span><span class="global-stat__lab">Matières</span></div>
-      <div class="global-stat"><span class="global-stat__val">1 495 min</span><span class="global-stat__lab">Temps cumulé</span></div>
-      <div class="global-stat"><span class="global-stat__val">45</span><span class="global-stat__lab">Questions IA</span></div>
+      <div class="global-stat"><span class="global-stat__val">{{ matieresUtilisation().length }}</span><span class="global-stat__lab">Matières</span></div>
+      <div class="global-stat"><span class="global-stat__val">{{ tempsTotalMin() }} min</span><span class="global-stat__lab">Temps cumulé</span></div>
+      <div class="global-stat"><span class="global-stat__val">{{ totalQuestions() }}</span><span class="global-stat__lab">Questions IA</span></div>
     </div>
   </div>
 
   <!-- Matières -->
   <div class="progressions-grid stagger-children">
-    @for (prog of matieresUtilisation; track prog.matiere) {
+    @for (prog of matieresUtilisation(); track prog.matiere) {
       <div class="progression-card">
         <div class="progression-card__header" [style.border-left-color]="MatiereCouleurs[prog.matiere]">
           <div style="display:flex;align-items:center;gap:10px;">
@@ -151,17 +153,39 @@ interface TendanceBoitierMatiere {
   `],
 })
 export class ProgressionEnfantComposant {
+  private readonly http = inject(HttpClient);
   readonly routes = ROUTES_APP;
   readonly MatiereLabels = MatiereLabels;
   readonly MatiereCouleurs = MatiereCouleurs;
 
-  readonly matieresUtilisation: TendanceBoitierMatiere[] = [
+  tauxActivite = signal<number>(74);
+  tempsTotalMin = signal<number>(1495);
+  totalQuestions = signal<number>(45);
+
+  matieresUtilisation = signal<TendanceBoitierMatiere[]>([
     { matiere: Matiere.MATHEMATIQUES, partTempsPct: 40, variation: 5, courbe: [60,65,62,70,68,75,78,82], tempsMinutesTotal: 420, notionsMaitrisees: ['Fonctions', 'Dérivées'], notionsRecurrentes: ['Intégrales par parties'] },
     { matiere: Matiere.PHYSIQUE, partTempsPct: 28, variation: 15, courbe: [45,48,55,58,62,65,68,71], tempsMinutesTotal: 280, notionsMaitrisees: ['Mécanique céleste'], notionsRecurrentes: ['2ème loi de Newton'] },
     { matiere: Matiere.CHIMIE, partTempsPct: 15, variation: -3, courbe: [65,62,60,58,62,55,58,58], tempsMinutesTotal: 190, notionsMaitrisees: ['Nomenclature'], notionsRecurrentes: ['Oxydoréduction'] },
-    { matiere: Matiere.SVT, partTempsPct: 10, variation: 8, courbe: [55,60,65,68,70,72,76,79], tempsMinutesTotal: 350, notionsMaitrisees: ['Immunologie'], notionsRecurrentes: ['Méiose vs Mitose'] },
+    { matiere: Matiere.SVT, partTempsPct: 10, variation: 8, courbe: [55,60,65,68,70,72,76,79], tempsMinutesTotal: 350, notionsMaitrisees: ['Photosynthèse', 'Immunologie'], notionsRecurrentes: ['Méiose vs Mitose'] },
     { matiere: Matiere.FRANCAIS, partTempsPct: 7, variation: 2, courbe: [58,60,62,60,63,64,64,65], tempsMinutesTotal: 255, notionsMaitrisees: ['Commentaire'], notionsRecurrentes: ['Plan de dissertation'] },
-  ];
+  ]);
+
+  constructor() {
+    this.chargerDonneesReelles();
+  }
+
+  chargerDonneesReelles(): void {
+    this.http.get<any>(`${environment.apiUrl}/parent/dashboard`).subscribe({
+      next: (data) => {
+        if (data) {
+          if (data.tauxProgressionGlobal) this.tauxActivite.set(data.tauxProgressionGlobal);
+          if (data.totalMinutesApprentissage) this.tempsTotalMin.set(data.totalMinutesApprentissage);
+          if (data.questionsPoseesTotal) this.totalQuestions.set(data.questionsPoseesTotal);
+        }
+      },
+      error: () => {}
+    });
+  }
 
   makeLine(data: number[]): string {
     const max = Math.max(...data), min = Math.min(...data);

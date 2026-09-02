@@ -1,35 +1,78 @@
 /**
- * Service de gestion audio, synthèse vocale et effets sonores (SFX).
+/**
+ * Service de gestion audio, synthèse vocale et analyseur de fréquences pour le Lip-Sync.
  */
 
 import { ApiService } from './api.js';
+import { SimliService } from './simli.js';
 
 export class AudioService {
-  constructor({ onSpeakingChange } = {}) {
+  constructor({ onSpeakingChange, onAnalyserReady } = {}) {
     this.onSpeakingChange = onSpeakingChange;
+    this.onAnalyserReady = onAnalyserReady;
     this.speechSynthesis = window.speechSynthesis;
     this.audioCtx = null;
+    this.analyser = null;
     this.isMuted = false;
     this.audioQueue = [];
     this.isPlayingQueue = false;
     this.currentPlayer = null;
+    this.currentSource = null;
+    
+    this.ENABLE_SIMLI = true; // Streaming Simli en parallèle si connecté
+    this.simli = new SimliService('modal-avatar-video', 'simli-audio');
 
-    this.initAudioContext();
+    // Déblocage automatique de l'AudioContext dès le premier clic/toucher utilisateur
+    this.setupUserGestureUnlock();
+  }
+
+  setupUserGestureUnlock() {
+    const unlock = () => {
+      this.ensureAudioContext();
+      document.removeEventListener('click', unlock);
+      document.removeEventListener('touchstart', unlock);
+      document.removeEventListener('keydown', unlock);
+    };
+    document.addEventListener('click', unlock, { once: true, passive: true });
+    document.addEventListener('touchstart', unlock, { once: true, passive: true });
+    document.addEventListener('keydown', unlock, { once: true, passive: true });
   }
 
   initAudioContext() {
     try {
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (AudioCtx) this.audioCtx = new AudioCtx();
+      if (!this.audioCtx) {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx) {
+          this.audioCtx = new AudioCtx();
+          this.analyser = this.audioCtx.createAnalyser();
+          this.analyser.fftSize = 256;
+          this.analyser.smoothingTimeConstant = 0.8;
+          if (this.onAnalyserReady) {
+            this.onAnalyserReady(this.analyser);
+          }
+        }
+      }
     } catch (e) {
       console.warn("AudioContext non disponible :", e);
     }
   }
 
+  ensureAudioContext() {
+    this.initAudioContext();
+    if (this.audioCtx && this.audioCtx.state === 'suspended') {
+      this.audioCtx.resume().catch(() => {});
+    }
+  }
+
+  getAnalyser() {
+    return this.analyser;
+  }
+
   playBeep(freq = 520, duration = 0.15) {
-    if (!this.audioCtx || this.isMuted) return;
+    if (this.isMuted) return;
+    this.ensureAudioContext();
+    if (!this.audioCtx) return;
     try {
-      if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
       const osc = this.audioCtx.createOscillator();
       const gain = this.audioCtx.createGain();
       osc.type = 'sine';
@@ -52,18 +95,22 @@ export class AudioService {
   }
 
   stop() {
+    this.audioQueue = [];
     if (this.currentPlayer) {
       this.currentPlayer.pause();
+      this.currentPlayer.removeAttribute('src');
+      this.currentPlayer.load();
       this.currentPlayer = null;
+    }
+    if (this.currentSource) {
+      try { this.currentSource.stop(); } catch(e){}
+      this.currentSource = null;
     }
     if (this.speechSynthesis) {
       this.speechSynthesis.cancel();
     }
-    this.audioQueue = [];
     this.isPlayingQueue = false;
-    if (this.onSpeakingChange) {
-      this.onSpeakingChange(false);
-    }
+    if (this.onSpeakingChange) this.onSpeakingChange(false);
   }
 
   cleanTextForTTS(text) {
@@ -84,10 +131,39 @@ export class AudioService {
     const cleanText = this.cleanTextForTTS(sentence);
     if (cleanText.length < 2) return;
 
+    this.ensureAudioContext();
+
     // Pré-chargement immédiat du blob en arrière-plan
     const audioPromise = ApiService.fetchTTSBlob(cleanText);
     this.audioQueue.push({ text: cleanText, audioPromise });
     this.processQueue();
+  }
+
+  async resampleToPCM16(audioBlob) {
+    const arrayBuffer = await audioBlob.arrayBuffer();
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    const tempCtx = new AudioCtx();
+    const audioBuffer = await tempCtx.decodeAudioData(arrayBuffer);
+    try { await tempCtx.close(); } catch (e) {}
+
+    const targetSampleRate = 16000;
+    const targetLength = Math.max(1, Math.ceil(audioBuffer.duration * targetSampleRate));
+    const offlineCtx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, targetLength, targetSampleRate);
+
+    const source = offlineCtx.createBufferSource();
+    source.buffer = audioBuffer;
+    source.connect(offlineCtx.destination);
+    source.start(0);
+
+    const renderedBuffer = await offlineCtx.startRendering();
+    const channelData = renderedBuffer.getChannelData(0);
+
+    const pcm16 = new Int16Array(channelData.length);
+    for (let i = 0; i < channelData.length; i++) {
+      const s = Math.max(-1, Math.min(1, channelData[i]));
+      pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+    }
+    return { pcm16Data: pcm16.buffer, duration: audioBuffer.duration };
   }
 
   async processQueue() {
@@ -101,30 +177,75 @@ export class AudioService {
     while (this.audioQueue.length > 0 && !this.isMuted) {
       const item = this.audioQueue.shift();
       try {
+        console.log("🔊 [AudioService] Lecture de la phrase :", item.text);
         const audioBlob = await item.audioPromise;
-        if (audioBlob) {
-          const audioUrl = URL.createObjectURL(audioBlob);
-          const player = new Audio(audioUrl);
-          this.currentPlayer = player;
 
-          await new Promise((resolve) => {
-            player.onended = () => {
-              URL.revokeObjectURL(audioUrl);
-              this.currentPlayer = null;
-              resolve();
-            };
-            player.onerror = () => {
-              URL.revokeObjectURL(audioUrl);
-              this.currentPlayer = null;
-              resolve();
-            };
-            player.play().catch(() => resolve());
-          });
+        if (audioBlob && audioBlob.size > 100) {
+          // 1. Envoi parallèle vers Simli WebRTC (si connecté pour l'avatar vidéo)
+          if (this.ENABLE_SIMLI && this.simli && this.simli.isConnected) {
+            this.resampleToPCM16(audioBlob).then(({ pcm16Data, duration }) => {
+              console.log(`🚀 [Simli] Envoi audio PCM16 (${(duration).toFixed(1)}s) vers WebRTC...`);
+              this.simli.sendAudioBuffer(pcm16Data);
+            }).catch(() => {});
+          }
+
+          // 2. Lecture audio locale directe avec analyseur FFT pour le Vortex
+          let played = false;
+          this.ensureAudioContext();
+
+          if (this.audioCtx) {
+            try {
+              if (this.audioCtx.state === 'suspended') {
+                await this.audioCtx.resume();
+              }
+              const arrayBuffer = await audioBlob.arrayBuffer();
+              const bufferCopy = arrayBuffer.slice(0);
+              
+              const audioBuffer = await new Promise((res, rej) => {
+                this.audioCtx.decodeAudioData(bufferCopy, res, rej);
+              });
+
+              const source = this.audioCtx.createBufferSource();
+              source.buffer = audioBuffer;
+              this.currentSource = source;
+
+              const gainNode = this.audioCtx.createGain();
+              gainNode.gain.value = (this.ENABLE_SIMLI && this.simli && this.simli.isConnected) ? 0 : 1;
+
+              source.connect(gainNode);
+              gainNode.connect(this.audioCtx.destination);
+
+              if (this.analyser) {
+                // Déconnecter l'analyseur de toute destination précédente pour éviter l'écho
+                this.analyser.disconnect();
+                // Connecter la source à l'analyseur juste pour lire les données FFT (animation)
+                source.connect(this.analyser);
+              }
+
+              await new Promise((resolve) => {
+                source.onended = () => {
+                  this.currentSource = null;
+                  resolve();
+                };
+                source.start(0);
+              });
+              played = true;
+            } catch (webAudioErr) {
+              console.warn("⚠️ [AudioService] Échec Web Audio API, bascule sur Audio HTML5 :", webAudioErr);
+            }
+          }
+
+          // 3. Fallback : HTML5 Audio player
+          if (!played) {
+            await this.playWithAudioElement(audioBlob);
+          }
+
         } else if (this.speechSynthesis) {
+          // 4. Fallback ultime : Web Speech API si le backend n'a pas produit de blob
           await this.speakWithWebSpeech(item.text);
         }
       } catch (err) {
-        console.warn("Erreur lecture audio :", err);
+        console.warn("❌ [AudioService] Erreur globale lecture audio :", err);
       }
     }
 
@@ -132,16 +253,25 @@ export class AudioService {
     if (this.onSpeakingChange) this.onSpeakingChange(false);
   }
 
+  playWithAudioElement(audioBlob) {
+    return new Promise((resolve) => {
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const player = new Audio(audioUrl);
+      this.currentPlayer = player;
+      player.onended = () => { URL.revokeObjectURL(audioUrl); this.currentPlayer = null; resolve(); };
+      player.onerror = () => { URL.revokeObjectURL(audioUrl); this.currentPlayer = null; resolve(); };
+      player.play().catch(() => { URL.revokeObjectURL(audioUrl); this.currentPlayer = null; resolve(); });
+    });
+  }
+
   speakWithWebSpeech(text) {
     if (!this.speechSynthesis || this.isMuted || !text) return Promise.resolve();
     return new Promise((resolve) => {
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = 'fr-FR';
-      utterance.rate = 1.0;
       const voices = this.speechSynthesis.getVoices();
-      const frVoice = voices.find(v => v.lang.startsWith('fr') && (v.name.includes('Denise') || v.name.includes('Google') || v.name.includes('Natural') || v.name.includes('Thomas')));
+      const frVoice = voices.find(v => v.lang.startsWith('fr'));
       if (frVoice) utterance.voice = frVoice;
-
       utterance.onend = resolve;
       utterance.onerror = resolve;
       this.speechSynthesis.speak(utterance);

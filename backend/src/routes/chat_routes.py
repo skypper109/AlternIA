@@ -4,6 +4,7 @@ Routes API pour le chat pédagogique, streaming SSE, curriculum et profil appren
 
 import asyncio
 import json
+import time
 from pathlib import Path
 from typing import AsyncIterator
 from fastapi import APIRouter
@@ -60,24 +61,30 @@ def _make_no_context_response(
 @router.post("/api/ask", response_model=ChatResponse)
 def chat_endpoint(req: ChatRequest):
     """Endpoint principal de réponse pédagogique non-streamée."""
+    t0_req = time.perf_counter()
     orch = get_orchestrator()
     norm_class = normalize_student_class(req.student_class)
     session_id = req.session_id or f"session_{req.student_id}"
 
+    # Extraction de la véritable question coeur débarrassée des préambules oraux/conversationnels
+    core_question = QueryContextualizer.extract_core_question(req.question)
+
+    print(f"\n\033[36m⏱️  [chat_routes.py]\033[0m Requête API reçue : \"{req.question}\" -> Question coeur : \"{core_question}\" (Classe: {norm_class})")
+
     # Détection automatique de matière selon le programme malien si mode général
     effective_subject = req.subject
     if effective_subject in {None, "", "général", "general", "toutes", "tous"}:
-        effective_subject = detect_malian_curriculum_subject(req.question)
+        effective_subject = detect_malian_curriculum_subject(core_question)
 
     # Contexte RAG avec contextualisation multi-tours
     context = None
     if req.enable_rag and orch.rag_service:
-        rag_query = req.question
+        rag_query = core_question
         session = orch.conversation_manager.get(session_id)
         if session and session.messages:
             student_past_msgs = [m.content for m in session.messages if m.role == "student"]
             rag_query = QueryContextualizer.contextualize(
-                current_question=req.question,
+                current_question=core_question,
                 past_student_messages=student_past_msgs,
                 current_topic=getattr(session, "current_topic", None),
             )
@@ -88,29 +95,29 @@ def chat_endpoint(req: ChatRequest):
                 subject=effective_subject,
                 student_id=req.student_id,
             )
+            sources_list = getattr(context, "sources", []) if context else []
+            if (not sources_list or max((getattr(s, "score", 0.0) for s in sources_list), default=0.0) < 0.35) and effective_subject:
+                context_global = orch.rag_service.retrieve(
+                    question=rag_query,
+                    student_class=norm_class,
+                    subject=None,
+                    student_id=req.student_id,
+                )
+                if context_global and getattr(context_global, "sources", []):
+                    context = context_global
         except Exception:
             context = None
 
-    # ----------------------------------------------------------------
-    # DOUBLE GUARD hors-programme :
-    #   1. Aucune source trouvée
-    #   2. Sources trouvées mais score max trop faible (mauvaise matière)
-    # ----------------------------------------------------------------
-    if req.enable_rag and orch.rag_service:
-        sources_list = getattr(context, "sources", []) if context else []
-        _max_score = max(
-            (getattr(s, "score", 0.0) for s in sources_list),
-            default=0.0,
-        )
-        if len(sources_list) == 0 or _max_score < 0.40:
-            return _make_no_context_response(
-                subject=effective_subject,
-                student_class=norm_class,
-            )
+    # Filtrage des sources RAG non pertinentes
+    if context and hasattr(context, "sources"):
+        sources_list = getattr(context, "sources", [])
+        _max_score = max((getattr(s, "score", 0.0) for s in sources_list), default=0.0)
+        if len(sources_list) == 0 or _max_score < 0.35:
+            context = None
 
     # Exécution du pipeline
     result = orch.ask(
-        question=req.question,
+        question=core_question,
         context=context,
         student_class=norm_class,
         subject=effective_subject,
@@ -147,6 +154,9 @@ def chat_endpoint(req: ChatRequest):
         session_id=session_id,
     )
 
+    dt_total = time.perf_counter() - t0_req
+    print(f"\033[36m⏱️  [chat_routes.py]\033[0m Réponse API synchrone générée en \033[1;32m{dt_total:.2f}s\033[0m\n")
+
     return ChatResponse(
         answer=result["answer"],
         intent=result.get("intent", "explanation"),
@@ -163,24 +173,30 @@ def chat_endpoint(req: ChatRequest):
 @router.post("/api/ask/stream")
 async def chat_stream_endpoint(req: ChatRequest):
     """Endpoint de streaming Server-Sent Events (SSE) token par token."""
+    t0_req = time.perf_counter()
     orch = get_orchestrator()
     norm_class = normalize_student_class(req.student_class)
     session_id = req.session_id or f"session_{req.student_id}"
 
+    # Extraction de la véritable question coeur débarrassée des préambules oraux/conversationnels
+    core_question = QueryContextualizer.extract_core_question(req.question)
+
+    print(f"\n\033[36m⏱️  [chat_routes.py]\033[0m Requête SSE reçue : \"{req.question}\" -> Question coeur : \"{core_question}\" (Classe: {norm_class})")
+
     # Détection automatique de matière selon le programme malien si mode général
     effective_subject = req.subject
     if effective_subject in {None, "", "général", "general", "toutes", "tous"}:
-        effective_subject = detect_malian_curriculum_subject(req.question)
+        effective_subject = detect_malian_curriculum_subject(core_question)
 
     # Contexte RAG avec contextualisation multi-tours
     context = None
     if req.enable_rag and orch.rag_service:
-        rag_query = req.question
+        rag_query = core_question
         session = orch.conversation_manager.get(session_id)
         if session and session.messages:
             student_past_msgs = [m.content for m in session.messages if m.role == "student"]
             rag_query = QueryContextualizer.contextualize(
-                current_question=req.question,
+                current_question=core_question,
                 past_student_messages=student_past_msgs,
                 current_topic=getattr(session, "current_topic", None),
             )
@@ -191,6 +207,17 @@ async def chat_stream_endpoint(req: ChatRequest):
                 subject=effective_subject,
                 student_id=req.student_id,
             )
+            # Si aucune source trouvée dans la matière spécifique, recherche globale multi-matières
+            sources_list = getattr(context, "sources", []) if context else []
+            if (not sources_list or max((getattr(s, "score", 0.0) for s in sources_list), default=0.0) < 0.35) and effective_subject:
+                context_global = orch.rag_service.retrieve(
+                    question=rag_query,
+                    student_class=norm_class,
+                    subject=None,
+                    student_id=req.student_id,
+                )
+                if context_global and getattr(context_global, "sources", []):
+                    context = context_global
         except Exception:
             context = None
 
@@ -207,49 +234,15 @@ async def chat_stream_endpoint(req: ChatRequest):
                 "score": float(getattr(s, "score", 0.0)),
             })
 
-    # ----------------------------------------------------------------
-    # DOUBLE GUARD hors-programme (stream) : identique à l'endpoint non-streamé.
-    # ----------------------------------------------------------------
-    if req.enable_rag and orch.rag_service:
-        sources_list = getattr(context, "sources", []) if context else []
-        _max_score = max(
-            (getattr(s, "score", 0.0) for s in sources_list),
-            default=0.0,
-        )
-        if len(sources_list) == 0 or _max_score < 0.40:
-            subject_label = effective_subject or "la matière sélectionnée"
-            refusal_text = (
-                f"Je n'ai pas trouvé d'information sur ce sujet dans le programme officiel "
-                f"de {norm_class} pour {subject_label}. "
-                f"Pose-moi une question sur {subject_label} conforme au programme de ta classe "
-                f"pour que je puisse t'aider."
-            )
-
-            async def refusal_sse() -> AsyncIterator[str]:
-                payload = json.dumps({"chunk": refusal_text, "done": False}, ensure_ascii=False)
-                yield f"data: {payload}\n\n"
-                final = json.dumps({
-                    "chunk": "",
-                    "done": True,
-                    "full_text": refusal_text,
-                    "student_class": norm_class,
-                    "sources": [],
-                    "out_of_scope": True,
-                }, ensure_ascii=False)
-                yield f"data: {final}\n\n"
-
-            return StreamingResponse(
-                refusal_sse(),
-                media_type="text/event-stream",
-                headers={
-                    "Cache-Control": "no-cache",
-                    "Connection": "keep-alive",
-                    "X-Accel-Buffering": "no",
-                },
-            )
+    # Filtrage des sources RAG non pertinentes
+    if context and hasattr(context, "sources"):
+        sources_list = getattr(context, "sources", [])
+        _max_score = max((getattr(s, "score", 0.0) for s in sources_list), default=0.0)
+        if len(sources_list) == 0 or _max_score < 0.35:
+            context = None
 
     generator = orch.ask_stream(
-        question=req.question,
+        question=core_question,
         context=context,
         student_class=norm_class,
         subject=effective_subject,
@@ -275,6 +268,9 @@ async def chat_stream_endpoint(req: ChatRequest):
             sources=formatted_sources,
             session_id=session_id,
         )
+
+        dt_total = time.perf_counter() - t0_req
+        print(f"\033[36m⏱️  [chat_routes.py]\033[0m Stream SSE terminé en \033[1;32m{dt_total:.2f}s\033[0m ({len(full_text)} caractères)\n")
 
         # Événement de fin avec métadonnées et sources RAG
         final_payload = json.dumps({

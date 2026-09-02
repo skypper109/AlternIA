@@ -1,3 +1,4 @@
+import time
 from alternia.pedagogical.models import (
     PedagogicalRequest,
     PedagogicalResponse,
@@ -62,6 +63,7 @@ class PedagogicalEngine:
                 "La question de l'élève ne peut pas être vide."
             )
 
+        t0 = time.perf_counter()
         intent = self._resolve_intent(
             request.analysis.intent
         )
@@ -75,6 +77,9 @@ class PedagogicalEngine:
         sources_used = self._extract_sources(
             request
         )
+
+        dt = time.perf_counter() - t0
+        print(f"\033[36m⏱️  [engine.py]\033[0m Analyse pédagogique & stratégie '{intent}' générée en \033[1;33m{dt:.4f}s\033[0m")
 
         return PedagogicalResponse(
             answer=instruction,

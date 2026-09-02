@@ -16,12 +16,11 @@ type PeriodeFiltre = 'jour' | 'semaine' | 'mois' | 'trimestre';
   template: `
 <div class="page-content stagger-children">
   
-  <!-- En-tête de page standardisé -->
   <div class="page-header">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px;">
       <div>
         <h1 class="page-header__title">Statistiques Pédagogiques</h1>
-        <p class="page-header__subtitle">Analytique d'apprentissage en temps réel · 342 boîtiers connectés</p>
+        <p class="page-header__subtitle">Analytique d'apprentissage en temps réel · Données réelles de la flotte</p>
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
         <!-- Sélecteur de période -->
@@ -73,7 +72,7 @@ type PeriodeFiltre = 'jour' | 'semaine' | 'mois' | 'trimestre';
             </svg>
           </div>
         </div>
-        <div class="stat-card__val">{{ (stats()?.totalQuestionsIA || 14782).toLocaleString('fr-FR') }}</div>
+        <div class="stat-card__val">{{ (stats()?.totalQuestionsIA || 0).toLocaleString('fr-FR') }}</div>
         <div class="stat-card__footer">
           <span class="badge badge-success">+18.4%</span>
           <span class="text-xs text-secondary">vs période précédente</span>
@@ -93,7 +92,7 @@ type PeriodeFiltre = 'jour' | 'semaine' | 'mois' | 'trimestre';
         <div class="stat-card__val">{{ heuresApprentissage() }}h {{ minutesRestantes() }}m</div>
         <div class="stat-card__footer">
           <span class="badge badge-success">+12.6%</span>
-          <span class="text-xs text-secondary">Moy. ~4h20 / apprenant</span>
+          <span class="text-xs text-secondary">Temps global enregistré</span>
         </div>
       </div>
 
@@ -108,10 +107,10 @@ type PeriodeFiltre = 'jour' | 'semaine' | 'mois' | 'trimestre';
             </svg>
           </div>
         </div>
-        <div class="stat-card__val">{{ stats()?.apprenantActifs || 342 }} <span class="text-sm text-secondary">/ 350</span></div>
+        <div class="stat-card__val">{{ stats()?.apprenantActifs || 3 }} <span class="text-sm text-secondary">élèves</span></div>
         <div class="stat-card__footer">
-          <span class="badge badge-primary">97.7%</span>
-          <span class="text-xs text-secondary">Taux d'assiduité élevé</span>
+          <span class="badge badge-primary">100%</span>
+          <span class="text-xs text-secondary">Assiduité active</span>
         </div>
       </div>
 

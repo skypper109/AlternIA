@@ -344,8 +344,8 @@ def main():
             continue
 
         # Traitement d'une question élève avec le RAG
-        print("\n\033[1;33m🔍 Recherche dans le programme officiel & analyse pédagogique...\033[0m")
-        start_time = time.perf_counter()
+        req_start = time.perf_counter()
+        print(f"\n\033[36m⏱️  [chat.py]\033[0m 1. Question élève reçue : \"{question}\" (Classe: {current_class}, Série: {current_series})")
 
         try:
             # Matière résolue dynamiquement si en mode général
@@ -356,8 +356,11 @@ def main():
             # Identifie automatiquement la matière (biologie, chimie, physique, maths,
             # économie, comptabilité, histoire, géographie, philosophie, linguistique, etc.)
             # ----------------------------------------------------------------
+            t0_sub = time.perf_counter()
             if effective_subject is None:
                 effective_subject = detect_malian_curriculum_subject(question)
+                dt_sub = time.perf_counter() - t0_sub
+                print(f"\033[36m⏱️  [chat.py]\033[0m 2. Matière détectée automatiquement : \033[1;32m{effective_subject or 'Général'}\033[0m en \033[1;33m{dt_sub:.4f}s\033[0m")
 
             # Contextualisation intelligente de la recherche RAG pour les questions de suivi
             rag_query = question
@@ -466,11 +469,12 @@ def main():
             if audio_enabled and sentence_buffer.strip():
                 tts.speak_sentence_async(tts_cleanup.sub("", sentence_buffer).strip())
 
-            elapsed = time.perf_counter() - start_time
-            print(f"\n\n\033[2m[Réponse générée en {elapsed:.2f}s]\033[0m\n")
+            total_elapsed = time.perf_counter() - req_start
+            print(f"\n\n\033[1;32m[✓ Réponse terminée en {total_elapsed:.2f}s | {len(full_response)} caractères]\033[0m\n")
 
             # Enregistrement en direct de l'interaction dans alta_db (alertes & analytics admin temps réel)
             try:
+                t0_db = time.perf_counter()
                 if str(PROJECT_ROOT) not in sys.path:
                     sys.path.insert(0, str(PROJECT_ROOT))
                 from backend.src.services.learning_service import record_student_interaction
@@ -484,6 +488,8 @@ def main():
                     sources=last_sources,
                     session_id=session_id,
                 )
+                dt_db = time.perf_counter() - t0_db
+                print(f"\033[36m⏱️  [chat.py]\033[0m Interaction enregistrée en DB (alta_db) en \033[1;33m{dt_db:.4f}s\033[0m\n")
             except Exception as db_err:
                 pass
 

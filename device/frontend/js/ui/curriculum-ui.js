@@ -1,5 +1,6 @@
 /**
- * Module de gestion de l'interface des classes et matières du Lycée Malien (Liquid Glass & SVG Icons).
+ * Module de gestion de l'interface des classes, matières et Défis Express du Bac (Lycée Malien).
+ * Rendu dynamique, gamifié, tape-à-l'œil et 100% interactif pour les élèves.
  */
 
 import { CURRICULUM_DATA } from '../config/curriculum.js';
@@ -68,11 +69,15 @@ export class CurriculumUI {
 
     CURRICULUM_DATA.classes.forEach(c => {
       const btn = document.createElement('button');
-      btn.className = `glass-tab-btn ${c.id === this.currentClass ? 'active' : ''}`;
+      const isActive = c.id === this.currentClass;
+      btn.className = `glass-tab-btn ${isActive ? 'active shadow-lg shadow-cyan-950/50' : ''}`;
+      
+      const dotColor = c.id === '10eme' ? 'bg-emerald-400' : c.id === '11eme' ? 'bg-cyan-400' : 'bg-orange-400';
+
       btn.innerHTML = `
-        <span class="w-1.5 h-1.5 rounded-full ${c.id === this.currentClass ? 'bg-white' : 'bg-slate-400'}"></span>
-        <span>${c.name}</span>
-        <span class="text-[10.5px] opacity-75 font-normal">(${c.badge})</span>
+        <span class="w-2 h-2 rounded-full ${isActive ? 'bg-white shadow-[0_0_8px_#ffffff]' : dotColor}"></span>
+        <span class="tracking-wide">${c.name}</span>
+        <span class="text-[10px] px-1.5 py-0.5 rounded bg-white/10 opacity-85 font-mono uppercase font-bold">${c.badge}</span>
       `;
       btn.onclick = () => {
         if (this.onClassSelect) this.onClassSelect(c.id);
@@ -88,9 +93,10 @@ export class CurriculumUI {
 
     classObj.subjects.forEach(s => {
       const btn = document.createElement('button');
-      btn.className = `glass-tab-btn ${s.id === this.currentSubject ? 'active' : ''}`;
+      const isActive = s.id === this.currentSubject;
+      btn.className = `glass-tab-btn ${isActive ? 'active' : ''}`;
       btn.innerHTML = `
-        <span class="text-cyan-400 flex items-center">${CurriculumUI.getSubjectSvg(s.iconType)}</span>
+        <span class="${isActive ? 'text-white' : 'text-cyan-300'} flex items-center">${CurriculumUI.getSubjectSvg(s.iconType)}</span>
         <span>${s.name}</span>
       `;
       btn.onclick = () => {
@@ -103,23 +109,29 @@ export class CurriculumUI {
   renderTopics() {
     if (!this.topicContainer) return;
     const classObj = this.getClassObj(this.currentClass);
-    const topics = (classObj.topics && classObj.topics[this.currentSubject]) || [
-      "Notions fondamentales du chapitre",
-      "Formule clé et démonstration",
-      "Exercice d'application type Bac",
-      "Méthode de résolution pas à pas"
-    ];
+    const rawTopics = (classObj.topics && classObj.topics[this.currentSubject]) || [];
 
     this.topicContainer.innerHTML = '';
-    topics.forEach(topic => {
+
+    rawTopics.forEach(item => {
+      const topicTitle = typeof item === 'string' ? item : item.title;
+      const tagText = typeof item === 'object' && item.tag ? item.tag : 'Notion Clé';
+      const tagType = typeof item === 'object' && item.type ? item.type : 'cyan';
+
+      let tagClass = 'badge-challenge-cyan';
+      if (tagType === 'orange') tagClass = 'badge-challenge-orange';
+      if (tagType === 'emerald') tagClass = 'badge-challenge-emerald';
+      if (tagType === 'purple') tagClass = 'badge-challenge-purple';
+
       const chip = document.createElement('button');
-      chip.className = 'glass-chip-btn';
+      chip.className = 'glass-chip-btn group hover:border-cyan-400/60 hover:bg-cyan-950/40 transition-all';
       chip.innerHTML = `
-        <svg class="w-3 h-3 text-cyan-400 opacity-70" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3L11 8L6 13"/></svg>
-        <span>${topic}</span>
+        <span class="badge-challenge-pill ${tagClass}">${tagText}</span>
+        <span class="text-slate-200 group-hover:text-white font-medium text-xs">${topicTitle}</span>
+        <svg class="w-3.5 h-3.5 text-cyan-400 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3L11 8L6 13"/></svg>
       `;
       chip.onclick = () => {
-        if (this.onTopicClick) this.onTopicClick(topic);
+        if (this.onTopicClick) this.onTopicClick(topicTitle);
       };
       this.topicContainer.appendChild(chip);
     });

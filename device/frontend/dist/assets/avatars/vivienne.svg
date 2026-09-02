@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <defs>
+    <linearGradient id="avatarGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3B82F6"/>
+      <stop offset="50%" stop-color="#6366F1"/>
+      <stop offset="100%" stop-color="#EC4899"/>
+    </linearGradient>
+    <linearGradient id="skinGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FCD34D"/>
+      <stop offset="100%" stop-color="#F59E0B"/>
+    </linearGradient>
+  </defs>
+  <circle cx="60" cy="60" r="58" fill="url(#avatarGrad)" stroke="#ffffff" stroke-width="3"/>
+  <!-- Tête / Visage -->
+  <circle cx="60" cy="50" r="24" fill="url(#skinGrad)"/>
+  <!-- Yeux -->
+  <circle cx="52" cy="48" r="3" fill="#1F2937"/>
+  <circle cx="68" cy="48" r="3" fill="#1F2937"/>
+  <!-- Sourire -->
+  <path d="M 52 58 Q 60 66 68 58" fill="none" stroke="#1F2937" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- Corps / Épaules -->
+  <path d="M 28 106 C 28 85 42 76 60 76 C 78 76 92 85 92 106 Z" fill="#ffffff" opacity="0.95"/>
+  <!-- Badge Tuteur IA -->
+  <circle cx="85" cy="85" r="14" fill="#10B981" stroke="#ffffff" stroke-width="2"/>
+  <path d="M 80 85 L 83 88 L 90 81" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
