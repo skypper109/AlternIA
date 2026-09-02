@@ -118,15 +118,31 @@ export class AudioService {
     this.processQueue();
   }
 
-  // Convertisseur vers PCM16 à 16000Hz (Format requis par Simli)
-  audioBufferToPCM16(audioBuffer) {
-    const channelData = audioBuffer.getChannelData(0);
+  async resampleToPCM16(audioBlob) {
+    const arrayBuffer = await audioBlob.arrayBuffer();
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    const tempCtx = new AudioCtx();
+    const audioBuffer = await tempCtx.decodeAudioData(arrayBuffer);
+    try { await tempCtx.close(); } catch (e) {}
+
+    const targetSampleRate = 16000;
+    const targetLength = Math.max(1, Math.ceil(audioBuffer.duration * targetSampleRate));
+    const offlineCtx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, targetLength, targetSampleRate);
+
+    const source = offlineCtx.createBufferSource();
+    source.buffer = audioBuffer;
+    source.connect(offlineCtx.destination);
+    source.start(0);
+
+    const renderedBuffer = await offlineCtx.startRendering();
+    const channelData = renderedBuffer.getChannelData(0);
+
     const pcm16 = new Int16Array(channelData.length);
     for (let i = 0; i < channelData.length; i++) {
-        let s = Math.max(-1, Math.min(1, channelData[i]));
-        pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+      const s = Math.max(-1, Math.min(1, channelData[i]));
+      pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
     }
-    return new Uint8Array(pcm16.buffer);
+    return { pcm16Data: pcm16.buffer, duration: audioBuffer.duration };
   }
 
   async processQueue() {
@@ -143,42 +159,26 @@ export class AudioService {
         console.log("🔊 [AudioService] Préparation lecture :", item.text);
         const audioBlob = await item.audioPromise;
         if (audioBlob && audioBlob.size > 100) {
-          
-          let playedSuccessfully = false;
+          let playedViaSimli = false;
 
-          // Streaming via Simli (prioritaire si initialisé et modal ouvert)
-          if (this.ENABLE_SIMLI && this.simli.isInitialized) {
-             try {
-                const arrayBuffer = await audioBlob.arrayBuffer();
-                
-                // Utiliser un OfflineAudioContext pour forcer le rééchantillonnage à 16000 Hz
-                const offlineCtx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, 48000 * 10, 16000);
-                const decodedBuffer = await offlineCtx.decodeAudioData(arrayBuffer);
-                
-                // Extraire exactement la durée nécessaire
-                const actualCtx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, decodedBuffer.length, 16000);
-                const source = actualCtx.createBufferSource();
-                source.buffer = decodedBuffer;
-                source.connect(actualCtx.destination);
-                source.start(0);
-                
-                const resampledBuffer = await actualCtx.startRendering();
-                const pcm16Data = this.audioBufferToPCM16(resampledBuffer);
-                
-                console.log("🚀 [Simli] Envoi de l'audio PCM16 au WebRTC...");
-                await this.simli.sendAudioBuffer(pcm16Data);
-                
-                // Simuler le délai de lecture pour ne pas consommer toute la queue
-                await new Promise(resolve => setTimeout(resolve, resampledBuffer.duration * 1000));
-                
-                playedSuccessfully = true;
-             } catch (e) {
-                console.warn("⚠️ [SimliService] Échec du streaming Simli :", e);
-             }
+          // Streaming via Simli WebRTC
+          if (this.ENABLE_SIMLI) {
+            try {
+              if (!this.simli.isInitialized && !this.simli.isConnecting) {
+                await this.simli.init();
+              }
+              const { pcm16Data, duration } = await this.resampleToPCM16(audioBlob);
+              console.log(`🚀 [Simli] Envoi audio PCM16 (${(duration).toFixed(1)}s) vers WebRTC...`);
+              await this.simli.sendAudioBuffer(pcm16Data);
+              await new Promise(resolve => setTimeout(resolve, Math.max(400, duration * 1000)));
+              playedViaSimli = true;
+            } catch (e) {
+              console.warn("⚠️ [SimliService] Échec du streaming Simli :", e);
+            }
           }
 
           // Fallback : Web Audio API directe
-          if (!playedSuccessfully && this.audioCtx) {
+          if (!playedViaSimli && this.audioCtx) {
             try {
               if (this.audioCtx.state === 'suspended') {
                 await this.audioCtx.resume();
@@ -208,13 +208,12 @@ export class AudioService {
                 };
                 source.start(0);
               });
-              playedSuccessfully = true;
+              playedViaSimli = true;
             } catch (webAudioErr) {}
           }
 
-          if (!playedSuccessfully) {
-             await this.playWithAudioElement(audioBlob);
-             playedSuccessfully = true;
+          if (!playedViaSimli) {
+            await this.playWithAudioElement(audioBlob);
           }
 
         } else if (this.speechSynthesis) {

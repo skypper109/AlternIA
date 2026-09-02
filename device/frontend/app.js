@@ -178,28 +178,9 @@ export class AlternIAApp {
             const style = data.stylePedagogique ? ` • Style ${data.stylePedagogique}` : '';
             this.modalAvatarSubtitle.textContent = `${subject}${style}`;
           }
-          if (data.photoUrl && this.modalVortex) {
-            this.modalVortex.setAvatarImage(data.photoUrl, data.nom, data.landmarks);
-            if (data.visemePhotos && this.modalVortex.animator) {
-              this.modalVortex.animator.setVisemePhotos(data.visemePhotos);
-            }
-          }
-
-          // Initialisation proactive du flux Simli WebRTC
+          // Initialisation proactive du flux Simli WebRTC (avec Face ID)
           if (this.audio && this.audio.simli) {
-            this.audio.simli.init();
-          }
-
-          // Si une vidéo MP4 existe
-          if (data.videoUrl) {
-            if (this.avatarVideo) {
-              this.avatarVideo.src = data.videoUrl;
-              this.avatarVideo.load();
-            }
-            if (this.modalAvatarVideo) {
-              this.modalAvatarVideo.src = data.videoUrl;
-              this.modalAvatarVideo.load();
-            }
+            this.audio.simli.init(data.face_id || data.faceId || null);
           }
         }
       }
@@ -399,7 +380,7 @@ export class AlternIAApp {
 
     if (this.questionInput) this.questionInput.value = '';
     this.audio.stop();
-    
+
     if (this.audio.audioCtx && this.audio.audioCtx.state === 'suspended') {
       this.audio.audioCtx.resume();
     }
