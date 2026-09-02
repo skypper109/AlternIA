@@ -10,9 +10,10 @@ export class SimliService {
     this.audioElement = document.getElementById(audioElementId);
     this.client = null;
     this.isInitialized = false;
+    this.isConnected = false;
     this.isConnecting = false;
     this.apiKey = "1e1ikibdppliekw9mt04nf";
-    this.faceId = "b9e5fba3-071a-4e35-896e-211c4d6eaa7b"; // Face ID configuré par l'utilisateur
+    this.faceId = "b9e5fba3-071a-4e35-896e-211c4d6eaa7b";
   }
 
   getVideoElement() {
@@ -30,7 +31,7 @@ export class SimliService {
   }
 
   async init(customFaceId = null) {
-    if (this.isInitialized || this.isConnecting) return;
+    if (this.isConnected || this.isConnecting) return;
     this.isConnecting = true;
 
     if (customFaceId) {
@@ -46,7 +47,7 @@ export class SimliService {
     if (statusDot) statusDot.className = "w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse";
 
     try {
-      console.log(`🚀 [SimliService] Connexion WebRTC LiveKit Simli (Face ID: ${this.faceId})...`);
+      console.log(`🚀 [SimliService] Tentative connexion WebRTC LiveKit Simli (Face ID: ${this.faceId})...`);
 
       let SimliClientModule;
       try {
@@ -68,7 +69,7 @@ export class SimliService {
         handleSilence: true,
         videoRef: videoEl,
         audioRef: audioEl,
-        enableConsoleLogs: true,
+        enableConsoleLogs: false,
       });
 
       if (videoEl) {
@@ -81,6 +82,9 @@ export class SimliService {
 
       this.client.on("connected", () => {
         console.log("✅ [SimliService] Connecté avec succès au flux WebRTC Simli !");
+        this.isConnected = true;
+        this.isInitialized = true;
+        this.isConnecting = false;
         if (videoEl) {
           videoEl.classList.remove('opacity-0');
           videoEl.classList.add('opacity-100');
@@ -92,6 +96,7 @@ export class SimliService {
 
       this.client.on("disconnected", () => {
         console.log("ℹ️ [SimliService] Déconnecté de Simli.");
+        this.isConnected = false;
         this.isInitialized = false;
         this.isConnecting = false;
         if (videoEl) {
@@ -101,7 +106,8 @@ export class SimliService {
       });
 
       this.client.on("failed", (err) => {
-        console.error("❌ [SimliService] Échec de la connexion Simli :", err);
+        console.warn("⚠️ [SimliService] Connexion WebRTC Simli non disponible (fallback vocal local activé).");
+        this.isConnected = false;
         this.isInitialized = false;
         this.isConnecting = false;
         if (statusText) statusText.textContent = "Prêt à répondre";
@@ -113,26 +119,19 @@ export class SimliService {
       });
 
       await this.client.start();
-      this.isInitialized = true;
-      this.isConnecting = false;
-      console.log("🌟 [SimliService] Client WebRTC Simli opérationnel !");
     } catch (err) {
       this.isConnecting = false;
+      this.isConnected = false;
       this.isInitialized = false;
-      console.warn("⚠️ [SimliService] Erreur d'initialisation de SimliClient :", err);
+      console.warn("⚠️ [SimliService] Erreur d'initialisation SimliClient (mode vocal local sécurisé) :", err);
       if (statusText) statusText.textContent = "Prêt à répondre";
       if (statusDot) statusDot.className = "w-2.5 h-2.5 rounded-full bg-emerald-400";
     }
   }
 
   async sendAudioBuffer(audioBuffer) {
-    if (!this.isInitialized && !this.isConnecting) {
-      console.log("🔄 [SimliService] Client non connecté. Connexion en cours...");
-      await this.init();
-    }
-    if (!this.client || !this.isInitialized) {
-      console.warn("⚠️ [SimliService] Impossible d'envoyer l'audio : client non connecté.");
-      return;
+    if (!this.isConnected || !this.client) {
+      return false;
     }
 
     try {
@@ -143,8 +142,10 @@ export class SimliService {
       } else {
         this.client.sendAudioData(new Uint8Array(audioBuffer.buffer || audioBuffer));
       }
+      return true;
     } catch (err) {
-      console.error("❌ [SimliService] Erreur lors de l'envoi de l'audio à Simli :", err);
+      console.warn("⚠️ [SimliService] Erreur lors de l'envoi de l'audio à Simli :", err);
+      return false;
     }
   }
 
@@ -154,6 +155,7 @@ export class SimliService {
         this.client.close();
       } catch (e) {}
       this.client = null;
+      this.isConnected = false;
       this.isInitialized = false;
       this.isConnecting = false;
     }

@@ -190,8 +190,8 @@ export class AlternIAApp {
   }
 
   playAvatarPresentation() {
-    if (this.audio && this.audio.audioCtx && this.audio.audioCtx.state === 'suspended') {
-      this.audio.audioCtx.resume();
+    if (this.audio) {
+      this.audio.ensureAudioContext();
     }
 
     const nom = this.activeAvatar?.nom || "Assistant AlternIA";
@@ -271,8 +271,8 @@ export class AlternIAApp {
       this.btnMicModal.onclick = (e) => {
         e.preventDefault();
         e.stopPropagation();
-        if (this.audio && this.audio.audioCtx && this.audio.audioCtx.state === 'suspended') {
-          this.audio.audioCtx.resume();
+        if (this.audio) {
+          this.audio.ensureAudioContext();
         }
         this.speech.toggleListening();
       };

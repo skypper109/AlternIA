@@ -17,27 +17,50 @@ export class AudioService {
     this.audioQueue = [];
     this.isPlayingQueue = false;
     this.currentPlayer = null;
+    this.currentSource = null;
     
-    this.ENABLE_SIMLI = true; // Simli WebRTC activé pour l'avatar temps réel
-    
-    // Initialisation du client Simli
+    this.ENABLE_SIMLI = true; // Streaming Simli en parallèle si connecté
     this.simli = new SimliService('modal-avatar-video', 'simli-audio');
+
+    // Déblocage automatique de l'AudioContext dès le premier clic/toucher utilisateur
+    this.setupUserGestureUnlock();
+  }
+
+  setupUserGestureUnlock() {
+    const unlock = () => {
+      this.ensureAudioContext();
+      document.removeEventListener('click', unlock);
+      document.removeEventListener('touchstart', unlock);
+      document.removeEventListener('keydown', unlock);
+    };
+    document.addEventListener('click', unlock, { once: true, passive: true });
+    document.addEventListener('touchstart', unlock, { once: true, passive: true });
+    document.addEventListener('keydown', unlock, { once: true, passive: true });
   }
 
   initAudioContext() {
     try {
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (AudioCtx) {
-        this.audioCtx = new AudioCtx();
-        this.analyser = this.audioCtx.createAnalyser();
-        this.analyser.fftSize = 256;
-        this.analyser.smoothingTimeConstant = 0.8;
-        if (this.onAnalyserReady) {
-          this.onAnalyserReady(this.analyser);
+      if (!this.audioCtx) {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx) {
+          this.audioCtx = new AudioCtx();
+          this.analyser = this.audioCtx.createAnalyser();
+          this.analyser.fftSize = 256;
+          this.analyser.smoothingTimeConstant = 0.8;
+          if (this.onAnalyserReady) {
+            this.onAnalyserReady(this.analyser);
+          }
         }
       }
     } catch (e) {
       console.warn("AudioContext non disponible :", e);
+    }
+  }
+
+  ensureAudioContext() {
+    this.initAudioContext();
+    if (this.audioCtx && this.audioCtx.state === 'suspended') {
+      this.audioCtx.resume().catch(() => {});
     }
   }
 
@@ -46,9 +69,10 @@ export class AudioService {
   }
 
   playBeep(freq = 520, duration = 0.15) {
-    if (!this.audioCtx || this.isMuted) return;
+    if (this.isMuted) return;
+    this.ensureAudioContext();
+    if (!this.audioCtx) return;
     try {
-      if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
       const osc = this.audioCtx.createOscillator();
       const gain = this.audioCtx.createGain();
       osc.type = 'sine';
@@ -107,10 +131,7 @@ export class AudioService {
     const cleanText = this.cleanTextForTTS(sentence);
     if (cleanText.length < 2) return;
 
-    // Assurez-vous que Simli est initialisé dès la première intention de parler
-    if (this.ENABLE_SIMLI && !this.simli.isInitialized) {
-      this.simli.init();
-    }
+    this.ensureAudioContext();
 
     // Pré-chargement immédiat du blob en arrière-plan
     const audioPromise = ApiService.fetchTTSBlob(cleanText);
@@ -156,29 +177,23 @@ export class AudioService {
     while (this.audioQueue.length > 0 && !this.isMuted) {
       const item = this.audioQueue.shift();
       try {
-        console.log("🔊 [AudioService] Préparation lecture :", item.text);
+        console.log("🔊 [AudioService] Lecture de la phrase :", item.text);
         const audioBlob = await item.audioPromise;
-        if (audioBlob && audioBlob.size > 100) {
-          let playedViaSimli = false;
 
-          // Streaming via Simli WebRTC
-          if (this.ENABLE_SIMLI) {
-            try {
-              if (!this.simli.isInitialized && !this.simli.isConnecting) {
-                await this.simli.init();
-              }
-              const { pcm16Data, duration } = await this.resampleToPCM16(audioBlob);
+        if (audioBlob && audioBlob.size > 100) {
+          // 1. Envoi parallèle vers Simli WebRTC (si connecté pour l'avatar vidéo)
+          if (this.ENABLE_SIMLI && this.simli && this.simli.isConnected) {
+            this.resampleToPCM16(audioBlob).then(({ pcm16Data, duration }) => {
               console.log(`🚀 [Simli] Envoi audio PCM16 (${(duration).toFixed(1)}s) vers WebRTC...`);
-              await this.simli.sendAudioBuffer(pcm16Data);
-              await new Promise(resolve => setTimeout(resolve, Math.max(400, duration * 1000)));
-              playedViaSimli = true;
-            } catch (e) {
-              console.warn("⚠️ [SimliService] Échec du streaming Simli :", e);
-            }
+              this.simli.sendAudioBuffer(pcm16Data);
+            }).catch(() => {});
           }
 
-          // Fallback : Web Audio API directe
-          if (!playedViaSimli && this.audioCtx) {
+          // 2. Lecture audio locale directe avec analyseur FFT pour le Vortex
+          let played = false;
+          this.ensureAudioContext();
+
+          if (this.audioCtx) {
             try {
               if (this.audioCtx.state === 'suspended') {
                 await this.audioCtx.resume();
@@ -208,15 +223,19 @@ export class AudioService {
                 };
                 source.start(0);
               });
-              playedViaSimli = true;
-            } catch (webAudioErr) {}
+              played = true;
+            } catch (webAudioErr) {
+              console.warn("⚠️ [AudioService] Échec Web Audio API, bascule sur Audio HTML5 :", webAudioErr);
+            }
           }
 
-          if (!playedViaSimli) {
+          // 3. Fallback : HTML5 Audio player
+          if (!played) {
             await this.playWithAudioElement(audioBlob);
           }
 
         } else if (this.speechSynthesis) {
+          // 4. Fallback ultime : Web Speech API si le backend n'a pas produit de blob
           await this.speakWithWebSpeech(item.text);
         }
       } catch (err) {
@@ -235,7 +254,7 @@ export class AudioService {
       this.currentPlayer = player;
       player.onended = () => { URL.revokeObjectURL(audioUrl); this.currentPlayer = null; resolve(); };
       player.onerror = () => { URL.revokeObjectURL(audioUrl); this.currentPlayer = null; resolve(); };
-      player.play().catch((e) => { URL.revokeObjectURL(audioUrl); this.currentPlayer = null; resolve(); });
+      player.play().catch(() => { URL.revokeObjectURL(audioUrl); this.currentPlayer = null; resolve(); });
     });
   }
 
