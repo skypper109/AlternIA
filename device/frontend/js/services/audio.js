@@ -212,13 +212,15 @@ export class AudioService {
               const gainNode = this.audioCtx.createGain();
               gainNode.gain.value = (this.ENABLE_SIMLI && this.simli && this.simli.isConnected) ? 0 : 1;
 
-              if (this.analyser) {
-                source.connect(this.analyser);
-                this.analyser.connect(gainNode);
-              } else {
-                source.connect(gainNode);
-              }
+              source.connect(gainNode);
               gainNode.connect(this.audioCtx.destination);
+
+              if (this.analyser) {
+                // Déconnecter l'analyseur de toute destination précédente pour éviter l'écho
+                this.analyser.disconnect();
+                // Connecter la source à l'analyseur juste pour lire les données FFT (animation)
+                source.connect(this.analyser);
+              }
 
               await new Promise((resolve) => {
                 source.onended = () => {
