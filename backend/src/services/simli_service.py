@@ -55,28 +55,29 @@ class SimliBackendService:
 
         try:
             from simli import SimliClient, SimliConfig
-            from simli.renderers import FileRenderer
+            from simli.renderers.renderers import FileRenderer
 
             logger.info(f"🚀 [SimliBackendService] Lancement de la génération vidéo Simli (Face ID: {target_face_id})...")
             
+            simli_config = SimliConfig(
+                faceId=target_face_id,
+                maxSessionLength=max_duration,
+                maxIdleTime=10,
+            )
             async with SimliClient(
-                SimliConfig(
-                    apiKey=self.api_key,
-                    faceId=target_face_id,
-                    maxSessionLength=max_duration,
-                    maxIdleTime=10,
-                )
+                api_key=self.api_key,
+                config=simli_config,
             ) as connection:
                 await connection.send(pcm_bytes)
-                renderer = FileRenderer(connection, output_file=str(target_output))
+                renderer = FileRenderer(client=connection, filename=str(target_output))
                 await renderer.render()
 
             if target_output.exists() and target_output.stat().st_size > 1000:
                 logger.info(f"✅ [SimliBackendService] Vidéo générée avec succès : {target_output.name}")
                 return str(target_output)
 
-        except ImportError:
-            logger.warning("Package 'simli-ai' non installé sur le serveur.")
+        except ImportError as err:
+            logger.warning(f"Package 'simli-ai' ou dépendance manquante (av, etc.) : {err}")
         except Exception as e:
             logger.error(f"❌ [SimliBackendService] Erreur lors de la génération vidéo Simli : {e}")
 

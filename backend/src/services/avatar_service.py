@@ -1,9 +1,11 @@
+import asyncio
 import json
 import logging
 import os
 import shutil
 import sys
 import tempfile
+import time
 import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -592,6 +594,7 @@ async def generate_avatar_video(
 
         # 3. Inférence Vidéo : Simli AI (Prioritaire avec le Face ID) ou LivePortrait / GPU local
         generated_video = None
+        is_gpu_accelerated = False
 
         # Tentative avec le service officiel Simli AI
         try:
@@ -603,6 +606,8 @@ async def generate_avatar_video(
                 output_path=str(target_mp4),
                 face_id=avatar.face_id if (avatar and hasattr(avatar, 'face_id') and avatar.face_id) else SIMLI_FACE_ID
             )
+            if generated_video:
+                is_gpu_accelerated = True
         except Exception as simli_err:
             logger.warning(f"Note Simli AI backend : {simli_err}")
 
@@ -620,6 +625,7 @@ async def generate_avatar_video(
                 subject=matiere_nom,
                 use_gpu=True,
             )
+            is_gpu_accelerated = service.is_available()
 
         if not generated_video:
             raise HTTPException(status_code=500, detail="Échec de la génération vidéo de l'avatar.")
@@ -654,7 +660,7 @@ async def generate_avatar_video(
             "nom": nom_prof,
             "matiere": matiere_nom,
             "voice": chosen_voice,
-            "is_gpu_accelerated": service.is_available(),
+            "is_gpu_accelerated": is_gpu_accelerated,
         }
     finally:
         if temp_audio_path.exists():

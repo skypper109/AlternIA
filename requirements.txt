@@ -24,8 +24,9 @@ opencv-python-headless<=4.10.0.84
 # LLM Local (GGUF / Llama.cpp)
 llama-cpp-python>=0.3.0
 
-# Synthèse Vocale Haute Définition (Neural TTS)
+# Synthèse Vocale & Animation Avatar (Neural TTS & Simli AI)
 edge-tts>=7.0.0
+simli-ai>=2.0.0
 
 # Ingestion & Traitement Documents
 pymupdf>=1.24.0
