@@ -9,9 +9,10 @@
 import { ApiService } from './api.js';
 
 export class SpeechService {
-  constructor({ onStart, onResult, onEnd, onError, onAudioLevel } = {}) {
+  constructor({ onStart, onTranscript, onResult, onEnd, onError, onAudioLevel } = {}) {
     this.onStart = onStart;
-    this.onResult = onResult;
+    this.onTranscript = onTranscript || onResult;
+    this.onResult = this.onTranscript;
     this.onEnd = onEnd;
     this.onError = onError;
     this.onAudioLevel = onAudioLevel;
@@ -60,19 +61,17 @@ export class SpeechService {
             this.finalTranscriptAccumulated += finalChunk;
           }
           this.currentTranscript = (this.finalTranscriptAccumulated + interimTranscript).trim();
-          if (this.onResult && this.currentTranscript) {
-            this.onResult(this.currentTranscript);
+          if (this.onTranscript && this.currentTranscript) {
+            this.onTranscript(this.currentTranscript);
           }
         };
 
         this.recognition.onerror = (event) => {
           console.warn('Statut Web Speech :', event.error);
-          // Si Web Speech échoue (ex: Brave ou pas d'accès réseau), on continue l'enregistrement MediaRecorder
         };
 
         this.recognition.onend = () => {
-          if (this.isRecording) {
-            // Tentative de redémarrage si toujours en cours
+          if (this.isRecording && this.recognition) {
             try {
               this.recognition.start();
             } catch (e) {}
@@ -82,6 +81,14 @@ export class SpeechService {
         console.warn("Web Speech API non disponible :", e);
       }
     }
+  }
+
+  toggleListening() {
+    return this.toggle();
+  }
+
+  isListening() {
+    return this.isRecording;
   }
 
   async toggle() {

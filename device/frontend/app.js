@@ -275,7 +275,9 @@ export class AlternIAApp {
 
     // Bouton Microphone Push-To-Talk principal
     if (this.micBtn) {
-      this.micBtn.onclick = () => {
+      this.micBtn.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
         if (this.audio && this.audio.audioCtx && this.audio.audioCtx.state === 'suspended') {
           this.audio.audioCtx.resume();
         }
@@ -285,11 +287,29 @@ export class AlternIAApp {
 
     // Bouton Microphone dans le Modal
     if (this.btnMicModal) {
-      this.btnMicModal.onclick = () => {
+      this.btnMicModal.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
         if (this.audio && this.audio.audioCtx && this.audio.audioCtx.state === 'suspended') {
           this.audio.audioCtx.resume();
         }
         this.speech.toggleListening();
+      };
+    }
+
+    // Clic sur l'Avatar modal pour forcer la connexion Simli si nécessaire
+    if (this.modalAvatarCanvas) {
+      this.modalAvatarCanvas.onclick = () => {
+        if (this.audio && this.audio.simli) {
+          this.audio.simli.init();
+        }
+      };
+    }
+    if (this.modalAvatarVideo) {
+      this.modalAvatarVideo.onclick = () => {
+        if (this.audio && this.audio.simli) {
+          this.audio.simli.init();
+        }
       };
     }
 
