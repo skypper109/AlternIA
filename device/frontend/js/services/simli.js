@@ -1,5 +1,6 @@
 /**
- * Service de streaming d'avatar vidéo interactif photoréaliste via le SDK Simli WebRTC v2.0.0 (LiveKit SFU).
+ * Service de streaming d'avatar vidéo interactif photoréaliste via le SDK Simli WebRTC v3.x.x.
+ * Utilise le flux session_token (generateSimliSessionToken) au lieu de passer l'API key au constructeur.
  */
 
 export class SimliService {
@@ -9,11 +10,11 @@ export class SimliService {
     this.videoElement = document.getElementById(videoElementId);
     this.audioElement = document.getElementById(audioElementId);
     this.client = null;
-    this.isInitialized = false;
     this.isConnected = false;
     this.isConnecting = false;
     this.apiKey = "1e1ikibdppliekw9mt04nf";
     this.faceId = "b9e5fba3-071a-4e35-896e-211c4d6eaa7b";
+    this.SimliModule = null; // Module SDK chargé dynamiquement
   }
 
   getVideoElement() {
@@ -28,6 +29,17 @@ export class SimliService {
       this.audioElement = document.getElementById(this.audioElementId);
     }
     return this.audioElement;
+  }
+
+  async loadSDK() {
+    if (this.SimliModule) return this.SimliModule;
+    try {
+      this.SimliModule = await import('https://esm.sh/simli-client@latest');
+    } catch (err) {
+      console.warn("⚠️ [SimliService] Échec esm.sh, tentative jsdelivr...");
+      this.SimliModule = await import('https://cdn.jsdelivr.net/npm/simli-client@latest/+esm');
+    }
+    return this.SimliModule;
   }
 
   async init(customFaceId = null) {
@@ -47,43 +59,64 @@ export class SimliService {
     if (statusDot) statusDot.className = "w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse";
 
     try {
-      console.log(`🚀 [SimliService] Tentative connexion WebRTC LiveKit Simli (Face ID: ${this.faceId})...`);
+      console.log(`🚀 [SimliService] Connexion WebRTC Simli v3 (Face ID: ${this.faceId})...`);
 
-      let SimliClientModule;
-      try {
-        SimliClientModule = await import('https://esm.sh/simli-client@2.0.0');
-      } catch (err) {
-        console.warn("⚠️ [SimliService] Échec esm.sh 2.0.0, tentative jsdelivr...");
-        SimliClientModule = await import('https://cdn.jsdelivr.net/npm/simli-client@2.0.0/+esm');
-      }
+      const mod = await this.loadSDK();
+      const SimliClient = mod.SimliClient || mod.default?.SimliClient || mod.default;
+      const generateSimliSessionToken = mod.generateSimliSessionToken || mod.default?.generateSimliSessionToken;
 
-      const SimliClient = SimliClientModule.SimliClient || SimliClientModule.default?.SimliClient || SimliClientModule.default;
       if (!SimliClient) {
         throw new Error("Classe SimliClient introuvable dans le module importé.");
       }
 
-      this.client = new SimliClient();
-      this.client.Initialize({
-        apiKey: this.apiKey,
-        faceID: this.faceId,
-        handleSilence: true,
-        videoRef: videoEl,
-        audioRef: audioEl,
-        enableConsoleLogs: false,
-      });
-
-      if (videoEl) {
-        videoEl.onplaying = () => {
-          console.log("🎬 [SimliService] Rendu vidéo WebRTC actif !");
-          videoEl.classList.remove('opacity-0');
-          videoEl.classList.add('opacity-100');
-        };
+      // Étape 1 : Obtenir un session_token via l'API Simli
+      let sessionToken;
+      if (generateSimliSessionToken) {
+        const tokenResponse = await generateSimliSessionToken({
+          apiKey: this.apiKey,
+          config: {
+            faceId: this.faceId,
+            handleSilence: true,
+            maxSessionLength: 600,
+            maxIdleTime: 180,
+          }
+        });
+        sessionToken = tokenResponse.session_token;
+        console.log("🔑 [SimliService] Session token obtenu avec succès.");
+      } else {
+        // Fallback : obtenir le token via fetch direct si la fonction n'est pas exportée
+        const tokenRes = await fetch("https://api.simli.ai/startAudioToVideoSession", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            apiKey: this.apiKey,
+            faceId: this.faceId,
+            handleSilence: true,
+            maxSessionLength: 600,
+            maxIdleTime: 180,
+          })
+        });
+        const tokenData = await tokenRes.json();
+        sessionToken = tokenData.session_token;
+        console.log("🔑 [SimliService] Session token obtenu via API directe.");
       }
 
-      this.client.on("connected", () => {
-        console.log("✅ [SimliService] Connecté avec succès au flux WebRTC Simli !");
+      if (!sessionToken) {
+        throw new Error("Impossible d'obtenir un session_token Simli.");
+      }
+
+      // Étape 2 : Créer le client avec le session_token (API v3.x.x)
+      this.client = new SimliClient(
+        sessionToken,
+        videoEl,
+        audioEl,
+        null, // iceServers (null = mode LiveKit)
+      );
+
+      // Étape 3 : Écouter les événements v3.x.x
+      this.client.on("start", () => {
+        console.log("✅ [SimliService] Avatar Simli connecté et rendu vidéo actif !");
         this.isConnected = true;
-        this.isInitialized = true;
         this.isConnecting = false;
         if (videoEl) {
           videoEl.classList.remove('opacity-0');
@@ -94,39 +127,43 @@ export class SimliService {
         if (statusDot) statusDot.className = "w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse";
       });
 
-      this.client.on("disconnected", () => {
-        console.log("ℹ️ [SimliService] Déconnecté de Simli.");
-        this.isConnected = false;
-        this.isInitialized = false;
-        this.isConnecting = false;
-        if (videoEl) {
-          videoEl.classList.remove('opacity-100');
-          videoEl.classList.add('opacity-0');
-        }
+      this.client.on("stop", (reason) => {
+        console.log("ℹ️ [SimliService] Session Simli terminée :", reason);
+        this._cleanup(videoEl, statusText, statusDot);
       });
 
-      this.client.on("failed", (err) => {
-        console.warn("⚠️ [SimliService] Connexion WebRTC Simli non disponible (fallback vocal local activé).");
-        this.isConnected = false;
-        this.isInitialized = false;
-        this.isConnecting = false;
-        if (statusText) statusText.textContent = "Prêt à répondre";
-        if (statusDot) statusDot.className = "w-2.5 h-2.5 rounded-full bg-emerald-400";
-        if (videoEl) {
-          videoEl.classList.remove('opacity-100');
-          videoEl.classList.add('opacity-0');
-        }
+      this.client.on("error", (reason) => {
+        console.warn("⚠️ [SimliService] Erreur WebRTC Simli :", reason);
+        this._cleanup(videoEl, statusText, statusDot);
       });
 
+      this.client.on("startup_error", (reason) => {
+        console.warn("⚠️ [SimliService] Erreur de démarrage Simli :", reason);
+        this._cleanup(videoEl, statusText, statusDot);
+      });
+
+      // Étape 4 : Démarrer la connexion WebRTC
       await this.client.start();
+
     } catch (err) {
       this.isConnecting = false;
       this.isConnected = false;
-      this.isInitialized = false;
-      console.warn("⚠️ [SimliService] Erreur d'initialisation SimliClient (mode vocal local sécurisé) :", err);
+      console.warn("⚠️ [SimliService] Échec initialisation SimliClient (mode vocal local sécurisé) :", err.message || err);
       if (statusText) statusText.textContent = "Prêt à répondre";
       if (statusDot) statusDot.className = "w-2.5 h-2.5 rounded-full bg-emerald-400";
     }
+  }
+
+  _cleanup(videoEl, statusText, statusDot) {
+    this.isConnected = false;
+    this.isConnecting = false;
+    this.client = null;
+    if (videoEl) {
+      videoEl.classList.remove('opacity-100');
+      videoEl.classList.add('opacity-0');
+    }
+    if (statusText) statusText.textContent = "Prêt à répondre";
+    if (statusDot) statusDot.className = "w-2.5 h-2.5 rounded-full bg-emerald-400";
   }
 
   async sendAudioBuffer(audioBuffer) {
@@ -144,7 +181,7 @@ export class SimliService {
       }
       return true;
     } catch (err) {
-      console.warn("⚠️ [SimliService] Erreur lors de l'envoi de l'audio à Simli :", err);
+      console.warn("⚠️ [SimliService] Erreur envoi audio Simli :", err);
       return false;
     }
   }
@@ -152,11 +189,10 @@ export class SimliService {
   close() {
     if (this.client) {
       try {
-        this.client.close();
+        this.client.stop();
       } catch (e) {}
       this.client = null;
       this.isConnected = false;
-      this.isInitialized = false;
       this.isConnecting = false;
     }
   }
