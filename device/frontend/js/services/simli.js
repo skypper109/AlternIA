@@ -40,13 +40,13 @@ export class SimliService {
     const videoEl = this.getVideoElement();
     const audioEl = this.getAudioElement();
 
+    const statusText = document.getElementById('modal-status-text');
+    const statusDot = document.getElementById('modal-status-dot');
+    if (statusText) statusText.textContent = "Connexion à l'avatar en direct...";
+    if (statusDot) statusDot.className = "w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse";
+
     try {
       console.log(`🚀 [SimliService] Initialisation du client WebRTC Simli (Face ID: ${this.faceId})...`);
-
-      const statusText = document.getElementById('modal-status-text');
-      const statusDot = document.getElementById('modal-status-dot');
-      if (statusText) statusText.textContent = "Connexion à l'avatar en direct...";
-      if (statusDot) statusDot.className = "w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse";
 
       let SimliClientModule;
       try {
@@ -70,26 +70,33 @@ export class SimliService {
         audioRef: audioEl,
       });
 
+      if (videoEl) {
+        videoEl.onplaying = () => {
+          console.log("🎬 [SimliService] Rendu vidéo WebRTC actif !");
+          videoEl.classList.remove('opacity-0');
+          videoEl.classList.add('opacity-100');
+        };
+      }
+
       this.client.on("connected", () => {
         console.log("✅ [SimliService] Connecté avec succès au flux WebRTC Simli !");
         if (videoEl) {
-          videoEl.classList.remove('hidden');
-          videoEl.style.display = 'block';
+          videoEl.classList.remove('opacity-0');
+          videoEl.classList.add('opacity-100');
           videoEl.play().catch(() => {});
-          const canvas = document.getElementById('modal-avatar-canvas');
-          if (canvas) {
-            canvas.classList.add('hidden');
-            canvas.style.display = 'none';
-          }
         }
-        if (statusText) statusText.textContent = "Avatar en direct (Simli WebRTC)";
-        if (statusDot) statusDot.className = "w-2.5 h-2.5 rounded-full bg-emerald-400";
+        if (statusText) statusText.textContent = "Prof Hamza est en direct !";
+        if (statusDot) statusDot.className = "w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse";
       });
 
       this.client.on("disconnected", () => {
         console.log("ℹ️ [SimliService] Déconnecté de Simli.");
         this.isInitialized = false;
         this.isConnecting = false;
+        if (videoEl) {
+          videoEl.classList.remove('opacity-100');
+          videoEl.classList.add('opacity-0');
+        }
       });
 
       this.client.on("failed", (err) => {
@@ -98,6 +105,10 @@ export class SimliService {
         this.isConnecting = false;
         if (statusText) statusText.textContent = "Prêt à répondre";
         if (statusDot) statusDot.className = "w-2.5 h-2.5 rounded-full bg-emerald-400";
+        if (videoEl) {
+          videoEl.classList.remove('opacity-100');
+          videoEl.classList.add('opacity-0');
+        }
       });
 
       await this.client.start();
@@ -108,6 +119,8 @@ export class SimliService {
       this.isConnecting = false;
       this.isInitialized = false;
       console.warn("⚠️ [SimliService] Erreur d'initialisation de SimliClient :", err);
+      if (statusText) statusText.textContent = "Prêt à répondre";
+      if (statusDot) statusDot.className = "w-2.5 h-2.5 rounded-full bg-emerald-400";
     }
   }
 

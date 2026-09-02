@@ -2,8 +2,8 @@
  * Service de reconnaissance vocale Speech-to-Text (STT) haute fidélité.
  * Hybride & 100% Résilient :
  * 1. Web Speech API (transcription temps réel continue)
- * 2. MediaRecorder local automatique vers /api/stt (si Web Speech indisponible ou hors-ligne)
- * 3. Feedback visuel réactif en direct (VU-mètre vocal).
+ * 2. MediaRecorder local automatique vers /api/stt (Faster-Whisper GPU)
+ * 3. Feedback visuel réactif en direct.
  */
 
 import { ApiService } from './api.js';
@@ -19,6 +19,8 @@ export class SpeechService {
 
     this.recognition = null;
     this.isRecording = false;
+    this.isStarting = false;
+    this.isStopping = false;
     this.currentTranscript = '';
     this.finalTranscriptAccumulated = '';
 
@@ -71,7 +73,7 @@ export class SpeechService {
         };
 
         this.recognition.onend = () => {
-          if (this.isRecording && this.recognition) {
+          if (this.isRecording && this.recognition && !this.isStopping) {
             try {
               this.recognition.start();
             } catch (e) {}
@@ -92,6 +94,8 @@ export class SpeechService {
   }
 
   async toggle() {
+    if (this.isStarting || this.isStopping) return;
+
     if (this.isRecording) {
       await this.stop();
     } else {
@@ -100,14 +104,15 @@ export class SpeechService {
   }
 
   async start() {
-    this.isRecording = true;
+    if (this.isRecording || this.isStarting) return;
+    this.isStarting = true;
     this.currentTranscript = '';
     this.finalTranscriptAccumulated = '';
     this.audioChunks = [];
 
     if (this.onStart) this.onStart();
 
-    // 1. Toujours démarrer le micro matériel MediaRecorder + VU-mètre
+    // 1. Démarrer l'enregistrement micro physique MediaRecorder
     try {
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         this.stream = await navigator.mediaDevices.getUserMedia({
@@ -119,10 +124,8 @@ export class SpeechService {
           }
         });
 
-        // VU-mètre audio en direct
         this.setupAudioAnalyser(this.stream);
 
-        // Enregistreur audio matériel
         let mimeType = 'audio/webm';
         if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
           mimeType = 'audio/webm;codecs=opus';
@@ -136,23 +139,25 @@ export class SpeechService {
             this.audioChunks.push(e.data);
           }
         };
-        this.mediaRecorder.start(250); // morceaux de 250ms
+        this.mediaRecorder.start(100);
       }
     } catch (err) {
-      console.warn("Accès microphone refusé ou non supporté :", err);
-      if (this.onError) this.onError("Accès au microphone requis. Veuillez autoriser le micro dans le navigateur.");
+      console.warn("Accès microphone refusé :", err);
+      if (this.onError) this.onError("Accès microphone requis.");
+      this.isStarting = false;
       this.isRecording = false;
       return;
     }
 
-    // 2. Démarrer Web Speech en parallèle pour le streaming texte instantané
+    // 2. Démarrer Web Speech en parallèle
     if (this.recognition) {
       try {
         this.recognition.start();
-      } catch (err) {
-        // Déjà actif
-      }
+      } catch (err) {}
     }
+
+    this.isRecording = true;
+    this.isStarting = false;
   }
 
   setupAudioAnalyser(stream) {
@@ -184,7 +189,8 @@ export class SpeechService {
   }
 
   async stop() {
-    if (!this.isRecording) return;
+    if (!this.isRecording || this.isStopping) return;
+    this.isStopping = true;
     this.isRecording = false;
 
     if (this.animFrameId) {
@@ -216,18 +222,24 @@ export class SpeechService {
       this.audioCtx = null;
     }
 
+    // Délai pour s'assurer que tous les chunks sont dans audioChunks
+    await new Promise(r => setTimeout(r, 150));
+
     await this.finalizeRecording();
+    this.isStopping = false;
   }
 
   async finalizeRecording() {
     let text = (this.finalTranscriptAccumulated + ' ' + this.currentTranscript).trim();
 
-    // Si Web Speech n'a rien capté mais qu'on a des chunks MediaRecorder audio, envoyer au STT local
+    // Si Web Speech n'a pas capté de texte mais qu'on a un enregistrement audio
     if (!text && this.audioChunks.length > 0) {
       try {
+        console.log("🎙️ [SpeechService] Transcription via Faster-Whisper GPU...");
         const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
-        if (audioBlob.size > 2000) {
+        if (audioBlob.size > 200) {
           text = await ApiService.transcribeAudioBlob(audioBlob);
+          console.log("📝 [SpeechService] Texte transcrit :", text);
         }
       } catch (e) {
         console.warn("Erreur transcription locale :", e);
