@@ -97,7 +97,7 @@ app.include_router(revision_router)
 # ==============================================================================
 
 ALTA_BROWSER_DIR = PROJECT_ROOT / "alta" / "dist" / "alternia" / "browser"
-DEVICE_FRONTEND_DIR = PROJECT_ROOT / "device" / "frontend"
+DEVICE_FRONTEND_DIR = PROJECT_ROOT / "device" / "frontend" / "dist"
 
 if DEVICE_FRONTEND_DIR.exists():
     # Montage de l'interface Kiosk du boîtier tactile pour les élèves

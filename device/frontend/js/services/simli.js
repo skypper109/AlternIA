@@ -3,6 +3,8 @@
  * Utilise le flux session_token (generateSimliSessionToken) au lieu de passer l'API key au constructeur.
  */
 
+import { SimliClient, generateSimliSessionToken } from 'simli-client';
+
 export class SimliService {
   constructor(videoElementId = 'modal-avatar-video', audioElementId = 'simli-audio') {
     this.videoElementId = videoElementId;
@@ -14,7 +16,6 @@ export class SimliService {
     this.isConnecting = false;
     this.apiKey = "1e1ikibdppliekw9mt04nf";
     this.faceId = "b9e5fba3-071a-4e35-896e-211c4d6eaa7b";
-    this.SimliModule = null; // Module SDK chargé dynamiquement
   }
 
   getVideoElement() {
@@ -31,16 +32,7 @@ export class SimliService {
     return this.audioElement;
   }
 
-  async loadSDK() {
-    if (this.SimliModule) return this.SimliModule;
-    try {
-      this.SimliModule = await import('https://esm.sh/simli-client@latest');
-    } catch (err) {
-      console.warn("⚠️ [SimliService] Échec esm.sh, tentative jsdelivr...");
-      this.SimliModule = await import('https://cdn.jsdelivr.net/npm/simli-client@latest/+esm');
-    }
-    return this.SimliModule;
-  }
+
 
   async init(customFaceId = null) {
     if (this.isConnected || this.isConnecting) return;
@@ -61,12 +53,8 @@ export class SimliService {
     try {
       console.log(`🚀 [SimliService] Connexion WebRTC Simli v3 (Face ID: ${this.faceId})...`);
 
-      const mod = await this.loadSDK();
-      const SimliClient = mod.SimliClient || mod.default?.SimliClient || mod.default;
-      const generateSimliSessionToken = mod.generateSimliSessionToken || mod.default?.generateSimliSessionToken;
-
       if (!SimliClient) {
-        throw new Error("Classe SimliClient introuvable dans le module importé.");
+        throw new Error("Classe SimliClient introuvable.");
       }
 
       // Étape 1 : Obtenir un session_token via l'API Simli
