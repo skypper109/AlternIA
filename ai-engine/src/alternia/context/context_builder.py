@@ -1,3 +1,4 @@
+import time
 from typing import Any
 
 from alternia.context.models import (
@@ -31,8 +32,8 @@ class ContextBuilder:
     def __init__(
         self,
         max_sources: int = 2,
-        min_score: float = 0.30,
-        max_content_length: int = 450,
+        min_score: float = 0.15,
+        max_content_length: int = 350,
     ):
         self.max_sources = max_sources
         self.min_score = min_score
@@ -50,6 +51,7 @@ class ContextBuilder:
         subject: str | None = None,
     ) -> PedagogicalContext:
 
+        t0_ctx = time.perf_counter()
         sources: list[ContextSource] = []
 
         for result in results:
@@ -61,28 +63,46 @@ class ContextBuilder:
             if not payload:
                 continue
 
-            result_class = payload.get(
-                "student_class"
-            )
+            result_class = str(payload.get("student_class", "")).strip().lower()
+            s_cls = str(student_class).strip().lower()
 
             allowed_classes = {
-                "10eme": ["10eme"],
-                "11eme": ["10eme", "11eme"],
-                "12eme": ["10eme", "11eme", "12eme"],
-            }.get(student_class, [student_class])
+                "10eme": ["10eme", "10"],
+                "11eme": ["10eme", "11eme", "10", "11"],
+                "12eme": ["10eme", "11eme", "12eme", "10", "11", "12", "terminale", "tse", "tsexp", "tseco", "tss", "tll"],
+            }.get(s_cls, [s_cls])
 
-            if result_class not in allowed_classes:
+            if result_class and result_class not in allowed_classes:
                 continue
 
-            result_subject = payload.get(
-                "subject"
-            )
+            result_subject = str(payload.get("subject", "")).strip().lower()
 
-            if (
-                subject is not None
-                and result_subject != subject
-            ):
-                continue
+            # Compatibilité étendue des matières
+            if subject is not None:
+                subj_norm = str(subject).strip().lower()
+                subject_compatibility = {
+                    "mathematiques": {"mathematiques", "maths", "sciences", "autre", ""},
+                    "maths": {"mathematiques", "maths", "sciences", "autre", ""},
+                    "physique": {"physique", "chimie", "physique-chimie", "sciences", "autre", ""},
+                    "chimie": {"chimie", "physique", "physique-chimie", "sciences", "autre", ""},
+                    "physique-chimie": {"physique", "chimie", "physique-chimie", "sciences", "autre", ""},
+                    "biologie": {"biologie", "svt", "sciences", "autre", ""},
+                    "svt": {"biologie", "svt", "sciences", "autre", ""},
+                    "sciences": {"sciences", "mathematiques", "physique", "chimie", "biologie", "svt", "autre", ""},
+                    "francais": {"francais", "lettres", "litterature", "linguistique", "histoire", "philosophie", "autre", ""},
+                    "philosophie": {"philosophie", "lettres", "francais", "autre", ""},
+                    "histoire": {"histoire", "geographie", "histoire-geo", "francais", "autre", ""},
+                    "geographie": {"geographie", "histoire", "histoire-geo", "geologie", "sciences", "autre", ""},
+                    "economie": {"economie", "seco", "comptabilite", "autre", ""},
+                    "comptabilite": {"comptabilite", "economie", "seco", "autre", ""},
+                    "linguistique": {"linguistique", "francais", "lettres", "autre", ""},
+                    "sociologie": {"sociologie", "philosophie", "histoire", "autre", ""},
+                    "anglais": {"anglais", "langues", "autre", ""},
+                }
+
+                allowed_subj = subject_compatibility.get(subj_norm, {subj_norm, "sciences", "francais", "autre", ""})
+                if result_subject and result_subject not in allowed_subj and float(getattr(result, "score", 0.0)) < 0.60:
+                    continue
 
             score = float(
                 getattr(
@@ -127,7 +147,7 @@ class ContextBuilder:
                 content=content,
                 score=score,
                 student_class=student_class,
-                subject=result_subject,
+                subject=result_subject or subject,
                 chapter=payload.get(
                     "chapter"
                 ),
@@ -176,6 +196,9 @@ class ContextBuilder:
         context_text = self._build_text(
             sources
         )
+
+        dt_ctx = time.perf_counter() - t0_ctx
+        print(f"\033[36m⏱️  [context_builder.py]\033[0m Contexte pédagogique assemblé ({len(sources)} sources, {len(context_text)} chars) en \033[1;33m{dt_ctx:.4f}s\033[0m")
 
         return PedagogicalContext(
             query=query,
@@ -302,16 +325,12 @@ class ContextBuilder:
             sources,
             start=1,
         ):
-            header = f"[Source {index}"
+            header = f"[Extrait {index}"
             if source.subject:
-                header += f" - {source.subject}"
-            if source.chapter:
+                header += f" - {str(source.subject).capitalize()}"
+            if source.chapter and str(source.chapter).lower() not in {"non défini", "none", ""}:
                 header += f" | {source.chapter}"
             header += "]"
             sections.append(f"{header} : {source.content}")
 
-        return (
-            "CONTEXTE PÉDAGOGIQUE ALTERNIA\n\n"
-            + "\n".join(sections)
-            + "\n\nFIN DU CONTEXTE"
-        )
+        return "\n".join(sections)

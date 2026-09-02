@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { EnseignantIaParentService } from '../../../core/services/enseignant-ia-parent.service';
 import { ProfilPedagogique } from '../../../domain/entites/enseignant-ia.entite';
+import { AvatarRepository } from '../../../data/repositories/avatar.repository';
 
 @Component({
   selector: 'app-enseignant-ia',
@@ -132,6 +133,8 @@ export class EnseignantIaComposant {
     }
   }
 
+  private readonly avatarRepo = inject(AvatarRepository);
+
   // ── Gestion Photo ─────────────────────────────────────────
   declencherUploadPhoto(): void {
     this.fileInputPhoto?.nativeElement?.click();
@@ -141,12 +144,19 @@ export class EnseignantIaComposant {
     const input = event.target as HTMLInputElement;
     if (input.files && input.files[0]) {
       const file = input.files[0];
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const result = e.target?.result as string;
-        this.formPhotoUrl.set(result);
-      };
-      reader.readAsDataURL(file);
+      this.avatarRepo.uploaderPhotoAvatar(file).subscribe({
+        next: (res) => {
+          this.formPhotoUrl.set(res.photoUrl);
+        },
+        error: () => {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const result = e.target?.result as string;
+            this.formPhotoUrl.set(result);
+          };
+          reader.readAsDataURL(file);
+        }
+      });
     }
   }
 

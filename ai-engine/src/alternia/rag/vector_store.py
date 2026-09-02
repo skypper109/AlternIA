@@ -1,4 +1,5 @@
 import json
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -30,6 +31,20 @@ CLASS_HIERARCHY = {
 }
 
 
+SERIES_PREREQUISITES = {
+    # 11eme
+    "11s": ["11s"],
+    "11l": ["11l"],
+    "11seco": ["11seco"],
+    # 12eme (Terminale)
+    "tse": ["tse", "tse_tsexp", "11s"],
+    "tsexp": ["tsexp", "tse_tsexp", "11s"],
+    "tseco": ["tseco", "11seco"],
+    "tss": ["tss", "11l"],
+    "tll": ["tll", "11l"],
+}
+
+
 def is_chunk_allowed(
     chunk_class,
     chunk_series,
@@ -41,7 +56,7 @@ def is_chunk_allowed(
     1. Un élève a UNIQUEMENT accès aux cours de sa classe et des classes inférieures (prérequis).
        -> 10ème : seulement 10ème (jamais 11ème ni 12ème).
        -> 11ème : 11ème (de sa filière) + 10ème (jamais 12ème).
-       -> 12ème : 12ème (de sa série) + 11ème + 10ème.
+       -> 12ème : 12ème (de sa série) + 11ème (filière compatible) + 10ème.
     2. Filtrage strict par série/filière si spécifiée.
     """
     if student_class is None:
@@ -60,56 +75,45 @@ def is_chunk_allowed(
     s_ser = str(student_series).strip().lower()
     c_ser = str(chunk_series).strip().lower() if chunk_series else "generale"
 
-    # Chunks de 10ème (Tronc Commun) : toujours accessibles comme prérequis
+    # Chunks de 10ème (Tronc Commun) : toujours accessibles comme prérequis universel
     if c_cls == "10eme":
         return True
 
-    # Chunks généraux de la classe : accessibles
+    # Chunks généraux / tronc commun de la classe
     if c_ser in {"generale", "general", "tronc_commun", ""}:
         return True
 
     if c_ser == s_ser:
         return True
 
-    # Physique-Chimie partagée en Terminale (TSE & TSExp)
-    if c_ser == "tse_tsexp" and s_ser in {"tse", "tsexp", "sciences", "11s"}:
-        return True
-
-    # Prérequis 11ème pour un élève de 12ème
-    if c_cls == "11eme" and s_cls == "12eme":
-        if s_ser in {"tse", "tsexp"} and c_ser in {"11s", "sciences", "generale"}:
-            return True
-        if s_ser == "tseco" and c_ser in {"11seco", "economie", "generale"}:
-            return True
-        if s_ser in {"tll", "tss"} and c_ser in {"11l", "lettres", "11seco", "generale"}:
-            return True
-        return False
-
-    # Filières de 11ème
-    if s_cls == "11eme":
-        if s_ser in {"11s", "sciences"} and c_ser in {"11s", "sciences"}:
-            return True
-        if s_ser in {"11seco", "economie", "te"} and c_ser in {"11seco", "economie", "te"}:
-            return True
-        if s_ser in {"11l", "lettres", "sh", "ll"} and c_ser in {"11l", "lettres", "sh", "ll"}:
-            return True
-        return False
-
-    # Séries de 12ème (Terminale)
-    if s_cls == "12eme" and c_cls == "12eme":
-        if s_ser in {"tse", "sciences"} and c_ser in {"tse", "tse_tsexp"}:
-            return True
-        if s_ser in {"tsexp", "sciences"} and c_ser in {"tsexp", "tse_tsexp"}:
-            return True
-        if s_ser in {"tseco", "economie"} and c_ser in {"tseco"}:
-            return True
-        if s_ser in {"tss", "sociales"} and c_ser in {"tss"}:
-            return True
-        if s_ser in {"tll", "lettres"} and c_ser in {"tll"}:
-            return True
-        return False
+    # Vérification des séries autorisées / prérequis compatibles
+    if s_ser in SERIES_PREREQUISITES:
+        allowed_series = SERIES_PREREQUISITES[s_ser]
+        return c_ser in allowed_series
 
     return False
+
+
+SUBJECT_SYNONYMS = {
+    "biologie": {"biologie", "svt", "sciences"},
+    "svt": {"biologie", "svt", "sciences"},
+    "physique": {"physique", "chimie", "physique-chimie", "sciences"},
+    "chimie": {"physique", "chimie", "physique-chimie", "sciences"},
+    "physique-chimie": {"physique", "chimie", "physique-chimie", "sciences"},
+    "mathematiques": {"mathematiques", "maths", "sciences"},
+    "maths": {"mathematiques", "maths", "sciences"},
+    "francais": {"francais", "lettres", "litterature", "linguistique"},
+    "lettres": {"francais", "lettres", "litterature", "linguistique"},
+    "litterature": {"francais", "lettres", "litterature", "linguistique"},
+    "histoire": {"histoire", "geographie", "histoire-geo", "ecm"},
+    "geographie": {"histoire", "geographie", "histoire-geo"},
+    "histoire-geo": {"histoire", "geographie", "histoire-geo"},
+    "economie": {"economie", "comptabilite"},
+    "comptabilite": {"economie", "comptabilite"},
+    "philosophie": {"philosophie", "lettres"},
+    "anglais": {"anglais", "langues"},
+    "droit": {"droit", "ecm", "economie"},
+}
 
 
 class LocalVectorStore:
@@ -190,6 +194,7 @@ class LocalVectorStore:
         if top_k <= 0 or not query_vector or not self.records:
             return []
 
+        t0 = time.perf_counter()
         query = np.asarray(
             query_vector,
             dtype=np.float32,
@@ -213,15 +218,19 @@ class LocalVectorStore:
             ):
                 continue
 
-            # 2. Filtrage matière
-            if subject is not None and document.subject != subject:
-                continue
+            # 2. Filtrage matière tolérant
+            if subject is not None:
+                s_subj = getattr(subject, "value", str(subject)).lower().strip()
+                c_subj = getattr(document.subject, "value", str(document.subject)).lower().strip() if document.subject else ""
+                allowed_subjects = SUBJECT_SYNONYMS.get(s_subj, {s_subj})
+                if c_subj and c_subj not in allowed_subjects and s_subj not in {"general", "generale", "toutes", "all", "autre", "none", ""}:
+                    continue
 
             matched_records.append(document)
             vectors.append(record.vector)
 
-        # Si aucun chunk ne correspond à la matière exacte, chercher dans les autres matières
-        # autorisées de la même classe ou inférieure (JAMAIS dans une classe supérieure)
+        # Si aucun chunk ne correspond avec le filtre strict de matière,
+        # fallback sur la même classe/série sans filtre de matière
         if allow_fallback and len(matched_records) == 0:
             for record in self.records:
                 doc = record.document
@@ -234,7 +243,16 @@ class LocalVectorStore:
                     matched_records.append(doc)
                     vectors.append(record.vector)
 
+        # Si toujours aucun chunk (ex: notion transversale présente dans une autre classe),
+        # fallback sur l'ensemble de la base documentaire pour ne jamais bloquer l'élève
+        if allow_fallback and len(matched_records) == 0:
+            for record in self.records:
+                matched_records.append(record.document)
+                vectors.append(record.vector)
+
         if not matched_records:
+            dt = time.perf_counter() - t0
+            print(f"\033[36m⏱️  [vector_store.py]\033[0m Aucun chunk correspondant ({len(self.records)} dans l'index) en \033[1;33m{dt:.4f}s\033[0m")
             return []
 
         matrix = np.asarray(vectors, dtype=np.float32)
@@ -250,6 +268,9 @@ class LocalVectorStore:
             (matched_records[idx], float(scores[idx]))
             for idx in top_indices
         ]
+
+        dt = time.perf_counter() - t0
+        print(f"\033[36m⏱️  [vector_store.py]\033[0m Recherche vectorielle & filtrage ({len(matched_records)}/{len(self.records)} chunks éligibles, top {len(candidates)}) en \033[1;33m{dt:.4f}s\033[0m")
 
         return candidates
 

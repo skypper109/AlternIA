@@ -1,10 +1,20 @@
-import { Component, OnInit, signal, inject, computed, ElementRef, ViewChild } from '@angular/core';
+import {
+  Component,
+  OnInit,
+  OnDestroy,
+  signal,
+  inject,
+  computed,
+  ElementRef,
+  ViewChild,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { AvatarRepository } from '../../../data/repositories/avatar.repository';
+import { AvatarRepository, VOIX_DISPONIBLES } from '../../../data/repositories/avatar.repository';
 import { AvatarPedagogique } from '../../../domain/entites/avatar-pedagogique.entite';
-import { Matiere, MatiereLabels, MatiereCouleurs, CategorieMatiere } from '../../../core/enums';
+import { Matiere, MatiereLabels, MatiereCouleurs } from '../../../core/enums';
 import { NotificationService } from '../../../core/services/notification.service';
+import { AvatarAnimatorService, CanvasAvatarInstance, AvatarState, VISEME_IDS, VisemeId } from '../../../core/services/avatar-animator.service';
 
 @Component({
   selector: 'app-gestion-avatars',
@@ -13,49 +23,205 @@ import { NotificationService } from '../../../core/services/notification.service
   templateUrl: './gestion-avatars.composant.html',
   styleUrl: './gestion-avatars.composant.scss',
 })
-export class GestionAvatarsComposant implements OnInit {
+export class GestionAvatarsComposant implements OnInit, OnDestroy {
   private readonly repo = inject(AvatarRepository);
   private readonly notifService = inject(NotificationService);
+  private readonly animatorService = inject(AvatarAnimatorService);
 
-  @ViewChild('fileInputPhoto') fileInputPhoto?: ElementRef<HTMLInputElement>;
+  private heroCanvasEl?: HTMLCanvasElement;
+  private previewCanvasEl?: HTMLCanvasElement;
+
+  @ViewChild('fileInputViseme') fileInputViseme?: ElementRef<HTMLInputElement>;
+
+  // Setter réactif pour le Canvas Hero (garantit l'initialisation dès le rendu DOM)
+  @ViewChild('heroCanvas') set heroCanvas(canvasRef: ElementRef<HTMLCanvasElement> | undefined) {
+    if (canvasRef && canvasRef.nativeElement !== this.heroCanvasEl) {
+      this.heroCanvasEl = canvasRef.nativeElement;
+      this.initHeroAnimator(canvasRef.nativeElement);
+    }
+  }
+
+  // Setter réactif pour le Canvas Preview dans la modale
+  @ViewChild('previewCanvas') set previewCanvas(canvasRef: ElementRef<HTMLCanvasElement> | undefined) {
+    if (canvasRef && canvasRef.nativeElement !== this.previewCanvasEl) {
+      this.previewCanvasEl = canvasRef.nativeElement;
+      this.initPreviewAnimator(canvasRef.nativeElement);
+    }
+  }
 
   readonly MatiereLabels = MatiereLabels;
   readonly MatiereCouleurs = MatiereCouleurs;
   readonly matieresList = Object.values(Matiere);
+  readonly voixDisponibles = VOIX_DISPONIBLES;
 
   chargement = signal(true);
   avatars = signal<AvatarPedagogique[]>([]);
 
-  // Avatar vedette pour la bannière Hero
+  // Avatar vedette (actif)
   avatarVedette = computed(() => {
     const list = this.avatars();
     return list.find(a => a.actif) ?? list[0] ?? null;
   });
 
-  // Audio Playback State
-  avatarEnLecture = signal<string | null>(null);
-  tempsLecture = signal(0);
-  private audioTimer: any = null;
+  // Instances d'animation Canvas 2.5D
+  heroAnimator: CanvasAvatarInstance | null = null;
+  previewAnimator: CanvasAvatarInstance | null = null;
 
-  // Modales State
+  // Audio Playback & Lip-Sync
+  audioEnCours: HTMLAudioElement | null = null;
+  avatarEnLecture = signal<string | null>(null);
+  etatAnimation = signal<AvatarState>('IDLE');
+
+  // Modale Création / Édition
   modalAvatarOuverte = signal(false);
-  avatarEnEdition: AvatarPedagogique | null = null;
+  isUploadingImage = signal(false);
+  isUploadingPhoto = signal(false);
+  @ViewChild('fileInputPhoto') fileInputPhoto?: ElementRef<HTMLInputElement>;
+  diagnosticCompatibilite = signal<any>(null);
+  landmarksDetectes = signal<any>(null);
+  testPreviewAudioEnCours = signal(false);
+  previewAudioEl: HTMLAudioElement | null = null;
+
+  // Wizard Visème Sprite-Sheet
+  readonly VISEME_IDS = VISEME_IDS;
+  readonly visemeLabels: Record<string, { label: string; instruction: string; emoji: string }> = {
+    REST: { label: 'Repos', instruction: 'Bouche naturelle, détendue, regard droit', emoji: '😐' },
+    CLOSED: { label: 'Fermée', instruction: 'Lèvres fermées, comme pour dire "Mmm"', emoji: '😶' },
+    OPEN_SMALL: { label: 'Petite ouverture', instruction: 'Bouche légèrement ouverte, comme pour dire "E"', emoji: '😊' },
+    OPEN_WIDE: { label: 'Grande ouverture', instruction: 'Bouche bien ouverte, comme pour dire "Ahh"', emoji: '😮' },
+    ROUND_O: { label: 'Arrondie O', instruction: 'Lèvres arrondies en O, comme pour dire "Oh"', emoji: '😯' },
+    ROUND_U: { label: 'Arrondie U', instruction: 'Lèvres en cul-de-poule, comme pour dire "Ou"', emoji: '😗' },
+    TEETH: { label: 'Dents visibles', instruction: 'Dents visibles, sourire léger, comme pour dire "Si"', emoji: '😬' },
+    SMILE: { label: 'Sourire', instruction: 'Sourire naturel, bouche légèrement ouverte', emoji: '😄' },
+  };
+  visemePhotosMap = signal<Record<string, string>>({});
+  visemeCurrentStep = signal(0);
+  isUploadingViseme = signal(false);
+
   avatarForm = {
     nom: '',
-    description: '',
-    matiere: Matiere.MATHEMATIQUES,
-    personnalite: '',
+    description: 'Bienveillant, rigoureux et interactif',
+    matiere: Matiere.SVT,
+    voixId: 'vivienne',
+    parDefaut: true,
   };
   formImageUrl = signal<string | null>(null);
+  formVideoUrl = signal<string | null>(null);
+  isGeneratingVideo = signal(false);
 
-  avatarEnTest = signal<AvatarPedagogique | null>(null);
   avatarASupprimer = signal<AvatarPedagogique | null>(null);
 
-  ngOnInit(): void {
-    this.repo.obtenirTousAvatars().subscribe(a => {
-      this.avatars.set(a);
-      this.chargement.set(false);
+  declencherUploadPhoto(): void {
+    this.fileInputPhoto?.nativeElement.click();
+  }
+
+  onPhotoAvatarSelectionnee(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+
+    const file = input.files[0];
+    this.isUploadingPhoto.set(true);
+
+    this.repo.uploaderPhotoAvatar(file).subscribe({
+      next: (res) => {
+        this.isUploadingPhoto.set(false);
+        this.formImageUrl.set(res.photoUrl);
+        if (res.compatibility) {
+          this.diagnosticCompatibilite.set(res.compatibility);
+        }
+        if (res.landmarks) {
+          this.landmarksDetectes.set(res.landmarks);
+        }
+        if (res.visemePhotos && Object.keys(res.visemePhotos).length > 0) {
+          this.visemePhotosMap.set(res.visemePhotos);
+          if (this.previewAnimator) {
+            this.previewAnimator.setVisemePhotos(res.visemePhotos);
+          }
+        } else if (this.previewAnimator) {
+          this.previewAnimator.setImage(res.photoUrl);
+        }
+        this.notifService.succes('Photo Uploadée', "L'image et ses mimiques labiales ont été générées avec succès.");
+        input.value = '';
+      },
+      error: () => {
+        this.isUploadingPhoto.set(false);
+        this.notifService.erreur('Erreur Upload', "Impossible d'uploader la photo.");
+        input.value = '';
+      },
     });
+  }
+
+  ngOnInit(): void {
+    this.chargerAvatars();
+  }
+
+  ngOnDestroy(): void {
+    this.arreterAudio();
+    this.arreterTestPreviewModal();
+    if (this.heroAnimator) this.heroAnimator.destroy();
+    if (this.previewAnimator) this.previewAnimator.destroy();
+  }
+
+  chargerAvatars(): void {
+    this.chargement.set(true);
+    this.repo.obtenirTousAvatars().subscribe({
+      next: (list) => {
+        this.avatars.set(list);
+        this.chargement.set(false);
+        this.updateHeroAvatarImage();
+      },
+      error: () => this.chargement.set(false),
+    });
+  }
+
+  private initHeroAnimator(canvas: HTMLCanvasElement): void {
+    if (this.heroAnimator) {
+      this.heroAnimator.destroy();
+    }
+    const vedette = this.avatarVedette();
+    const color = vedette ? this.getCouleurMatiere(vedette.matiere) : '#40BBCC';
+
+    this.heroAnimator = this.animatorService.createInstance(canvas, {
+      themeColor: color,
+      enableMouseTracking: true,
+    });
+
+    if (vedette) {
+      this.heroAnimator.setImage(vedette.imageUrl || 'assets/avatars/vivienne.svg');
+      // Charger les photos de visèmes si disponibles
+      if (vedette.visemePhotos && Object.keys(vedette.visemePhotos).length > 0) {
+        this.heroAnimator.setVisemePhotos(vedette.visemePhotos);
+      }
+    }
+    this.heroAnimator.start();
+  }
+
+  private initPreviewAnimator(canvas: HTMLCanvasElement): void {
+    if (this.previewAnimator) {
+      this.previewAnimator.destroy();
+    }
+    this.previewAnimator = this.animatorService.createInstance(canvas, {
+      themeColor: '#40BBCC',
+      enableMouseTracking: false,
+    });
+    const visemes = this.visemePhotosMap();
+    if (Object.keys(visemes).length > 0) {
+      this.previewAnimator.setVisemePhotos(visemes);
+    } else if (this.formImageUrl()) {
+      this.previewAnimator.setImage(this.formImageUrl()!);
+    }
+    this.previewAnimator.start();
+  }
+
+  private updateHeroAvatarImage(): void {
+    const vedette = this.avatarVedette();
+    if (vedette && this.heroAnimator) {
+      this.heroAnimator.themeColor = this.getCouleurMatiere(vedette.matiere);
+      this.heroAnimator.setImage(vedette.imageUrl || 'assets/avatars/vivienne.svg');
+      if (vedette.visemePhotos && Object.keys(vedette.visemePhotos).length > 0) {
+        this.heroAnimator.setVisemePhotos(vedette.visemePhotos);
+      }
+    }
   }
 
   getLibelleMatiere(matiere: Matiere): string {
@@ -69,170 +235,309 @@ export class GestionAvatarsComposant implements OnInit {
   getInitiales(nom: string): string {
     if (!nom) return 'A';
     const parts = nom.trim().split(' ');
-    if (parts.length >= 2) {
-      return (parts[0][0] + parts[1][0]).toUpperCase();
-    }
+    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
     return nom.substring(0, 2).toUpperCase();
   }
 
-  // Audio Playback simulation
+  setEtatManuel(nouvelEtat: AvatarState): void {
+    this.etatAnimation.set(nouvelEtat);
+    if (this.heroAnimator) {
+      this.heroAnimator.setState(nouvelEtat);
+    }
+  }
+
+  // --- Lecture Audio & Lip-Sync Test ---
   toggleEcouterAvatar(avatar: AvatarPedagogique, event?: MouseEvent): void {
     if (event) event.stopPropagation();
 
     if (this.avatarEnLecture() === avatar.id) {
-      this.arreterLectureAudio();
+      this.arreterAudio();
     } else {
-      this.lancerLectureAudio(avatar);
+      this.lancerTestAudio(avatar);
     }
   }
 
-  private lancerLectureAudio(avatar: AvatarPedagogique): void {
-    this.arreterLectureAudio();
+  lancerTestAudio(avatar: AvatarPedagogique): void {
+    this.arreterAudio();
     this.avatarEnLecture.set(avatar.id);
-    this.tempsLecture.set(0);
+    this.setEtatManuel('SPEAKING');
 
-    const step = 2;
-    this.audioTimer = setInterval(() => {
-      this.tempsLecture.update(t => {
-        if (t >= 100) {
-          this.arreterLectureAudio();
-          return 0;
-        }
-        return t + step;
-      });
-    }, 120);
+    if (this.heroAnimator) {
+      this.heroAnimator.setImage(avatar.imageUrl || 'assets/avatars/vivienne.svg');
+      if (avatar.visemePhotos && Object.keys(avatar.visemePhotos).length > 0) {
+        this.heroAnimator.setVisemePhotos(avatar.visemePhotos);
+      }
+      this.heroAnimator.themeColor = this.getCouleurMatiere(avatar.matiere);
+      this.heroAnimator.setState('SPEAKING');
+    }
 
-    this.notifService.info('Extrait sonore', `Écoute de l'extrait vocal de ${avatar.nom}`);
+    const phrase = `Bonjour ! Je suis ${avatar.nom}. Je t'accompagne dans tes révisions de ${this.getLibelleMatiere(avatar.matiere)} au programme du lycée malien.`;
+    this.repo.testerAudio(phrase, avatar.voixId || 'vivienne').subscribe({
+      next: (blob) => {
+        const audioUrl = URL.createObjectURL(blob);
+        const audio = new Audio(audioUrl);
+        this.audioEnCours = audio;
+
+        this.animatorService.connectAudioElement(audio);
+
+        audio.onended = () => {
+          URL.revokeObjectURL(audioUrl);
+          this.arreterAudio();
+        };
+        audio.onerror = () => {
+          URL.revokeObjectURL(audioUrl);
+          this.arreterAudio();
+        };
+        audio.play().catch((err) => {
+          console.warn("Autoplay audio blocked:", err);
+          this.arreterAudio();
+        });
+      },
+      error: () => {
+        this.notifService.erreur('Erreur Audio', 'Impossible de générer la synthèse vocale.');
+        this.arreterAudio();
+      },
+    });
   }
 
-  private arreterLectureAudio(): void {
-    if (this.audioTimer) {
-      clearInterval(this.audioTimer);
-      this.audioTimer = null;
+  arreterAudio(): void {
+    if (this.audioEnCours) {
+      this.audioEnCours.pause();
+      this.audioEnCours = null;
     }
     this.avatarEnLecture.set(null);
-    this.tempsLecture.set(0);
+    this.setEtatManuel('IDLE');
   }
 
-  // Statut Actif / Inactif
-  basculerStatut(avatar: AvatarPedagogique, event?: MouseEvent): void {
+  // --- Test de Prévisualisation dans la Modale ---
+  toggleTestPreviewModal(): void {
+    if (this.testPreviewAudioEnCours()) {
+      this.arreterTestPreviewModal();
+    } else {
+      this.lancerTestPreviewModal();
+    }
+  }
+
+  lancerTestPreviewModal(): void {
+    this.arreterTestPreviewModal();
+    if (!this.previewAnimator) return;
+
+    this.testPreviewAudioEnCours.set(true);
+    this.previewAnimator.setState('SPEAKING');
+
+    const phrase = `Test de calibration faciale pour ${this.avatarForm.nom || 'mon avatar'}. La synchronisation labiale et la déformation 2.5D sont actives.`;
+    this.repo.testerAudio(phrase, this.avatarForm.voixId || 'vivienne').subscribe({
+      next: (blob) => {
+        const audioUrl = URL.createObjectURL(blob);
+        const audio = new Audio(audioUrl);
+        this.previewAudioEl = audio;
+
+        this.animatorService.connectAudioElement(audio);
+
+        audio.onended = () => {
+          URL.revokeObjectURL(audioUrl);
+          this.arreterTestPreviewModal();
+        };
+        audio.onerror = () => {
+          URL.revokeObjectURL(audioUrl);
+          this.arreterTestPreviewModal();
+        };
+        audio.play().catch(() => this.arreterTestPreviewModal());
+      },
+      error: () => this.arreterTestPreviewModal(),
+    });
+  }
+
+  arreterTestPreviewModal(): void {
+    if (this.previewAudioEl) {
+      this.previewAudioEl.pause();
+      this.previewAudioEl = null;
+    }
+    this.testPreviewAudioEnCours.set(false);
+    if (this.previewAnimator) {
+      this.previewAnimator.setState('IDLE');
+    }
+  }
+
+  // --- Activation d'Avatar par Défaut ---
+  activerAvatar(avatar: AvatarPedagogique, event?: MouseEvent): void {
     if (event) event.stopPropagation();
-    const nouveauStatut = !avatar.actif;
-    this.avatars.update(list => list.map(a => a.id === avatar.id ? { ...a, actif: nouveauStatut } : a));
-    this.notifService.succes('Statut mis à jour', `Avatar "${avatar.nom}" est désormais ${nouveauStatut ? 'Actif' : 'Inactif'}.`);
+    this.repo.activerAvatar(avatar.id).subscribe({
+      next: () => {
+        this.notifService.succes('Avatar Activé', `${avatar.nom} est désormais l'avatar actif sur les boîtiers.`);
+        this.chargerAvatars();
+      },
+      error: () => this.notifService.erreur('Erreur', "Impossible d'activer l'avatar."),
+    });
   }
 
-  // Modale Création / Édition
+  // --- Modal Création & Upload ---
   ouvrirModalCreation(): void {
-    this.avatarEnEdition = null;
     this.avatarForm = {
       nom: '',
-      description: '',
-      matiere: Matiere.MATHEMATIQUES,
-      personnalite: 'Enthousiaste, pédagogique',
+      description: 'Bienveillant, rigoureux et interactif',
+      matiere: Matiere.SVT,
+      voixId: 'vivienne',
+      parDefaut: true,
     };
     this.formImageUrl.set(null);
+    this.diagnosticCompatibilite.set(null);
+    this.landmarksDetectes.set(null);
+    this.visemePhotosMap.set({});
+    this.visemeCurrentStep.set(0);
     this.modalAvatarOuverte.set(true);
   }
 
-  ouvrirModalEdition(avatar: AvatarPedagogique): void {
-    this.avatarEnEdition = avatar;
-    this.avatarForm = {
-      nom: avatar.nom,
-      description: avatar.description,
-      matiere: avatar.matiere,
-      personnalite: avatar.personnalite,
-    };
-    this.formImageUrl.set(avatar.imageUrl ?? null);
-    this.modalAvatarOuverte.set(true);
-  }
-
-  fermerModalAvatar(): void {
+  fermerModal(): void {
+    this.arreterTestPreviewModal();
     this.modalAvatarOuverte.set(false);
   }
 
-  declencherUploadPhoto(): void {
-    this.fileInputPhoto?.nativeElement.click();
+
+  // --- Wizard Visème Sprite-Sheet ---
+  get currentVisemeId(): string {
+    return VISEME_IDS[this.visemeCurrentStep()] || 'REST';
   }
 
-  onPhotoFileSelected(event: Event): void {
+  get currentVisemeInfo() {
+    return this.visemeLabels[this.currentVisemeId];
+  }
+
+  get visemeProgress(): number {
+    return Object.keys(this.visemePhotosMap()).length;
+  }
+
+  declencherUploadViseme(): void {
+    this.fileInputViseme?.nativeElement.click();
+  }
+
+  onVisemeFichierSelectionne(event: Event): void {
     const input = event.target as HTMLInputElement;
-    if (input.files && input.files[0]) {
-      const file = input.files[0];
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        this.formImageUrl.set(e.target?.result as string);
-      };
-      reader.readAsDataURL(file);
+    if (!input.files || input.files.length === 0) return;
+
+    const file = input.files[0];
+    const visemeId = this.currentVisemeId;
+    this.isUploadingViseme.set(true);
+
+    this.repo.uploaderVisemePhoto(file, visemeId).subscribe({
+      next: (res) => {
+        this.isUploadingViseme.set(false);
+        const current = { ...this.visemePhotosMap() };
+        current[visemeId] = res.photoUrl;
+        this.visemePhotosMap.set(current);
+
+        // Si c'est la première photo (REST), l'utiliser comme photo principale aussi
+        if (visemeId === 'REST' && !this.formImageUrl()) {
+          this.formImageUrl.set(res.photoUrl);
+        }
+
+        // Mettre à jour le preview animator avec les visèmes disponibles
+        if (this.previewAnimator) {
+          this.previewAnimator.setVisemePhotos(current);
+        }
+
+        // Passer au visème suivant
+        const nextStep = this.visemeCurrentStep() + 1;
+        if (nextStep < VISEME_IDS.length) {
+          this.visemeCurrentStep.set(nextStep);
+        }
+
+        this.notifService.succes('Photo capturée', `Visème "${this.visemeLabels[visemeId].label}" enregistré (${Object.keys(current).length}/${VISEME_IDS.length}).`);
+
+        // Reset l'input
+        input.value = '';
+      },
+      error: () => {
+        this.isUploadingViseme.set(false);
+        this.notifService.erreur('Erreur Upload', "Impossible d'uploader la photo de visème.");
+        input.value = '';
+      },
+    });
+  }
+
+  allerVisemeStep(index: number): void {
+    if (index >= 0 && index < VISEME_IDS.length) {
+      this.visemeCurrentStep.set(index);
     }
   }
 
-  supprimerPhotoForm(): void {
-    this.formImageUrl.set(null);
+  // --- Génération Vidéo LivePortrait IA ---
+  genererVideoLivePortrait(): void {
+    if (!this.formImageUrl()) {
+      this.notifService.avertissement('Photo requise', 'Veuillez d\'abord uploader une photo du professeur.');
+      return;
+    }
+    this.isGeneratingVideo.set(true);
+    const nomProf = this.avatarForm.nom.trim() || 'ton professeur';
+    const libelleMatiere = this.getLibelleMatiere(this.avatarForm.matiere);
+    const phrase = `Bonjour ! Je suis ${nomProf}. Je suis prêt à t'expliquer toutes les notions de ${libelleMatiere}.`;
+    this.repo.genererVideoAvatar({
+      photoUrl: this.formImageUrl()!,
+      phrase: phrase,
+      nom: nomProf,
+      matiere: libelleMatiere,
+      voice: this.avatarForm.voixId || 'vivienne'
+    }).subscribe({
+      next: (res) => {
+        this.isGeneratingVideo.set(false);
+        if (res.video_url) {
+          this.formVideoUrl.set(res.video_url);
+          this.notifService.succes('Vidéo IA Générée', 'La vidéo LivePortrait a été générée avec succès !');
+        }
+      },
+      error: () => {
+        this.isGeneratingVideo.set(false);
+        this.notifService.erreur('Génération Vidéo', 'Impossible de générer la vidéo LivePortrait.');
+      }
+    });
   }
 
-  sauvegarderAvatar(): void {
-    if (!this.avatarForm.nom.trim() || !this.avatarForm.description.trim()) {
-      this.notifService.erreur('Formulaire incomplet', 'Veuillez saisir un nom et une description.');
+  enregistrerNouvelAvatar(): void {
+    if (!this.avatarForm.nom.trim()) {
+      this.notifService.erreur('Champs requis', 'Veuillez saisir un nom pour votre enseignant virtuel.');
       return;
     }
 
-    if (this.avatarEnEdition) {
-      const updatedNom = this.avatarForm.nom;
-      this.avatars.update(list => list.map(a => a.id === this.avatarEnEdition!.id ? {
-        ...a,
-        nom: updatedNom,
-        description: this.avatarForm.description,
-        matiere: this.avatarForm.matiere,
-        personnalite: this.avatarForm.personnalite,
-        imageUrl: this.formImageUrl() ?? undefined,
-      } : a));
-      this.notifService.succes('Avatar modifié', `L'avatar ${updatedNom} a été mis à jour.`);
-    } else {
-      const nouvel: AvatarPedagogique = {
-        id: 'av-' + Date.now(),
-        nom: this.avatarForm.nom,
-        description: this.avatarForm.description,
-        matiere: this.avatarForm.matiere,
-        categorie: CategorieMatiere.SCIENTIFIQUE,
-        personnalite: this.avatarForm.personnalite || 'Enthousiaste, pédagogique',
-        imageUrl: this.formImageUrl() ?? undefined,
-        actif: true,
-        dateCreation: new Date(),
-        utilisations: 0,
-      };
-      this.avatars.update(list => [nouvel, ...list]);
-      this.notifService.succes('Avatar créé', `L'avatar ${nouvel.nom} a été créé avec succès.`);
-    }
+    const visemes = this.visemePhotosMap();
+    const hasVisemes = Object.keys(visemes).length > 0;
 
-    this.fermerModalAvatar();
+    this.repo.creerAvatar({
+      nom: this.avatarForm.nom.trim(),
+      matiere: this.avatarForm.matiere,
+      stylePedagogique: this.avatarForm.description,
+      voixTts: this.avatarForm.voixId,
+      photoUrl: this.formImageUrl() || (hasVisemes ? visemes['REST'] : undefined),
+      videoUrl: this.formVideoUrl() || undefined,
+      parDefaut: this.avatarForm.parDefaut,
+      landmarks: this.landmarksDetectes(),
+      visemePhotos: hasVisemes ? visemes : undefined,
+    }).subscribe({
+      next: (nouveau) => {
+        this.notifService.succes('Avatar créé', `${nouveau.nom} a été configuré avec succès.`);
+        this.fermerModal();
+        this.chargerAvatars();
+      },
+      error: () => this.notifService.erreur('Erreur', "Impossible de créer l'avatar."),
+    });
   }
 
-  // Modale Aperçu / Test Live
-  testerAvatar(avatar: AvatarPedagogique): void {
-    this.avatarEnTest.set(avatar);
-    this.notifService.info('Démonstration', `Démonstration vocale en direct de l'avatar ${avatar.nom}`);
-  }
-
-  fermerTest(): void {
-    this.avatarEnTest.set(null);
-  }
-
-  // Suppression
-  confirmerSuppression(avatar: AvatarPedagogique): void {
+  // --- Suppression ---
+  demanderSuppression(avatar: AvatarPedagogique, event?: MouseEvent): void {
+    if (event) event.stopPropagation();
     this.avatarASupprimer.set(avatar);
   }
 
-  annulerSuppression(): void {
-    this.avatarASupprimer.set(null);
-  }
+  confirmerSuppression(): void {
+    const target = this.avatarASupprimer();
+    if (!target) return;
 
-  validerSuppression(): void {
-    const toDelete = this.avatarASupprimer();
-    if (!toDelete) return;
-
-    this.avatars.update(list => list.filter(a => a.id !== toDelete.id));
-    this.notifService.succes('Avatar supprimé', `L'avatar ${toDelete.nom} a été supprimé.`);
-    this.annulerSuppression();
+    this.repo.supprimerAvatar(target.id).subscribe({
+      next: () => {
+        this.notifService.succes('Avatar supprimé', `${target.nom} a été retiré du catalogue.`);
+        this.avatarASupprimer.set(null);
+        this.chargerAvatars();
+      },
+      error: () => this.notifService.erreur('Erreur', "Impossible de supprimer l'avatar."),
+    });
   }
 }

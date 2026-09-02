@@ -1,3 +1,4 @@
+import time
 from typing import Any
 
 from alternia.llm.client import LLMClient
@@ -196,8 +197,8 @@ class AlterniaOrchestrator:
     def ask_stream(
         self,
         question: str,
-        context: Any,
-        student_class: str,
+        context: Any = None,
+        student_class: str = "10eme",
         subject: str | None = None,
         student_id: str = "anonymous",
         session_id: str | None = None,
@@ -206,6 +207,62 @@ class AlterniaOrchestrator:
         """
         Génère progressivement la réponse du LLM.
         """
+        # GUARD PÉDAGOGIQUE CENTRALISÉ :
+        # Si un RAG est configuré et qu'aucune source valide n'est trouvée (ou score < 0.40),
+        # l'orchestrateur refuse immédiatement SANS appeler le LLM.
+        # if self.rag_service is not None:
+        #     # Bypass RAG strictness for identity or greeting questions
+        #     import re
+        #     q_clean = question.strip().lower()
+        #     is_identity = bool(re.search(r"^(qui es tu|qui es-tu|presente toi|présente toi|présente-toi|presente-toi|tu es qui|qui est tu|bonjour|salut)", q_clean))
+            
+        #     sources = getattr(context, "sources", []) if context else []
+        #     max_score = max((getattr(s, "score", 0.0) for s in sources), default=0.0)
+            
+        #     if not is_identity and (not sources or max_score < 0.40):
+        #         subject_label = subject or "la matière sélectionnée"
+        #         refusal_text = (
+        #             f"Je n'ai pas trouvé d'information sur ce sujet dans le programme officiel "
+        #             f"de {student_class} pour {subject_label}. "
+        #             f"Pose-moi une question sur {subject_label} conforme au programme de ta classe "
+        #             f"pour que je puisse t'aider."
+        #         )
+
+        #         def refusal_generator():
+        #             yield refusal_text
+
+        #         return refusal_generator()
+
+        # VÉRIFICATION DE LA PERTINENCE PÉDAGOGIQUE (Scope Guardrail)
+        # Refuse les questions totalement hors-scolaires sans aucun lien avec le programme ou la conversation
+        import re
+        q_clean = question.strip().lower()
+        is_greeting_or_id = bool(re.search(r"^(bonjour|bonsoir|salut|coucou|qui es-tu|qui est-tu|tu es qui|présente-toi|presente toi|merci|d'accord|ok|au revoir)\b", q_clean))
+        has_rag_sources = bool(context and getattr(context, "sources", []))
+        
+        is_conversation_followup = False
+        if session_id:
+            session = self.conversation_manager.get(session_id)
+            if session and session.messages:
+                is_conversation_followup = True
+
+        from alternia.pedagogical.curriculum_keywords import detect_malian_curriculum_subject
+        detected_subj = detect_malian_curriculum_subject(question)
+        is_curriculum_topic = (detected_subj is not None)
+
+        if not (is_greeting_or_id or has_rag_sources or is_conversation_followup or is_curriculum_topic):
+            refusal_text = (
+                "Je suis ALTA, le tuteur pédagogique d'AlternIA dédié aux programmes scolaires du secondaire au Mali. "
+                "Je ne peux pas répondre aux questions hors du cadre scolaire. "
+                "Pose-moi une question sur tes cours (Maths, Physique-Chimie, SVT, Histoire, Français, Anglais...) pour que je puisse t'aider !"
+            )
+            def refusal_stream():
+                yield refusal_text
+            return refusal_stream()
+
+        t0_orch = time.perf_counter()
+        print(f"\033[36m⏱️  [orchestrator.py]\033[0m Préparation orchestrateur (profil, conversation, pédagogie, prompt)...")
+
         profile = (
             self.learner_manager
             .to_optional_pedagogical_profile(
@@ -233,7 +290,7 @@ class AlterniaOrchestrator:
                 student_class=student_class,
                 subject=subject,
             )
-            session_messages = session.last_messages(4)
+            session_messages = session.last_messages(6)
             conversation_context = (
                 self.conversation_context_builder
                 .build(session)
@@ -275,6 +332,9 @@ class AlterniaOrchestrator:
                 pedagogical_response.answer
             ),
         )
+
+        dt_prep = time.perf_counter() - t0_orch
+        print(f"\033[36m⏱️  [orchestrator.py]\033[0m Préparation complète terminée en \033[1;33m{dt_prep:.4f}s\033[0m -> Démarrage de la génération LLM streaming...")
 
         if not hasattr(
             self.llm_client,
@@ -337,8 +397,8 @@ class AlterniaOrchestrator:
     def ask(
         self,
         question: str,
-        context: Any,
-        student_class: str,
+        context: Any = None,
+        student_class: str = "10eme",
         subject: str | None = None,
         student_id: str = "anonymous",
         session_id: str | None = None,
@@ -347,10 +407,57 @@ class AlterniaOrchestrator:
         """
         Exécute le pipeline complet AlternIA.
         """
+        # GUARD PÉDAGOGIQUE CENTRALISÉ :
+        # Si un RAG est configuré et qu'aucune source valide n'est trouvée (ou score < 0.40),
+        # l'orchestrateur refuse immédiatement SANS appeler le LLM.
+        if self.rag_service is not None:
+            # Bypass RAG strictness for identity or greeting questions
+            import re
+            q_clean = question.strip().lower()
+            is_identity = bool(re.search(r"^(qui es tu|qui es-tu|presente toi|présente toi|présente-toi|presente-toi|tu es qui|qui est tu|bonjour|salut)", q_clean))
+
+        # VÉRIFICATION DE LA PERTINENCE PÉDAGOGIQUE (Scope Guardrail)
+        import re
+        q_clean = question.strip().lower()
+        is_greeting_or_id = bool(re.search(r"^(bonjour|bonsoir|salut|coucou|qui es-tu|qui est-tu|tu es qui|présente-toi|presente toi|merci|d'accord|ok|au revoir)\b", q_clean))
+        has_rag_sources = bool(context and getattr(context, "sources", []))
+        
+        is_conversation_followup = False
+        if session_id:
+            session = self.conversation_manager.get(session_id)
+            if session and session.messages:
+                is_conversation_followup = True
+
+        from alternia.pedagogical.curriculum_keywords import detect_malian_curriculum_subject
+        detected_subj = detect_malian_curriculum_subject(question)
+        is_curriculum_topic = (detected_subj is not None)
+
+        if not (is_greeting_or_id or has_rag_sources or is_conversation_followup or is_curriculum_topic):
+            refusal_text = (
+                "Je suis ALTA, le tuteur pédagogique d'AlternIA dédié aux programmes scolaires du secondaire au Mali. "
+                "Je ne peux pas répondre aux questions hors du cadre scolaire. "
+                "Pose-moi une question sur tes cours (Maths, Physique-Chimie, SVT, Histoire, Français, Anglais...) pour que je puisse t'aider !"
+            )
+            return {
+                "answer": refusal_text,
+                "intent": "out_of_scope",
+                "student_class": student_class,
+                "subject": subject,
+                "sources": [],
+                "should_ask_followup": False,
+                "followup_question": None,
+                "metadata": {
+                    "rag_sources": 0,
+                    "out_of_scope": True,
+                    "llm_used": False,
+                },
+            }
 
         # -----------------------------------------------------
         # 1. MOTEUR PÉDAGOGIQUE
         # -----------------------------------------------------
+        t0_orch = time.perf_counter()
+        print(f"\033[36m⏱️  [orchestrator.py]\033[0m Préparation orchestrateur (mode synchrone ask)...")
 
         profile = (
             self.learner_manager
@@ -379,7 +486,7 @@ class AlterniaOrchestrator:
                 student_class=student_class,
                 subject=subject,
             )
-            session_messages = session.last_messages(4)
+            session_messages = session.last_messages(6)
             conversation_context = (
                 self.conversation_context_builder
                 .build(session)
@@ -429,6 +536,9 @@ class AlterniaOrchestrator:
                 pedagogical_response.answer
             ),
         )
+
+        dt_prep = time.perf_counter() - t0_orch
+        print(f"\033[36m⏱️  [orchestrator.py]\033[0m Préparation terminée en \033[1;33m{dt_prep:.4f}s\033[0m -> Appel LLM synchrone...")
 
         # -----------------------------------------------------
         # 4. GÉNÉRATION LLM

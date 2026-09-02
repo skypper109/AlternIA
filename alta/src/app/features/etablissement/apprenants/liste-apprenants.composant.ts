@@ -324,26 +324,20 @@ export class ListeApprenantsComposant implements OnInit {
       return;
     }
 
-    const n: Boitier = {
-      id: 'b-' + Date.now(),
-      codeUnique: this.nouveauBoitierCode,
-      nom: this.nouveauBoitierNom,
-      modele: 'Alternia Box v2',
-      statut: StatutBoitier.EN_LIGNE_CLOUD,
-      niveauBatterie: 100,
-      versionFirmware: '2.4.1',
-      derniereSync: new Date(),
-      espaceUtilise: 1200,
-      espaceTotal: 16000,
-      wifiConnecte: true,
-      ssid: 'SoundiataKeita_5G',
-      enfantId: 'etab-1',
-      dateActivation: new Date(),
-    };
-
-    this.boitiers.update(list => [n, ...list]);
-    this.filtrer();
-    this.notifService.succes('Boîtier enregistré', `Le boîtier ${this.nouveauBoitierNom} a été ajouté à la flotte.`);
-    this.fermerModalAjout();
+    this.boitierRepo.ajouterBoitier({
+      nom: this.nouveauBoitierNom.trim(),
+      codeUnique: this.nouveauBoitierCode.trim(),
+      modele: 'Alternia Box v2.0-LocalEdge',
+    }).subscribe({
+      next: (nouveau) => {
+        this.boitiers.update(list => [nouveau, ...list]);
+        this.filtrer();
+        this.notifService.succes('Boîtier enregistré', `Le boîtier ${this.nouveauBoitierNom} a été ajouté à la flotte.`);
+        this.fermerModalAjout();
+      },
+      error: () => {
+        this.notifService.erreur('Erreur', "Impossible d'enregistrer le boîtier sur le serveur.");
+      }
+    });
   }
 }

@@ -7,9 +7,11 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from backend.src.db.database import get_db
-from backend.src.models.boitier import BoitierSyncRequest, BoitierWifiRequest
+from backend.src.models.boitier import BoitierCreateRequest, BoitierSyncRequest, BoitierWifiRequest
 from backend.src.services.boitier_service import (
     configure_boitier_wifi,
+    create_boitier,
+    delete_boitier,
     get_boitier_detail,
     list_boitiers,
     sync_boitier,
@@ -24,10 +26,22 @@ def api_liste_boitiers(db: Session = Depends(get_db)):
     return list_boitiers(db)
 
 
+@router.post("")
+def api_creer_boitier(req: BoitierCreateRequest, db: Session = Depends(get_db)):
+    """Enregistre un nouveau boîtier physique."""
+    return create_boitier(db, req)
+
+
 @router.get("/{boitier_id}")
 def api_detail_boitier(boitier_id: str, db: Session = Depends(get_db)):
     """Détails d'un boîtier spécifique."""
     return get_boitier_detail(db, boitier_id)
+
+
+@router.delete("/{boitier_id}")
+def api_supprimer_boitier(boitier_id: str, db: Session = Depends(get_db)):
+    """Supprime un boîtier de la flotte."""
+    return delete_boitier(db, boitier_id)
 
 
 @router.post("/{boitier_id}/sync")

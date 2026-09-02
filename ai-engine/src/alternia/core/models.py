@@ -16,12 +16,71 @@ class Subject(str, Enum):
     MATHEMATIQUES = "mathematiques"
     PHYSIQUE = "physique"
     CHIMIE = "chimie"
+    BIOLOGIE = "biologie"
+    SVT = "svt"
     FRANCAIS = "francais"
-    ANGLAIS = "anglais"
+    PHILOSOPHIE = "philosophie"
     HISTOIRE = "histoire"
     GEOGRAPHIE = "geographie"
+    ECONOMIE = "economie"
+    COMPTABILITE = "comptabilite"
+    LINGUISTIQUE = "linguistique"
+    SOCIOLOGIE = "sociologie"
+    GEOLOGIE = "geologie"
+    DROIT = "droit"
+    ANGLAIS = "anglais"
     SCIENCES = "sciences"
     AUTRE = "autre"
+
+    @classmethod
+    def from_str(cls, value: str | None) -> Optional["Subject"]:
+        """Convertit de manière tolérante une chaîne en valeur d'énumération Subject."""
+        if not value:
+            return None
+        if isinstance(value, Subject):
+            return value
+
+        v = str(value).strip().lower()
+        mapping = {
+            "maths": cls.MATHEMATIQUES,
+            "mathematique": cls.MATHEMATIQUES,
+            "mathematiques": cls.MATHEMATIQUES,
+            "physique": cls.PHYSIQUE,
+            "chimie": cls.CHIMIE,
+            "physique-chimie": cls.PHYSIQUE,
+            "pc": cls.PHYSIQUE,
+            "biologie": cls.BIOLOGIE,
+            "svt": cls.SVT,
+            "bio": cls.BIOLOGIE,
+            "francais": cls.FRANCAIS,
+            "français": cls.FRANCAIS,
+            "philosophie": cls.PHILOSOPHIE,
+            "philo": cls.PHILOSOPHIE,
+            "histoire": cls.HISTOIRE,
+            "geographie": cls.GEOGRAPHIE,
+            "géographie": cls.GEOGRAPHIE,
+            "histoire-geo": cls.HISTOIRE,
+            "histoire-géo": cls.HISTOIRE,
+            "economie": cls.ECONOMIE,
+            "économie": cls.ECONOMIE,
+            "seco": cls.ECONOMIE,
+            "comptabilite": cls.COMPTABILITE,
+            "comptabilité": cls.COMPTABILITE,
+            "linguistique": cls.LINGUISTIQUE,
+            "sociologie": cls.SOCIOLOGIE,
+            "geologie": cls.GEOLOGIE,
+            "géologie": cls.GEOLOGIE,
+            "droit": cls.DROIT,
+            "anglais": cls.ANGLAIS,
+            "sciences": cls.SCIENCES,
+        }
+        if v in mapping:
+            return mapping[v]
+
+        for item in cls:
+            if item.value == v:
+                return item
+        return cls.AUTRE
 
 
 class StudentProfile(BaseModel):

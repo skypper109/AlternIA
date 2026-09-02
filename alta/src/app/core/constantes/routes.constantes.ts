@@ -10,6 +10,7 @@ export const ROUTES_APP = {
     TABLEAU_DE_BORD: '/etablissement/tableau-de-bord',
     PILOTAGE: '/etablissement/pilotage',
     INSIGHTS: '/etablissement/insights',
+    APPRENANTS: '/etablissement/apprenants',
     SUPERVISION_BOITIERS: '/etablissement/supervision-boitiers',
     STATISTIQUES: '/etablissement/statistiques',
     AVATARS: '/etablissement/avatars',

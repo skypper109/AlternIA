@@ -35,11 +35,25 @@ class LocalLLMClient(LLMClient):
         # Fallback de modèle si le fichier spécifié n'existe pas
         if not path.exists():
             models_dir = path.parent
-            if (models_dir / "qwen2.5-1.5b-instruct-q4_k_m.gguf").exists():
-                path = models_dir / "qwen2.5-1.5b-instruct-q4_k_m.gguf"
-            elif (models_dir / "qwen2.5-3b-instruct-q4_k_m.gguf").exists():
-                path = models_dir / "qwen2.5-3b-instruct-q4_k_m.gguf"
-            else:
+            candidates = [
+                "qwen2.5-14b-instruct-q4_k_m.gguf",
+                "qwen2.5-7b-instruct-q5_k_m.gguf",
+                "qwen2.5-7b-instruct-q4_k_m.gguf",
+                "qwen2.5-3b-instruct-q4_k_m.gguf",
+                "qwen2.5-1.5b-instruct-q4_k_m.gguf",
+            ]
+            found = False
+            for candidate in candidates:
+                if (models_dir / candidate).exists():
+                    path = models_dir / candidate
+                    found = True
+                    break
+            if not found and models_dir.exists():
+                ggufs = list(models_dir.glob("*.gguf"))
+                if ggufs:
+                    path = ggufs[0]
+                    found = True
+            if not found:
                 raise FileNotFoundError(
                     f"Modèle GGUF introuvable : {path}"
                 )
@@ -50,8 +64,9 @@ class LocalLLMClient(LLMClient):
         self.repeat_penalty = repeat_penalty
         self.frequency_penalty = frequency_penalty
         self.presence_penalty = presence_penalty
-        # max_tokens : 180 tokens par défaut (permet une explication concise et dense en ~6-8s max sur CPU)
-        self._max_tokens: int | None = max_tokens if (max_tokens is not None and max_tokens > 0) else 180
+        # max_tokens : 320 tokens = permet une réponse complète et dense (2 à 4 phrases ou listes de principes)
+        # sans jamais couper au milieu d'un mot ou d'une phrase.
+        self._max_tokens: int | None = max_tokens if (max_tokens is not None and max_tokens > 0) else 320
 
         # Détection du nombre optimal de threads :
         # - Sur x86/Intel (Hyperthreading) : utiliser les cœurs physiques (cpu_count // 2 = 4)
@@ -63,18 +78,32 @@ class LocalLLMClient(LLMClient):
         else:
             import platform
             machine = platform.machine().lower()
-            if "arm" in machine or "m1" in machine or "m2" in machine or "m3" in machine or "m4" in machine:
-                threads = min(6, max(2, cpu_count))
-            elif machine in {"x86_64", "amd64", "i386", "i686"}:
-                threads = max(2, min(4, cpu_count // 2))
+            # Apple Silicon : arm64 est le vrai identifiant sur macOS
+            is_apple_silicon = (
+                "arm64" in machine
+                or "arm" in machine
+                or "m1" in machine
+                or "m2" in machine
+                or "m3" in machine
+                or "m4" in machine
+            )
+            if is_apple_silicon:
+                # M-series : threads = tous les P-cores (performance cores)
+                threads = min(8, max(4, cpu_count))
+            elif machine in {"x86_64", "amd64"}:
+                # Intel HT : utiliser UNIQUEMENT les cœurs physiques (cpu_count // 2)
+                # Évite la contention de cache L1/L2 et booste la génération jusqu'à 8-10+ tokens/s.
+                physical_cores = max(2, cpu_count // 2) if cpu_count > 2 else cpu_count
+                threads = min(6, physical_cores)
             else:
                 threads = min(4, max(2, cpu_count))
 
         threads_batch = cpu_count
 
         # Détection intelligente de l'accélération matérielle
-        # Sur Raspberry Pi 4/5 ou Mac Intel (GPU discret non unifié), n_gpu_layers=0 (CPU pur) est le plus rapide
         gpu_layers = self._detect_optimal_gpu_layers(n_gpu_layers)
+        target_mode = f"GPU ({gpu_layers} layers)" if gpu_layers != 0 else "CPU (0 layers)"
+        print(f"\033[36m🚀 [local_client.py]\033[0m Chargement du LLM ({Path(self.model_path).name}) — Mode : \033[1;32m{target_mode}\033[0m")
 
         try:
             from llama_cpp import Llama
@@ -94,7 +123,9 @@ class LocalLLMClient(LLMClient):
                 n_gpu_layers=gpu_layers,
                 verbose=False,
             )
-        except Exception:
+            print(f"\033[32m✅ [local_client.py]\033[0m LLM chargé avec succès sur {target_mode} !")
+        except Exception as exc:
+            print(f"\033[33m⚠️ [local_client.py]\033[0m Échec du chargement GPU ({exc}). Basculement sur CPU...")
             # Repli CPU pur en cas d'échec de chargement
             self.llm = Llama(
                 model_path=self.model_path,
@@ -117,13 +148,32 @@ class LocalLLMClient(LLMClient):
         machine = platform.machine().lower()
 
         if sys_name == "Darwin":
-            # Apple Silicon (M1/M2/M3/M4) -> mémoire unifiée très rapide avec Metal
-            if "arm" in machine or "m1" in machine or "m2" in machine or "m3" in machine:
-                return -1
-            # Intel Mac avec GPU discret -> le CPU pur est 2.5x plus rapide car pas de goulot PCIe
+            # Apple Silicon (arm64) → mémoire unifiée, Metal très rapide
+            is_apple_silicon = (
+                "arm64" in machine
+                or "arm" in machine
+                or "m1" in machine
+                or "m2" in machine
+                or "m3" in machine
+                or "m4" in machine
+            )
+            if is_apple_silicon:
+                return -1  # Toutes les couches sur Metal GPU
+            # Intel Mac (x86_64) → GPU discret non unifié, CPU pur est plus rapide
             return 0
 
-        # Linux / Raspberry Pi 4/5 (ARM Cortex A72 / A76) -> CPU pur
+        # Linux : Vérifier la présence d'un GPU NVIDIA (CUDA / RunPod / Colab / AWS)
+        if sys_name == "Linux":
+            try:
+                import torch
+                if torch.cuda.is_available() and torch.cuda.device_count() > 0:
+                    return -1  # Toutes les couches sur GPU NVIDIA CUDA
+            except Exception:
+                pass
+            if os.path.exists("/proc/driver/nvidia") or os.environ.get("CUDA_VISIBLE_DEVICES"):
+                return -1
+
+        # Raspberry Pi (ARM Cortex A72/A76) / CPU pur
         return 0
 
     def _build_messages(
@@ -164,6 +214,19 @@ class LocalLLMClient(LLMClient):
             messages = self._build_messages(prompt, system_prompt)
 
         start_time = time.perf_counter()
+        model_name = Path(self.model_path).name
+        print(f"\033[35m⏱️  [local_client.py]\033[0m Appel LLM synchrone ({model_name})...")
+
+        # Stop sequences sûres : bloquent la fuite de balises de fin de tour ou séparateurs
+        stop_sequences = [
+            "<|im_end|>",
+            "<|endoftext|>",
+            "<|im_start|>",
+            "</s>",
+            "---",
+            "QUESTION DE L'ÉLÈVE :",
+            "EXTRAITS DU COURS",
+        ]
 
         raw_response = self.llm.create_chat_completion(
             messages=cast(Any, messages),
@@ -172,35 +235,20 @@ class LocalLLMClient(LLMClient):
             repeat_penalty=self.repeat_penalty,
             frequency_penalty=self.frequency_penalty,
             presence_penalty=self.presence_penalty,
-            max_tokens=self._max_tokens,  # None = illimité
+            max_tokens=self._max_tokens,
+            stop=stop_sequences,
         )
         response: dict[str, Any] = cast(dict[str, Any], raw_response)
 
         elapsed = time.perf_counter() - start_time
-
         usage = response.get("usage", {})
+        completion_tokens = usage.get("completion_tokens", 0)
+        tokens_per_second = completion_tokens / max(elapsed, 0.001)
 
         print(
-            f"\n[LLM] génération : {elapsed:.2f}s"
+            f"\033[35m⏱️  [local_client.py]\033[0m LLM génération : \033[1;32m{completion_tokens} tokens\033[0m "
+            f"en \033[1;33m{elapsed:.2f}s\033[0m (\033[1;36m{tokens_per_second:.2f} tokens/s\033[0m)"
         )
-
-        completion_tokens = usage.get(
-            "completion_tokens",
-            0,
-        )
-
-        if completion_tokens:
-            print(
-                f"[LLM] tokens générés : {completion_tokens}"
-            )
-            tokens_per_second = (
-                completion_tokens / max(elapsed, 0.001)
-            )
-
-            print(
-                f"[LLM] vitesse : "
-                f"{tokens_per_second:.2f} tokens/s"
-            )
 
         choices = response.get("choices", [])
         if choices and isinstance(choices, list):
@@ -225,12 +273,27 @@ class LocalLLMClient(LLMClient):
         """
 
         start_time = time.perf_counter()
+        first_token_time: float | None = None
         token_count = 0
+        model_name = Path(self.model_path).name
 
         if messages is None:
             if prompt is None:
                 raise ValueError("Soit 'prompt' soit 'messages' doit être fourni.")
             messages = self._build_messages(prompt, system_prompt)
+
+        print(f"\033[35m⏱️  [local_client.py]\033[0m Ingestion du prompt par llama.cpp ({model_name})...")
+
+        # Stop sequences sûres : bloquent la fuite de balises de fin de tour ou séparateurs
+        stop_sequences = [
+            "<|im_end|>",
+            "<|endoftext|>",
+            "<|im_start|>",
+            "</s>",
+            "---",
+            "QUESTION DE L'ÉLÈVE :",
+            "EXTRAITS DU COURS",
+        ]
 
         raw_stream = self.llm.create_chat_completion(
             messages=cast(Any, messages),
@@ -239,7 +302,8 @@ class LocalLLMClient(LLMClient):
             repeat_penalty=self.repeat_penalty,
             frequency_penalty=self.frequency_penalty,
             presence_penalty=self.presence_penalty,
-            max_tokens=self._max_tokens,  # None = illimité
+            max_tokens=self._max_tokens,
+            stop=stop_sequences,
             stream=True,
         )
 
@@ -274,14 +338,21 @@ class LocalLLMClient(LLMClient):
             )
 
             if content:
+                if first_token_time is None:
+                    first_token_time = time.perf_counter()
+                    ttft = first_token_time - start_time
+                    print(f"\033[35m⏱️  [local_client.py]\033[0m Premier token émis (TTFT - Time To First Token) en \033[1;33m{ttft:.4f}s\033[0m")
                 token_count += 1
                 yield content
 
-        elapsed = time.perf_counter() - start_time
+        now = time.perf_counter()
+        total_elapsed = now - start_time
+        decode_elapsed = (now - first_token_time) if first_token_time else total_elapsed
+        ttft = (first_token_time - start_time) if first_token_time else 0.0
 
         if token_count > 0:
-            speed = token_count / max(elapsed, 0.001)
+            pure_speed = token_count / max(decode_elapsed, 0.001)
             print(
-                f"\n[LLM-stream] {token_count} tokens en "
-                f"{elapsed:.2f}s ({speed:.2f} tokens/s)"
+                f"\n\033[35m⏱️  [local_client.py]\033[0m Stream LLM terminé : \033[1;32m{token_count} tokens\033[0m "
+                f"générés en \033[1;33m{decode_elapsed:.2f}s\033[0m (\033[1;36m{pure_speed:.2f} tokens/s\033[0m | TTFT: \033[1;33m{ttft:.4f}s\033[0m | total: \033[1;33m{total_elapsed:.2f}s\033[0m)"
             )

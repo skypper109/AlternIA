@@ -24,22 +24,21 @@ from alternia.rag.contextualizer import QueryContextualizer
 from alternia.tts.engine import TTSEngine, NEURAL_VOICES
 from alternia.conversation.manager import ConversationManager
 from alternia.learner.manager import LearnerManager
+from alternia.pedagogical.curriculum_keywords import detect_malian_curriculum_subject
 
 
 def create_orchestrator(enable_rag: bool = True):
     """Initialise et met en cache l'orchestrateur pédagogique avec RAG réel et LLM local."""
-    # Sélection automatique du meilleur modèle (1.5B ultra-rapide pour RPi/Edge, ou 3B)
-    model_1_5b = PROJECT_ROOT / "ai-engine" / "models" / "llm" / "qwen2.5-1.5b-instruct-q4_k_m.gguf"
+    # Sélection automatique du meilleur modèle (3B en priorité pour une qualité pédagogique maximale, ou 1.5B)
     model_3b = PROJECT_ROOT / "ai-engine" / "models" / "llm" / "qwen2.5-3b-instruct-q4_k_m.gguf"
-    model_path = model_1_5b if model_1_5b.exists() else model_3b
+    model_1_5b = PROJECT_ROOT / "ai-engine" / "models" / "llm" / "qwen2.5-1.5b-instruct-q4_k_m.gguf"
+    model_path = model_3b if model_3b.exists() else model_1_5b
 
     print(f"⏳ Chargement du modèle LLM local ({model_path.name})...")
     llm_client = LocalLLMClient(
         model_path=str(model_path),
-        n_ctx=4096,   # Contexte complet pour absorber RAG + historique sans jamais saturer
+        n_ctx=4096,   # Contexte élargi pour supporter le RAG sans crash
         n_batch=512,
-        # max_tokens non limité : le modèle s'arrête seul à la fin d'une réponse complète
-        # On laisse le prompt guider la longueur, pas une coupure artificielle
     )
 
     rag_service = None
@@ -93,6 +92,7 @@ def print_header(student_class: str, series_label: str, subject: str, audio_enab
     print("    /matiere <nom>             -> Changer de matière (maths, physique...)")
     print("    /audio on|off              -> Activer/Désactiver la voix")
     print("    /voix <nom>                -> Changer de voix (vivienne, remy, denise, system)")
+    print("    /modele 1.5b | 3b          -> Changer de modèle (1.5B ~16 tok/s | 3B haute précision)")
     print("    /sources                   -> Voir les sources du dernier RAG")
     print("    /profil                    -> Voir le carnet de suivi d'apprentissage")
     print("    /aide                      -> Afficher l'aide")
@@ -183,16 +183,21 @@ def main():
 
     last_sources = []
 
-    # Message d'accueil vocal personnalisé selon la classe
+    # Message d'accueil vocal personnalisé selon la classe (prononciation naturelle en français)
     if audio_enabled:
-        tts.speak_sentence_async(f"Bonjour ! Je suis ALTA. Tu es configuré en {series_label}. Pose-moi ta première question !")
+        speech_series = re.sub(r"\s*\([^)]*\)", "", series_label).strip()
+        speech_series = speech_series.replace("&", "et")
+        tts.speak_sentence_async(f"Bonjour ! Je suis ALTA. Tu es configuré en {speech_series}. Pose-moi ta première question !")
 
     while True:
         try:
             prompt_label = f"[{current_class}|{current_series}|{current_subject}] Élève > "
             question = input(prompt_label).strip()
         except (KeyboardInterrupt, EOFError):
-            print("\n\nALTA > À bientôt et bon courage pour tes révisions !")
+            farewell = "À bientôt et bon courage pour tes révisions !"
+            print(f"\n\nALTA > {farewell}")
+            if audio_enabled:
+                tts.speak_sync(farewell)
             tts.stop()
             break
 
@@ -206,9 +211,10 @@ def main():
         # Gestion des commandes spéciales
         cmd = question.lower()
         if cmd in {"quit", "exit", "q"}:
-            print("\nALTA > À bientôt et bon courage pour tes révisions !")
+            farewell = "À bientôt et bon courage pour tes révisions !"
+            print(f"\nALTA > {farewell}")
             if audio_enabled:
-                tts.speak("À bientôt et bon courage pour tes révisions !")
+                tts.speak_sync(farewell)
             tts.stop()
             break
 
@@ -304,17 +310,57 @@ def main():
             print(f"  • Interactions       : {len(profile.recent_interactions)}\n")
             continue
 
+        if cmd.startswith("/modele"):
+            parts = question.split()
+            if len(parts) >= 2:
+                target_m = parts[1].strip().lower()
+                m_path = None
+                if target_m in {"1.5b", "1.5", "fast", "rapide", "speed"}:
+                    candidate = PROJECT_ROOT / "ai-engine" / "models" / "llm" / "qwen2.5-1.5b-instruct-q4_k_m.gguf"
+                    if candidate.exists():
+                        m_path = candidate
+                elif target_m in {"3b", "3", "smart", "precision", "qualite"}:
+                    candidate = PROJECT_ROOT / "ai-engine" / "models" / "llm" / "qwen2.5-3b-instruct-q4_k_m.gguf"
+                    if candidate.exists():
+                        m_path = candidate
+
+                if m_path:
+                    print(f"⏳ Basculement vers le modèle : \033[1;36m{m_path.name}\033[0m...")
+                    new_client = LocalLLMClient(
+                        model_path=str(m_path),
+                        n_ctx=4096,
+                        n_batch=512,
+                    )
+                    orchestrator.llm_client = new_client
+                    print(f"✅ Modèle actif : \033[1;32m{m_path.name}\033[0m\n")
+                else:
+                    print("❌ Modèle indisponible. Choisis : /modele 1.5b (rapide ~16 tok/s) ou /modele 3b (précis ~8-10 tok/s)\n")
+            else:
+                print("❌ Utilisation : /modele 1.5b | /modele 3b\n")
+            continue
+
         if cmd == "/aide":
             print_header(current_class, series_label, current_subject, audio_enabled, tts.voice)
             continue
 
         # Traitement d'une question élève avec le RAG
-        print("\n\033[1;33m🔍 Recherche dans le programme officiel & analyse pédagogique...\033[0m")
-        start_time = time.perf_counter()
+        req_start = time.perf_counter()
+        print(f"\n\033[36m⏱️  [chat.py]\033[0m 1. Question élève reçue : \"{question}\" (Classe: {current_class}, Série: {current_series})")
 
         try:
             # Matière résolue dynamiquement si en mode général
             effective_subject = None if current_subject in {"général", "general", "toutes", "tous"} else current_subject
+
+            # ----------------------------------------------------------------
+            # DÉTECTION AUTOMATIQUE DE MATIÈRE DU PROGRAMME DU MALI
+            # Identifie automatiquement la matière (biologie, chimie, physique, maths,
+            # économie, comptabilité, histoire, géographie, philosophie, linguistique, etc.)
+            # ----------------------------------------------------------------
+            t0_sub = time.perf_counter()
+            if effective_subject is None:
+                effective_subject = detect_malian_curriculum_subject(question)
+                dt_sub = time.perf_counter() - t0_sub
+                print(f"\033[36m⏱️  [chat.py]\033[0m 2. Matière détectée automatiquement : \033[1;32m{effective_subject or 'Général'}\033[0m en \033[1;33m{dt_sub:.4f}s\033[0m")
 
             # Contextualisation intelligente de la recherche RAG pour les questions de suivi
             rag_query = question
@@ -338,6 +384,7 @@ def main():
                     series=current_series,
                 )
                 last_sources = rag_context.sources if rag_context else []
+
             # Vérification du cadrage curriculaire
             scope_check = orchestrator.curriculum_scope_checker.check_scope(
                 question=question,
@@ -350,6 +397,7 @@ def main():
                     f"({scope_check.target_series}). ALTA adapte l'explication pour la {current_class}.\033[0m"
                 )
 
+            # Affichage de la réponse en streaming
             print("\n\033[1;35mALTA > \033[0m", end="", flush=True)
 
             # Stream de la réponse
@@ -367,16 +415,24 @@ def main():
             if audio_enabled:
                 tts.stop()
 
-            # ——— Streaming TTS : déclenchement immédiat dès le 1er token ———
-            # Stratégie : buffer de 30 caractères minimum puis envoi immédiat
-            # au premier signe de ponctuation ou à 12 mots pour démarrer la voix
-            # sans aucune latence perceptible.
+            # ——— Streaming TTS : découpage par phrases entières pour fluidité maximale ———
             full_response = ""
             sentence_buffer = ""
             first_audio_sent = False
 
-            # Séparateurs naturels de groupes phonétiques pour TTS
-            tts_split = re.compile(r"(?<=[.!?…])\s+|(?<=[,;:])\s+|\n+")
+            # Séparateurs de phrases complètes pour diction naturelle sans micro-pauses
+            tts_split = re.compile(r"(?<=[.!?…])\s+|\n+")
+
+            # Regex de nettoyage TTS : supprime les marqueurs anglais/balises
+            tts_cleanup = re.compile(
+                r"(\*{2,3}[^*]+\*{2,3}"  # **texte** ou ***texte***
+                r"|\*{2,3}"              # *** seuls
+                r"|\[Source\s*\d+[^\]]*\]"  # [Source 1 - ...]
+                r"|CONTEXTE PÉDAGOGIQUE ALTERNIA"  # fuite de balise interne
+                r"|FIN DU CONTEXTE"
+                r")",
+                re.IGNORECASE,
+            )
 
             for chunk in stream:
                 print(chunk, end="", flush=True)
@@ -388,35 +444,37 @@ def main():
                 sentence_buffer += chunk
 
                 if not first_audio_sent:
-                    # Déclenchement dès que le buffer dépasse 30 chars ET atteint
-                    # un espace (mot complet) — pas besoin de ponctuation
-                    if len(sentence_buffer) >= 30 and sentence_buffer[-1] in ' \n\t':
-                        segment = sentence_buffer.strip()
-                        sentence_buffer = ""
+                    # Première phrase : émise dès qu'on a au moins 45 caractères avec ponctuation ou 70 caractères
+                    m = tts_split.search(sentence_buffer)
+                    if (m and len(sentence_buffer[:m.end()].strip()) >= 20) or (len(sentence_buffer) >= 65 and sentence_buffer[-1] in ' \n\t'):
+                        end_pos = m.end() if m else len(sentence_buffer)
+                        segment = tts_cleanup.sub("", sentence_buffer[:end_pos]).strip()
+                        sentence_buffer = sentence_buffer[end_pos:]
                         if segment:
                             tts.speak_sentence_async(segment)
                             first_audio_sent = True
                 else:
-                    # Envoi au fil de l'eau dès qu'un séparateur est trouvé
+                    # Phrases suivantes : envoyées phrase par phrase entière
                     while True:
                         m = tts_split.search(sentence_buffer)
                         if not m:
                             break
                         end_pos = m.end()
-                        segment = sentence_buffer[:end_pos].strip()
+                        segment = tts_cleanup.sub("", sentence_buffer[:end_pos]).strip()
                         sentence_buffer = sentence_buffer[end_pos:]
                         if len(segment) > 3:
                             tts.speak_sentence_async(segment)
 
-            # Dernier segment (fin de réponse sans séparateur final)
+            # Dernier segment (fin de réponse)
             if audio_enabled and sentence_buffer.strip():
-                tts.speak_sentence_async(sentence_buffer.strip())
+                tts.speak_sentence_async(tts_cleanup.sub("", sentence_buffer).strip())
 
-            elapsed = time.perf_counter() - start_time
-            print(f"\n\n\033[2m[Réponse générée en {elapsed:.2f}s]\033[0m\n")
+            total_elapsed = time.perf_counter() - req_start
+            print(f"\n\n\033[1;32m[✓ Réponse terminée en {total_elapsed:.2f}s | {len(full_response)} caractères]\033[0m\n")
 
             # Enregistrement en direct de l'interaction dans alta_db (alertes & analytics admin temps réel)
             try:
+                t0_db = time.perf_counter()
                 if str(PROJECT_ROOT) not in sys.path:
                     sys.path.insert(0, str(PROJECT_ROOT))
                 from backend.src.services.learning_service import record_student_interaction
@@ -430,6 +488,8 @@ def main():
                     sources=last_sources,
                     session_id=session_id,
                 )
+                dt_db = time.perf_counter() - t0_db
+                print(f"\033[36m⏱️  [chat.py]\033[0m Interaction enregistrée en DB (alta_db) en \033[1;33m{dt_db:.4f}s\033[0m\n")
             except Exception as db_err:
                 pass
 

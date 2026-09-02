@@ -10,6 +10,9 @@ export interface AvatarPedagogique {
   voixId?: string;
   personnalite: string;
   actif: boolean;
+  landmarks?: any;
+  visemePhotos?: Record<string, string>;
+  compatibilityScore?: number;
   dateCreation: Date;
   utilisations: number;
 }
@@ -26,4 +29,22 @@ export interface VoixPedagogique {
   actif: boolean;
   cloneeDepuis?: string;
   dateCreation: Date;
+}
+
+export interface AvatarUploadResponse {
+  photoUrl: string;
+  fileName: string;
+  videoUrl?: string | null;
+  isVideo?: boolean;
+  compatibility?: any;
+  landmarks?: any;
+  visemePhotos?: Record<string, string>;
+}
+
+export interface VisemeUploadResponse {
+  visemeId: string;
+  photoUrl: string;
+  fileName: string;
+  compatibility?: any;
+  landmarks?: any;
 }

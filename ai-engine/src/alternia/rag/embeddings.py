@@ -1,6 +1,16 @@
 from pathlib import Path
+import os
+import time
+import torch
 
 from sentence_transformers import SentenceTransformer
+
+# Optimisation multi-cœurs CPU pour SentenceTransformers
+try:
+    num_threads = min(4, max(2, os.cpu_count() or 4))
+    torch.set_num_threads(num_threads)
+except Exception:
+    pass
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[4]
@@ -47,11 +57,13 @@ class EmbeddingService:
         else:
             self.model_path = MULTILINGUAL_MODEL_PATH
 
+        device = "cuda" if torch.cuda.is_available() else "cpu"
         if not self.model_path.exists():
             try:
                 # Tentative de chargement via HuggingFace Hub si non téléchargé
                 self.model = SentenceTransformer(
-                    "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+                    "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+                    device=device,
                 )
                 self.model.save(str(MULTILINGUAL_MODEL_PATH))
                 self.model_path = MULTILINGUAL_MODEL_PATH
@@ -63,7 +75,8 @@ class EmbeddingService:
                 )
 
         self.model = SentenceTransformer(
-            str(self.model_path)
+            str(self.model_path),
+            device=device,
         )
 
     def encode(
@@ -77,10 +90,13 @@ class EmbeddingService:
                 "pour un texte vide."
             )
 
+        t0 = time.perf_counter()
         vector = self.model.encode(
             text,
             normalize_embeddings=True,
         )
+        dt = time.perf_counter() - t0
+        print(f"\033[36m⏱️  [embeddings.py]\033[0m Encodage sémantique de la requête (dim {len(vector)}) en \033[1;33m{dt:.4f}s\033[0m")
 
         return vector.tolist()
 
