@@ -93,12 +93,13 @@ export class SimliService {
         throw new Error("Impossible d'obtenir un session_token Simli.");
       }
 
-      // Étape 2 : Créer le client avec le session_token (API v3.x.x)
       this.client = new SimliClient(
         sessionToken,
         videoEl,
         audioEl,
-        null, // iceServers (null = mode LiveKit)
+        [], // iceServers (vide pour LiveKit)
+        0, // logLevel (0 = DEBUG)
+        "livekit" // transport_mode obligatoire pour LiveKit
       );
 
       // Étape 3 : Écouter les événements v3.x.x
