@@ -209,12 +209,16 @@ export class AudioService {
               source.buffer = audioBuffer;
               this.currentSource = source;
 
+              const gainNode = this.audioCtx.createGain();
+              gainNode.gain.value = (this.ENABLE_SIMLI && this.simli && this.simli.isConnected) ? 0 : 1;
+
               if (this.analyser) {
                 source.connect(this.analyser);
-                this.analyser.connect(this.audioCtx.destination);
+                this.analyser.connect(gainNode);
               } else {
-                source.connect(this.audioCtx.destination);
+                source.connect(gainNode);
               }
+              gainNode.connect(this.audioCtx.destination);
 
               await new Promise((resolve) => {
                 source.onended = () => {
