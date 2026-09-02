@@ -43,12 +43,17 @@ export class SimliService {
     try {
       console.log(`🚀 [SimliService] Initialisation du client WebRTC Simli (Face ID: ${this.faceId})...`);
 
+      const statusText = document.getElementById('modal-status-text');
+      const statusDot = document.getElementById('modal-status-dot');
+      if (statusText) statusText.textContent = "Connexion à l'avatar en direct...";
+      if (statusDot) statusDot.className = "w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse";
+
       let SimliClientModule;
       try {
-        SimliClientModule = await import('https://esm.sh/simli-client@1.2.0-beta.0');
+        SimliClientModule = await import('https://esm.sh/simli-client@1.2.20');
       } catch (err) {
-        console.warn("⚠️ [SimliService] Échec esm.sh, tentative CDN jsdelivr...");
-        SimliClientModule = await import('https://cdn.jsdelivr.net/npm/simli-client@1.2.0-beta.0/+esm');
+        console.warn("⚠️ [SimliService] Échec esm.sh 1.2.20, tentative unpkg...");
+        SimliClientModule = await import('https://unpkg.com/simli-client@1.2.20/dist/index.js');
       }
 
       const SimliClient = SimliClientModule.SimliClient || SimliClientModule.default?.SimliClient || SimliClientModule.default;
@@ -69,9 +74,16 @@ export class SimliService {
         console.log("✅ [SimliService] Connecté avec succès au flux WebRTC Simli !");
         if (videoEl) {
           videoEl.classList.remove('hidden');
+          videoEl.style.display = 'block';
+          videoEl.play().catch(() => {});
           const canvas = document.getElementById('modal-avatar-canvas');
-          if (canvas) canvas.classList.add('hidden');
+          if (canvas) {
+            canvas.classList.add('hidden');
+            canvas.style.display = 'none';
+          }
         }
+        if (statusText) statusText.textContent = "Avatar en direct (Simli WebRTC)";
+        if (statusDot) statusDot.className = "w-2.5 h-2.5 rounded-full bg-emerald-400";
       });
 
       this.client.on("disconnected", () => {
@@ -84,6 +96,8 @@ export class SimliService {
         console.error("❌ [SimliService] Échec de la connexion Simli :", err);
         this.isInitialized = false;
         this.isConnecting = false;
+        if (statusText) statusText.textContent = "Prêt à répondre";
+        if (statusDot) statusDot.className = "w-2.5 h-2.5 rounded-full bg-emerald-400";
       });
 
       await this.client.start();
@@ -98,7 +112,7 @@ export class SimliService {
   }
 
   async sendAudioBuffer(audioBuffer) {
-    if (!this.isInitialized) {
+    if (!this.isInitialized && !this.isConnecting) {
       console.log("🔄 [SimliService] Client non connecté. Connexion en cours...");
       await this.init();
     }
