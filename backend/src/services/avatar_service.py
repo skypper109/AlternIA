@@ -187,6 +187,7 @@ def map_avatar_to_dict(av: AvatarPedagogique) -> Dict[str, Any]:
         "matiere": av.matiere,
         "stylePedagogique": av.style_pedagogique,
         "voixTts": av.voix_tts,
+        "faceId": av.face_id,
         "photoUrl": av.photo_url,
         "videoUrl": video_url,
         "audioUrl": av.audio_sample_url,
@@ -307,6 +308,7 @@ def get_active_avatar(db: Session) -> Dict[str, Any]:
             matiere="SVT & Sciences Naturelles",
             style_pedagogique="Chaleureuse, bienveillante et explicite avec exemples concrets",
             voix_tts="vivienne",
+            face_id="bb1212ec-2cc5-4ca0-ad32-4a4427600345",
             photo_url="assets/avatars/vivienne.svg",
             actif=True,
             par_defaut=True,
@@ -349,6 +351,7 @@ def create_avatar(db: Session, req: AvatarCreateRequest) -> Dict[str, Any]:
         matiere=req.matiere.strip(),
         style_pedagogique=req.style_pedagogique or "Bienveillant, rigoureux et interactif",
         voix_tts=req.voix_tts or "vivienne",
+        face_id=req.face_id or "bb1212ec-2cc5-4ca0-ad32-4a4427600345",
         photo_url=req.photo_url or "assets/avatars/vivienne.svg",
         video_url=req.video_url,
         audio_sample_url=req.audio_sample_url,
@@ -378,6 +381,8 @@ def update_avatar(db: Session, avatar_id: str, req: AvatarUpdateRequest) -> Dict
         av.style_pedagogique = req.style_pedagogique
     if req.voix_tts is not None:
         av.voix_tts = req.voix_tts
+    if req.face_id is not None:
+        av.face_id = req.face_id
     if req.video_url is not None:
         av.video_url = req.video_url
     if req.photo_url is not None:

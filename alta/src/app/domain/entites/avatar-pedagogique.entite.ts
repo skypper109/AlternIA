@@ -8,6 +8,7 @@ export interface AvatarPedagogique {
   categorie: CategorieMatiere;
   imageUrl?: string;
   voixId?: string;
+  faceId?: string;
   personnalite: string;
   actif: boolean;
   landmarks?: any;

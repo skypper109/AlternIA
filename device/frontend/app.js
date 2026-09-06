@@ -179,8 +179,11 @@ export class AlternIAApp {
             this.modalAvatarSubtitle.textContent = `${subject}${style}`;
           }
           // Initialisation proactive du flux Simli WebRTC (avec Face ID)
-          if (this.audio && this.audio.simli) {
-            this.audio.simli.init(data.face_id || data.faceId || null);
+          if (this.audio) {
+            if (this.audio.simli) {
+              this.audio.simli.init(data.face_id || data.faceId || null);
+            }
+            this.audio.currentVoice = data.voixTts || data.voix_tts || 'vivienne';
           }
         }
       }

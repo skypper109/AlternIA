@@ -148,6 +148,7 @@ class AvatarPedagogique(Base):
     matiere: Mapped[str] = mapped_column(String(80), nullable=False, default="Toutes matières")
     style_pedagogique: Mapped[str] = mapped_column(String(120), default="Bienveillant, rigoureux et interactif")
     voix_tts: Mapped[str] = mapped_column(String(60), default="vivienne")
+    face_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, default="bb1212ec-2cc5-4ca0-ad32-4a4427600345")
     photo_url: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     video_url: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     audio_sample_url: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)

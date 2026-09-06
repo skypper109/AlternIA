@@ -134,7 +134,7 @@ export class AudioService {
     this.ensureAudioContext();
 
     // Pré-chargement immédiat du blob en arrière-plan
-    const audioPromise = ApiService.fetchTTSBlob(cleanText);
+    const audioPromise = ApiService.fetchTTSBlob(cleanText, this.currentVoice);
     this.audioQueue.push({ text: cleanText, audioPromise });
     this.processQueue();
   }

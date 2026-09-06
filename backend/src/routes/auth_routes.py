@@ -1,3 +1,4 @@
+from pydantic import BaseModel
 """
 Routes API pour l'authentification et la gestion des utilisateurs.
 """
@@ -81,3 +82,12 @@ def api_update_user(user_id: str, req: ModifierUtilisateurRequest, db: Session =
 def api_toggle_user_status(user_id: str, db: Session = Depends(get_db)):
     """Active ou désactive un compte utilisateur."""
     return toggle_user_status(db, user_id)
+
+class VerifierCodePremiumRequest(BaseModel):
+    code: str
+
+@router.post("/verifier-code-premium")
+def api_verifier_code_premium(req: VerifierCodePremiumRequest, db: Session = Depends(get_db)):
+    """Vérifie la validité d'un code de compte premium pour débloquer le Live Simli."""
+    from backend.src.services.auth_service import verify_premium_code
+    return verify_premium_code(db, req.code)

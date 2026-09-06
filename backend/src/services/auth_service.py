@@ -293,3 +293,73 @@ def register_parent(db: Session, req: InscriptionParentRequest) -> Dict[str, Any
         "message": f"Compte parent créé pour {user.nom_complet}",
         "utilisateur": serialize_user(user),
     }
+
+def verify_premium_code(db: Session, code: str) -> Dict[str, Any]:
+    """Vérifie un code premium (licence, établissement, boîtier, matricule) pour débloquer le Live Simli."""
+    clean_code = (code or "").strip().upper()
+    if not clean_code:
+        return {"valide": False, "message": "Veuillez saisir un code de compte premium."}
+
+    # 1. Clés maîtresses de licence AlterniA / Simli Live
+    master_codes = {
+        "ALTERNIA-PREMIUM-2026": "Licence Nationale AlterniA Pro",
+        "SIMLI-LIVE-2026": "Accès Illimité Simli Avatar Live",
+        "VIP-MALI-2026": "Compte Partenaire Ministère / Établissement",
+        "PREMIUM2026": "Compte Premium Éducation Malienne",
+        "ALTA-PRO": "Abonnement Famille & Lycée",
+    }
+    if clean_code in master_codes:
+        return {
+            "valide": True,
+            "message": f"Code vérifié avec succès : {master_codes[clean_code]}",
+            "code": clean_code,
+            "type": "licence_master",
+            "plan": "AlterniA Live Ultra",
+            "simli_enabled": True,
+        }
+
+    from backend.src.db.models import Etablissement, Boitier, Apprenant
+
+    # 2. Vérification contre les codes d'établissements enregistrés
+    etab = db.query(Etablissement).filter(Etablissement.code.ilike(clean_code)).first()
+    if etab:
+        return {
+            "valide": True,
+            "message": f"Établissement vérifié : {etab.nom} ({etab.ville})",
+            "code": clean_code,
+            "type": "etablissement",
+            "etablissement": etab.nom,
+            "plan": "AlterniA Scolaire Pro",
+            "simli_enabled": True,
+        }
+
+    # 3. Vérification contre les numéros de série de boîtiers
+    boitier = db.query(Boitier).filter(Boitier.numero_serie.ilike(clean_code)).first()
+    if boitier:
+        return {
+            "valide": True,
+            "message": f"Boîtier AlternIA physique vérifié ({boitier.modele})",
+            "code": clean_code,
+            "type": "boitier",
+            "numero_serie": boitier.numero_serie,
+            "plan": "AlterniA Hardware Box",
+            "simli_enabled": True,
+        }
+
+    # 4. Vérification contre les matricules d'élèves inscrits
+    apprenant = db.query(Apprenant).filter(Apprenant.matricule.ilike(clean_code)).first()
+    if apprenant:
+        return {
+            "valide": True,
+            "message": f"Apprenant vérifié : {apprenant.prenom} {apprenant.nom} ({apprenant.classe})",
+            "code": clean_code,
+            "type": "apprenant",
+            "eleve": f"{apprenant.prenom} {apprenant.nom}",
+            "plan": "AlterniA Élève Pro",
+            "simli_enabled": True,
+        }
+
+    return {
+        "valide": False,
+        "message": "Code premium invalide ou expiré. Vérifiez votre code établissement ou licence.",
+    }

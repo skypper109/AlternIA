@@ -40,6 +40,7 @@ export class AvatarRepository {
       categorie: CategorieMatiere.SCIENTIFIQUE,
       imageUrl: item.photoUrl || `assets/avatars/${item.voixTts || 'vivienne'}.svg`,
       voixId: item.voixTts || 'vivienne',
+      faceId: item.faceId || item.face_id || 'bb1212ec-2cc5-4ca0-ad32-4a4427600345',
       personnalite: item.stylePedagogique || 'Bienveillante et explicative',
       actif: item.parDefaut ?? item.actif ?? true,
       landmarks: item.landmarks || null,
@@ -91,6 +92,7 @@ export class AvatarRepository {
     matiere: string;
     stylePedagogique?: string;
     voixTts?: string;
+    faceId?: string;
     photoUrl?: string;
     videoUrl?: string;
     parDefaut?: boolean;
@@ -102,6 +104,7 @@ export class AvatarRepository {
       matiere: data.matiere,
       style_pedagogique: data.stylePedagogique || 'Bienveillant et interactif',
       voix_tts: data.voixTts || 'vivienne',
+      face_id: data.faceId || 'bb1212ec-2cc5-4ca0-ad32-4a4427600345',
       photo_url: data.photoUrl || null,
       video_url: data.videoUrl || null,
       par_defaut: data.parDefaut || false,
