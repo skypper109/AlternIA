@@ -29,8 +29,8 @@ function parseMatiere(name: string): Matiere {
 export class StatistiquesRepository {
   private readonly http = inject(HttpClient);
 
-  obtenirStatistiques(etablissementId: string): Observable<StatistiquesUtilisation> {
-    return this.http.get<any>(`${environment.apiUrl}/statistiques`).pipe(
+  obtenirStatistiques(etablissementId: string, periode: string = 'semaine'): Observable<StatistiquesUtilisation> {
+    return this.http.get<any>(`${environment.apiUrl}/statistiques?periode=${periode}`).pipe(
       map(data => {
         const matieres: MatiereStats[] = (data?.repartitionMatieres || []).map((m: any) => ({
           matiere: parseMatiere(m.matiere),
@@ -43,13 +43,13 @@ export class StatistiquesRepository {
 
         return {
           etablissementId: etablissementId || 'etab-lbad-bamako',
-          periode: 'semaine',
+          periode: (data?.periode || periode) as any,
           totalQuestionsIA: data?.totalInteractions || 120,
           tempsTotal: Math.round((data?.totalHeuresApprentissage || 15) * 60),
-          apprenantActifs: 3,
+          apprenantActifs: data?.apprenantsActifs || 3,
           tauxEngagement: Math.round(data?.tauxSatisfaction || 92),
           matieresPlusUtilisees: matieres,
-          pictUtilisation: [
+          pictUtilisation: data?.pictUtilisation || [
             { heure: 8, nombreSessions: 12 },
             { heure: 10, nombreSessions: 28 },
             { heure: 14, nombreSessions: 35 },
@@ -65,8 +65,8 @@ export class StatistiquesRepository {
     );
   }
 
-  obtenirNotionsDifficiles(etablissementId: string): Observable<NotionDifficile[]> {
-    return this.http.get<any>(`${environment.apiUrl}/insights`).pipe(
+  obtenirNotionsDifficiles(etablissementId: string, periode: string = 'semaine'): Observable<NotionDifficile[]> {
+    return this.http.get<any>(`${environment.apiUrl}/insights?periode=${periode}`).pipe(
       map(data => {
         const notions: any[] = data?.notionsCritiques || [];
         return notions.map((nc: any) => ({

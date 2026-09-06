@@ -149,7 +149,7 @@
             <div class="avatar-card" [class.avatar-card--active]="avatar.actif" [attr.id]="'card-avatar-' + avatar.id">
               <div class="avatar-card__header">
                 <div class="avatar-portrait-wrapper">
-                  <img [src]="avatar.imageUrl" [alt]="avatar.nom" class="avatar-portrait-img" (error)="$any($event.target).src = 'assets/avatars/vivienne.svg'"/>
+                  <img [src]="avatar.imageUrl || 'assets/avatars/avatar.png'" [alt]="avatar.nom" class="avatar-portrait-img" (error)="$any($event.target).src = 'assets/avatars/avatar.png'"/>
                   @if (avatar.actif) {
                     <div class="avatar-active-badge" title="Avatar actif en production">
                       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5"><polyline points="20 6 9 17 4 12"/></svg>
@@ -220,100 +220,7 @@
         </div>
 
         <div class="modal-body">
-          <div class="upload-modal-grid">
-            <!-- Zone d'Aperçu & Capture -->
-            <div class="upload-preview-pane">
-              <!-- Affichage du Canvas / Vidéo LivePortrait d'aperçu -->
-              <div class="preview-display" style="width: 160px; height: 160px; margin: 0 auto 16px auto; border-radius: 50%; border: 4px solid var(--color-bg-secondary); overflow: hidden; background: var(--color-bg-tertiary); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
-                @if (formVideoUrl(); as vUrl) {
-                  <video [src]="vUrl" class="preview-video" style="width:100%; height:100%; object-fit:cover;" autoplay loop playsinline muted></video>
-                } @else if (formImageUrl() || visemeProgress > 0) {
-                  <canvas #previewCanvas width="160" height="160" class="preview-canvas" style="width:100%; height:100%; object-fit:cover;"></canvas>
-                } @else {
-                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--color-secondary, #64748B)" stroke-width="1.5">
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                    <circle cx="12" cy="7" r="4"></circle>
-                  </svg>
-                }
-              </div>
-              <!-- Diagnostic de Compatibilité & Repères Faciaux Détectés -->
-              @if (diagnosticCompatibilite(); as diag) {
-                <div class="compatibility-box animate-fade-in" style="margin-top:12px; padding:10px 12px; border-radius:8px; background:var(--color-bg-secondary, #F8FAFC); border:1px solid var(--color-border, #E2E8F0);">
-                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                    <span class="text-xs fw-bold" style="color:var(--color-text-primary, #0F172A);">Diagnostic Facial OpenCV</span>
-                    <span class="badge" [ngClass]="diag.score_compatibilite >= 85 ? 'badge-success' : diag.score_compatibilite >= 65 ? 'badge-warning' : 'badge-slate'">
-                      {{ diag.score_compatibilite }}% Compatible
-                    </span>
-                  </div>
-                  <p class="text-xs text-secondary" style="margin:0 0 6px 0; line-height:1.3;">{{ diag.message }}</p>
-                  
-                  <!-- Repères ciblés -->
-                  @if (landmarksDetectes(); as lm) {
-                    <div style="display:flex; gap:6px; flex-wrap:wrap; font-size:11px;">
-                      <span class="badge badge-outline" style="font-size:10px; padding:2px 6px;">👁️ Yeux : {{ (lm.left_eye?.x * 100).toFixed(0) }}% / {{ (lm.right_eye?.x * 100).toFixed(0) }}%</span>
-                      <span class="badge badge-outline" style="font-size:10px; padding:2px 6px;">👄 Bouche : {{ (lm.mouth?.y * 100).toFixed(0) }}%</span>
-                      <span class="badge badge-outline" style="font-size:10px; padding:2px 6px;">📐 Mâchoire : {{ (lm.jaw_bottom?.y * 100).toFixed(0) }}%</span>
-                    </div>
-                  }
-                </div>
-              }
-
-              <!-- Upload 1 Seule Photo Unique -->
-              <input #fileInputPhoto type="file" accept="image/png,image/jpeg,image/webp,image/jpg" style="display:none;" (change)="onPhotoAvatarSelectionnee($event)"/>
-              <button
-                type="button"
-                class="btn btn-primary btn-sm"
-                style="width:100%; justify-content:center; margin-bottom: 8px;"
-                (click)="declencherUploadPhoto()"
-                [disabled]="isUploadingPhoto()"
-              >
-                @if (isUploadingPhoto()) {
-                  <span class="dot animate-pulse"></span>
-                  <span>Upload de l'image en cours…</span>
-                } @else if (formImageUrl()) {
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                  <span>Changer la photo de l'avatar</span>
-                } @else {
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                  <span>Uploader la photo du professeur</span>
-                }
-              </button>
-
-              <!-- Bouton Générer la Vidéo LivePortrait IA -->
-              @if (formImageUrl()) {
-                <button
-                  type="button"
-                  class="btn btn-warning btn-sm"
-                  style="width:100%; justify-content:center; margin-bottom: 8px;"
-                  (click)="genererVideoLivePortrait()"
-                  [disabled]="isGeneratingVideo()"
-                >
-                  @if (isGeneratingVideo()) {
-                    <span class="dot animate-pulse"></span>
-                    <span>Génération LivePortrait GPU en cours…</span>
-                  } @else {
-                    <span>🎬 Générer la vidéo LivePortrait (IA)</span>
-                  }
-                </button>
-
-                <!-- Bouton Tester la Parole & Lip-Sync -->
-                <button
-                  type="button"
-                  class="btn btn-secondary btn-sm"
-                  style="width:100%; justify-content:center; margin-bottom: 12px;"
-                  (click)="toggleTestPreviewModal()"
-                >
-                  @if (testPreviewAudioEnCours()) {
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
-                    <span>Arrêter le test vocal</span>
-                  } @else {
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                    <span>Tester la voix et l'animation</span>
-                  }
-                </button>
-              }
-            </div>
-
+          <div class="upload-modal-grid" style="grid-template-columns: 1fr;">
             <!-- Formulaire de Configuration -->
             <div class="upload-form-pane">
               <div class="form-group" style="margin-bottom: 14px;">
