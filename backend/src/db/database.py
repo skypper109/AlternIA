@@ -85,19 +85,43 @@ def get_db() -> Generator[Session, None, None]:
 def init_db():
     """Crée toutes les tables et initialise les données de démarrage si nécessaire."""
     from backend.src.db import models, seed
-    from sqlalchemy import text
+    from sqlalchemy import inspect, text
 
     Base.metadata.create_all(bind=engine)
 
-    # Migration automatique des colonnes manquantes (SQLite / MySQL)
+    # Migration automatique de synchronisation de schéma pour SQLite et MySQL
     try:
+        inspector = inspect(engine)
         with engine.connect() as conn:
-            try:
-                conn.execute(text("ALTER TABLE avatars_pedagogiques ADD COLUMN video_url VARCHAR(255)"))
-                conn.commit()
-            except Exception:
-                pass
+            for table_name, table in Base.metadata.tables.items():
+                if inspector.has_table(table_name):
+                    existing_cols = {col["name"].lower() for col in inspector.get_columns(table_name)}
+                    for col in table.columns:
+                        if col.name.lower() not in existing_cols:
+                            col_type = col.type.compile(engine.dialect)
+                            try:
+                                logger.info(f"Migration schéma: ajout de la colonne {table_name}.{col.name} ({col_type})")
+                                conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {col.name} {col_type}"))
+                                conn.commit()
+                            except Exception as col_err:
+                                logger.debug(f"Colonne déjà présente ou non modifiable {table_name}.{col.name}: {col_err}")
+
+            # Vérifications explicites des colonnes critiques d'avatars_pedagogiques
+            critical_migrations = [
+                ("avatars_pedagogiques", "face_id", "VARCHAR(255)"),
+                ("avatars_pedagogiques", "video_url", "VARCHAR(255)"),
+                ("avatars_pedagogiques", "landmarks_json", "TEXT"),
+                ("avatars_pedagogiques", "viseme_photos_json", "TEXT"),
+                ("avatars_pedagogiques", "audio_sample_url", "VARCHAR(255)"),
+                ("avatars_pedagogiques", "audio_file_name", "VARCHAR(120)"),
+            ]
+            for tbl, col_name, col_def in critical_migrations:
+                try:
+                    conn.execute(text(f"ALTER TABLE {tbl} ADD COLUMN {col_name} {col_def}"))
+                    conn.commit()
+                except Exception:
+                    pass
     except Exception as e:
-        logger.debug(f"Note migration schema : {e}")
+        logger.warning(f"Note synchronisation schéma DB : {e}")
 
     seed.seed_initial_data(SessionLocal())
