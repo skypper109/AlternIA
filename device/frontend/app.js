@@ -178,12 +178,15 @@ export class AlternIAApp {
             const style = data.stylePedagogique ? ` • Style ${data.stylePedagogique}` : '';
             this.modalAvatarSubtitle.textContent = `${subject}${style}`;
           }
-          // Initialisation proactive du flux Simli WebRTC (avec Face ID)
+          // Initialisation proactive du flux Simli WebRTC (avec Face ID) et de la voix TTS
           if (this.audio) {
+            const faceId = data.face_id || data.faceId || null;
             if (this.audio.simli) {
-              this.audio.simli.init(data.face_id || data.faceId || null);
+              this.audio.simli.init(faceId);
             }
-            this.audio.currentVoice = data.voixTts || data.voix_tts || 'vivienne';
+            const chosenVoice = data.voixTts || data.voix_tts || data.voixId || 'vivienne';
+            this.audio.setVoice(chosenVoice);
+            console.log(`🎬 [AlternIA Kiosk] Avatar actif: "${data.nom}" | Voix TTS: "${chosenVoice}" | Face ID: "${faceId}"`);
           }
         }
       }

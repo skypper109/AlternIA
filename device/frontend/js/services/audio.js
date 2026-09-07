@@ -18,12 +18,20 @@ export class AudioService {
     this.isPlayingQueue = false;
     this.currentPlayer = null;
     this.currentSource = null;
+    this.currentVoice = 'vivienne'; // Voix TTS par défaut, mise à jour dynamiquement selon l'avatar actif
     
     this.ENABLE_SIMLI = true; // Streaming Simli en parallèle si connecté
     this.simli = new SimliService('modal-avatar-video', 'simli-audio');
 
     // Déblocage automatique de l'AudioContext dès le premier clic/toucher utilisateur
     this.setupUserGestureUnlock();
+  }
+
+  setVoice(voice) {
+    if (voice && typeof voice === 'string') {
+      this.currentVoice = voice.trim().toLowerCase();
+      console.log(`🎙️ [AudioService] Voix configurée : ${this.currentVoice}`);
+    }
   }
 
   setupUserGestureUnlock() {
@@ -126,15 +134,18 @@ export class AudioService {
       .trim();
   }
 
-  enqueueSentence(sentence) {
+  enqueueSentence(sentence, voiceOverride = null) {
     if (this.isMuted || !sentence) return;
     const cleanText = this.cleanTextForTTS(sentence);
     if (cleanText.length < 2) return;
 
     this.ensureAudioContext();
 
+    const voiceToUse = voiceOverride || this.currentVoice || 'vivienne';
+    console.log(`🎙️ [AudioService] Synthèse vocale (${voiceToUse}) : "${cleanText.substring(0, 45)}..."`);
+
     // Pré-chargement immédiat du blob en arrière-plan
-    const audioPromise = ApiService.fetchTTSBlob(cleanText, this.currentVoice);
+    const audioPromise = ApiService.fetchTTSBlob(cleanText, voiceToUse);
     this.audioQueue.push({ text: cleanText, audioPromise });
     this.processQueue();
   }
@@ -278,8 +289,8 @@ export class AudioService {
     });
   }
 
-  speakText(fullText, formulaSpeech = null) {
+  speakText(fullText, formulaSpeech = null, voiceOverride = null) {
     this.stop();
-    this.enqueueSentence(formulaSpeech || fullText);
+    this.enqueueSentence(formulaSpeech || fullText, voiceOverride);
   }
 }
