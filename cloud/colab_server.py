@@ -260,34 +260,57 @@ def install_cloudflared() -> str:
 
     print("📦 Installation de Cloudflare Tunnel (cloudflared)...")
     import urllib.request
+    import tarfile
     
     # Détection architecture Linux / macOS
     machine = os.uname().machine.lower()
     if sys.platform == "darwin":
         arch = "darwin-arm64" if "arm" in machine else "darwin-amd64"
+        url = f"https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-{arch}.tgz"
+        try:
+            tar_path = Path("/tmp/cloudflared.tgz")
+            urllib.request.urlretrieve(url, str(tar_path))
+            with tarfile.open(tar_path, "r:gz") as tar:
+                tar.extract("cloudflared", path="/tmp")
+            local_bin.chmod(0o755)
+            if tar_path.exists():
+                tar_path.unlink()
+            return str(local_bin)
+        except Exception as e:
+            print(f"⚠️ Erreur lors du téléchargement de cloudflared pour macOS ({e}).")
     else:
         arch = "linux-arm64" if "aarch" in machine or "arm" in machine else "linux-amd64"
-
-    url = f"https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-{arch}"
-    try:
-        urllib.request.urlretrieve(url, str(local_bin))
-        local_bin.chmod(0o755)
-    except Exception as e:
-        print(f"⚠️ Erreur lors du téléchargement de cloudflared ({e}). Essai avec le binaire par défaut...")
-        url = "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64"
-        urllib.request.urlretrieve(url, str(local_bin))
-        local_bin.chmod(0o755)
+        url = f"https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-{arch}"
+        try:
+            urllib.request.urlretrieve(url, str(local_bin))
+            local_bin.chmod(0o755)
+            return str(local_bin)
+        except Exception as e:
+            print(f"⚠️ Erreur lors du téléchargement de cloudflared ({e}). Essai avec le binaire par défaut...")
+            url = "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64"
+            try:
+                urllib.request.urlretrieve(url, str(local_bin))
+                local_bin.chmod(0o755)
+                return str(local_bin)
+            except Exception:
+                pass
 
     return str(local_bin)
 
 
-def start_tunnel(port: int = 8000, cli_token: str | None = None, cli_hostname: str | None = None) -> tuple[subprocess.Popen, str, bool]:
+def start_tunnel(
+    port: int = 8000,
+    cli_token: str | None = None,
+    cli_hostname: str | None = None,
+    force_quick: bool = False
+) -> tuple[subprocess.Popen | None, str, bool]:
     """
     Démarre le tunnel Cloudflare.
-    - Si un Token de tunnel nommé (CLOUDFLARE_TUNNEL_TOKEN) est configuré :
+    - Si force_quick est True : Démarre directement le tunnel Quick Tunnel temporaire (trycloudflare.com).
+    - Si un Token (CLOUDFLARE_TUNNEL_TOKEN) ET un nom de domaine (CLOUDFLARE_HOSTNAME) sont configurés :
       Démarre le tunnel permanent avec URL fixe (qui ne change JAMAIS).
     - Sinon :
-      Démarre un tunnel Quick Tunnel temporaire (trycloudflare.com).
+      Démarre un tunnel Quick Tunnel temporaire gratuit (trycloudflare.com).
     Retourne : (processus, public_url, is_fixed_url)
     """
     bin_path = install_cloudflared()
@@ -319,62 +342,68 @@ def start_tunnel(port: int = 8000, cli_token: str | None = None, cli_hostname: s
         or cfg.get("fixed_hostname", "").strip()
     )
 
-    # Si aucun token n'est configuré et qu'on est en terminal interactif, proposer d'en renseigner un
-    if not tunnel_token and sys.stdin and sys.stdin.isatty():
-        print("\n" + "─" * 74)
-        print("💡 \033[1;33mCONFIGURATION D'UN LIEN FIXE CLOUDFLARE :\033[0m")
-        print("Pour que votre lien Cloudflare soit \033[1;32mFIXE et permanent\033[0m (au lieu de changer à chaque relance) :")
-        print("1. Créez un tunnel gratuit sur Cloudflare Zero Trust (dash.cloudflare.com)")
-        print("2. Associez votre domaine/sous-domaine public (ex: https://gpu.mondomaine.com)")
-        print("3. Récupérez votre Token de tunnel (clé base64 'eyJh...')")
-        print("─" * 74)
-        try:
-            token_input = input("🔑 Token Cloudflare (laisser vide pour URL temporaire) : ").strip()
-            if token_input:
-                tunnel_token = token_input
-                host_input = input("🌐 Nom de domaine fixe (ex: https://gpu.mondomaine.com) : ").strip()
-                if host_input:
-                    if not host_input.startswith("http"):
-                        host_input = f"https://{host_input}"
-                    fixed_hostname = host_input
-                save_tunnel_config({"tunnel_token": tunnel_token, "fixed_hostname": fixed_hostname})
-                print("✅ Configuration du lien fixe sauvegardée avec succès !")
-        except (KeyboardInterrupt, EOFError):
-            pass
-
     log_path = Path(tempfile.gettempdir()) / "cloudflared.log"
 
     # =========================================================================
-    # OPTION A : TUNNEL NOMMÉ FIXE (URL PERMANENTE GARANTIE PAR TOKEN)
+    # OPTION A : TUNNEL NOMMÉ FIXE (URL PERMANENTE GARANTIE PAR TOKEN + DOMAINE)
     # =========================================================================
-    if tunnel_token:
-        print(f"🌐 \033[1;32mDémarrage du tunnel FIXE Cloudflare (URL Permanente)...\033[0m")
-        log_file = open(log_path, "w", encoding="utf-8")
-        cmd = [bin_path, "tunnel", "run", "--token", tunnel_token]
-        proc = subprocess.Popen(
-            cmd,
-            stdout=log_file,
-            stderr=log_file,
-            text=True,
-        )
+    # Règle vitale : Un tunnel nommé avec token nécessite OBLIGATOIREMENT un nom
+    # de domaine public associé dans Cloudflare Zero Trust (ex: https://gpu.mondomaine.com).
+    # Si le token est présent mais sans domaine, on bascule automatiquement sur trycloudflare.com
+    # pour que l'utilisateur obtienne une URL réelle fonctionnelle au lieu d'un placeholder vide.
+    has_valid_hostname = bool(fixed_hostname and "[Votre-Domaine" not in fixed_hostname and fixed_hostname.strip())
 
-        time.sleep(3)
-        if proc.poll() is not None:
-            log_file.close()
-            with open(log_path, "r", encoding="utf-8", errors="ignore") as f:
-                err = f.read()
-            print(f"⚠️ Échec du tunnel fixe avec le token : {err.strip()[:300]}")
-            print("🔄 Basculement automatique sur le tunnel temporaire trycloudflare.com...")
+    if tunnel_token and not force_quick:
+        if not has_valid_hostname:
+            print("\n" + "─" * 76)
+            print("⚠️  \033[1;33mToken Cloudflare détecté, mais aucun nom de domaine (CLOUDFLARE_HOSTNAME) configuré.\033[0m")
+            print("ℹ️  Pour une URL fixe permanente, vous devez associer votre domaine public dans")
+            print("   Cloudflare Zero Trust (dash.cloudflare.com) et renseigner CLOUDFLARE_HOSTNAME.")
+            print("🔄 \033[1;32mBasculement automatique sur le Quick Tunnel gratuit (trycloudflare.com)...\033[0m")
+            print("─" * 76 + "\n")
         else:
-            public_url = fixed_hostname or "https://[Votre-Domaine-Cloudflare-Configuré]"
-            if not public_url.startswith("http"):
-                public_url = f"https://{public_url}"
-            return proc, public_url, True
+            print(f"🌐 \033[1;32mDémarrage du tunnel FIXE Cloudflare (URL Permanente)...\033[0m")
+            if log_path.exists():
+                try:
+                    log_path.unlink()
+                except Exception:
+                    pass
+
+            log_file = open(log_path, "w", encoding="utf-8")
+            cmd = [bin_path, "tunnel", "run", "--token", tunnel_token]
+            proc = subprocess.Popen(
+                cmd,
+                stdout=log_file,
+                stderr=log_file,
+                text=True,
+            )
+
+            time.sleep(3)
+            if proc.poll() is not None:
+                log_file.close()
+                err = ""
+                if log_path.exists():
+                    with open(log_path, "r", encoding="utf-8", errors="ignore") as f:
+                        err = f.read()
+                print(f"⚠️ Échec du tunnel fixe avec le token : {err.strip()[:300]}")
+                print("🔄 Basculement automatique sur le tunnel temporaire trycloudflare.com...")
+            else:
+                log_file.close()
+                public_url = fixed_hostname.strip()
+                if not public_url.startswith("http"):
+                    public_url = f"https://{public_url}"
+                return proc, public_url, True
 
     # =========================================================================
     # OPTION B : QUICK TUNNEL TEMPORAIRE (trycloudflare.com)
     # =========================================================================
     print(f"🌐 Démarrage du tunnel temporaire Cloudflare vers le port {port}...")
+    if log_path.exists():
+        try:
+            log_path.unlink()
+        except Exception:
+            pass
+
     log_file = open(log_path, "w", encoding="utf-8")
     cmd = [bin_path, "tunnel", "--url", f"http://127.0.0.1:{port}"]
     proc = subprocess.Popen(
@@ -387,7 +416,7 @@ def start_tunnel(port: int = 8000, cli_token: str | None = None, cli_hostname: s
     public_url = ""
     start_time = time.time()
 
-    while time.time() - start_time < 30:
+    while time.time() - start_time < 35:
         if proc.poll() is not None:
             break
         if log_path.exists():
@@ -400,7 +429,16 @@ def start_tunnel(port: int = 8000, cli_token: str | None = None, cli_hostname: s
         time.sleep(0.5)
 
     if not public_url:
-        print("⚠️ Impossible d'obtenir l'URL Cloudflare automatiquement. Vérifiez les logs.")
+        # Dernière tentative de lecture du log
+        if log_path.exists():
+            with open(log_path, "r", encoding="utf-8", errors="ignore") as f:
+                content = f.read()
+                matches = re.findall(r"(https://[a-zA-Z0-9-]+\.trycloudflare\.com)", content)
+                if matches:
+                    public_url = matches[-1]
+
+    if not public_url:
+        print(f"⚠️ Impossible d'obtenir l'URL Cloudflare automatiquement. Vérifiez les logs : {log_path}")
     return proc, public_url, False
 
 
@@ -410,6 +448,7 @@ def main():
     parser.add_argument("--port", type=int, default=int(os.environ.get("PORT", 8000)), help="Port d'écoute local")
     parser.add_argument("--token", type=str, default=None, help="Token Cloudflare Tunnel pour URL fixe permanente")
     parser.add_argument("--hostname", type=str, default=None, help="Nom de domaine public associé au tunnel fixe")
+    parser.add_argument("--quick", action="store_true", help="Forcer l'utilisation du tunnel temporaire gratuit (trycloudflare.com)")
     args, _ = parser.parse_known_args()
 
     print_banner()
@@ -422,7 +461,8 @@ def main():
     tunnel_proc, public_url, is_fixed = start_tunnel(
         port=port,
         cli_token=args.token,
-        cli_hostname=args.hostname
+        cli_hostname=args.hostname,
+        force_quick=args.quick
     )
 
     print("\n" + "=" * 76)
