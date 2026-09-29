@@ -14,6 +14,7 @@ export class DeviceAvatarAnimator {
     this.ctx = this.canvas.getContext('2d', { alpha: true });
     this.themeColor = options.themeColor || '#0284C7';
     this.isLogoMode = options.isLogoMode || false;
+    this.isSquareMode = options.isSquareMode || false;
     this.state = 'IDLE'; // 'IDLE' | 'LISTENING' | 'THINKING' | 'SPEAKING'
 
     // Image principale (fallback si pas de visèmes)
@@ -270,37 +271,79 @@ export class DeviceAvatarAnimator {
     const cy = height / 2;
     const size = Math.min(width, height) * 0.88;
 
-    // 4. Halo lumineux audio-réactif
-    this.drawAura(cx, cy, size, audio.volume || (this.state === 'SPEAKING' ? 0.3 : 0), timestamp);
+    if (!this.isSquareMode) {
+      // 4. Halo lumineux audio-réactif
+      this.drawAura(cx, cy, size, audio.volume || (this.state === 'SPEAKING' ? 0.3 : 0), timestamp);
 
-    // 5. Rendu du Portrait Photoréaliste (Fixe et Naturel, sans rotation artificielle)
-    this.ctx.save();
-    this.ctx.translate(cx, cy);
+      // 5. Rendu du Portrait Photoréaliste (circulaire)
+      this.ctx.save();
+      this.ctx.translate(cx, cy);
 
-    this.ctx.beginPath();
-    this.ctx.arc(0, 0, size / 2, 0, Math.PI * 2);
-    this.ctx.closePath();
-    this.ctx.clip();
+      this.ctx.beginPath();
+      this.ctx.arc(0, 0, size / 2, 0, Math.PI * 2);
+      this.ctx.closePath();
+      this.ctx.clip();
 
-    this.ctx.fillStyle = '#0F172A';
-    this.ctx.fill();
+      this.ctx.fillStyle = '#0F172A';
+      this.ctx.fill();
 
-    if (this.hasVisemes) {
-      this.renderVisemeCrossFade(size);
-    } else if (this.isLoaded && this.image) {
-      this.renderStaticPortrait(size);
+      if (this.hasVisemes) {
+        this.renderVisemeCrossFade(size);
+      } else if (this.isLoaded && this.image) {
+        this.renderStaticPortrait(size);
+      } else {
+        this.drawPlaceholder(size);
+      }
+
+      if (!this.isLogoMode && blinkValue > 0.04) {
+        this.renderNaturalBlink(size, blinkValue);
+      }
+
+      this.ctx.restore();
+
+      // 6. Anneau lumineux
+      this.drawGlowRing(cx, cy, size, breathOffset, audio.volume || (this.state === 'SPEAKING' ? 0.3 : 0));
     } else {
-      this.drawPlaceholder(size);
+      // Mode Carré / Plein Espace (Square Mode sans rognage circulaire)
+      this.ctx.save();
+      this.ctx.fillStyle = '#070b14';
+      this.ctx.fillRect(0, 0, width, height);
+
+      if (this.isLoaded && this.image) {
+        const img = this.image;
+        const imgRatio = (img.naturalWidth || img.width || 1) / (img.naturalHeight || img.height || 1);
+        const canvasRatio = width / height;
+        let dw, dh, dx, dy;
+        if (imgRatio > canvasRatio) {
+          dh = height;
+          dw = height * imgRatio;
+          dx = (width - dw) / 2;
+          dy = 0;
+        } else {
+          dw = width;
+          dh = width / imgRatio;
+          dx = 0;
+          dy = (height - dh) / 2;
+        }
+
+        const breathScale = 1.0 + Math.sin(this.breathCycle) * 0.005;
+        const speechScale = this.state === 'SPEAKING' ? (1.0 + this.mouthOpenness * 0.02) : 1.0;
+        const totalScale = breathScale * speechScale;
+
+        this.ctx.translate(width / 2, height / 2);
+        this.ctx.scale(totalScale, totalScale);
+        this.ctx.drawImage(img, dx - width / 2, dy - height / 2, dw, dh);
+
+        if (blinkValue > 0.04) {
+          const eyeSize = Math.min(width, height) * 0.9;
+          this.renderNaturalBlink(eyeSize, blinkValue);
+        }
+      } else {
+        this.ctx.translate(cx, cy);
+        this.drawPlaceholder(size);
+      }
+      this.ctx.restore();
     }
-
-    if (!this.isLogoMode && blinkValue > 0.04) {
-      this.renderNaturalBlink(size, blinkValue);
-    }
-
-    this.ctx.restore();
-
-    // 6. Anneau lumineux
-    this.drawGlowRing(cx, cy, size, breathOffset, audio.volume || (this.state === 'SPEAKING' ? 0.3 : 0));
   }
 
   renderVisemeCrossFade(size) {

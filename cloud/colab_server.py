@@ -298,20 +298,30 @@ def install_cloudflared() -> str:
     return str(local_bin)
 
 
+DEFAULT_DOMAIN = "alterniamali.com"
+DEFAULT_ADMIN_DOMAIN = "admin.alterniamali.com"
+DEFAULT_DEVICE_DOMAIN = "device.alterniamali.com"
+DEFAULT_API_DOMAIN = "api.alterniamali.com"
+
+
 def start_tunnel(
     port: int = 8000,
     cli_token: str | None = None,
     cli_hostname: str | None = None,
     force_quick: bool = False
-) -> tuple[subprocess.Popen | None, str, bool]:
+) -> tuple[subprocess.Popen | None, dict[str, str], bool]:
     """
     Démarre le tunnel Cloudflare.
-    - Si force_quick est True : Démarre directement le tunnel Quick Tunnel temporaire (trycloudflare.com).
-    - Si un Token (CLOUDFLARE_TUNNEL_TOKEN) ET un nom de domaine (CLOUDFLARE_HOSTNAME) sont configurés :
-      Démarre le tunnel permanent avec URL fixe (qui ne change JAMAIS).
+    - Si force_quick est True : Démarre le tunnel Quick Tunnel temporaire (trycloudflare.com).
+    - Si un Token (CLOUDFLARE_TUNNEL_TOKEN) est présent :
+      Démarre le tunnel permanent avec le nom de domaine officiel alterniamali.com et ses sous-domaines :
+        * admin.alterniamali.com  -> Backoffice Alta
+        * device.alterniamali.com -> Interface tactile/vocale Kiosk élève (/device)
+        * api.alterniamali.com    -> Endpoints API & Mobile Sync
+        * alterniamali.com        -> Domaine racine
     - Sinon :
       Démarre un tunnel Quick Tunnel temporaire gratuit (trycloudflare.com).
-    Retourne : (processus, public_url, is_fixed_url)
+    Retourne : (processus, domain_urls_dict, is_fixed_url)
     """
     bin_path = install_cloudflared()
     cfg = load_tunnel_config()
@@ -326,7 +336,7 @@ def start_tunnel(
     except Exception:
         pass
 
-    # Priorités : Arguments CLI > Variables d'environnement > Colab Secrets > Configuration persistante
+    # Priorités : Arguments CLI > Variables d'environnement > Colab Secrets > Configuration persistante > Défaut
     tunnel_token = (
         cli_token
         or os.environ.get("CLOUDFLARE_TUNNEL_TOKEN")
@@ -334,65 +344,71 @@ def start_tunnel(
         or colab_token
         or cfg.get("tunnel_token", "").strip()
     )
-    fixed_hostname = (
+    raw_hostname = (
         cli_hostname
         or os.environ.get("CLOUDFLARE_HOSTNAME")
         or os.environ.get("TUNNEL_HOSTNAME")
         or colab_hostname
         or cfg.get("fixed_hostname", "").strip()
     )
+    fixed_hostname = raw_hostname.strip() if (raw_hostname and "[Votre-Domaine" not in raw_hostname) else DEFAULT_DOMAIN
+
+    admin_domain = os.environ.get("CLOUDFLARE_ADMIN_HOSTNAME") or f"admin.{fixed_hostname}"
+    device_domain = os.environ.get("CLOUDFLARE_DEVICE_HOSTNAME") or f"device.{fixed_hostname}"
+    api_domain = os.environ.get("CLOUDFLARE_API_HOSTNAME") or f"api.{fixed_hostname}"
 
     log_path = Path(tempfile.gettempdir()) / "cloudflared.log"
 
     # =========================================================================
-    # OPTION A : TUNNEL NOMMÉ FIXE (URL PERMANENTE GARANTIE PAR TOKEN + DOMAINE)
+    # OPTION A : TUNNEL NOMMÉ FIXE (URL PERMANENTE SUR alterniamali.com)
     # =========================================================================
-    # Règle vitale : Un tunnel nommé avec token nécessite OBLIGATOIREMENT un nom
-    # de domaine public associé dans Cloudflare Zero Trust (ex: https://gpu.mondomaine.com).
-    # Si le token est présent mais sans domaine, on bascule automatiquement sur trycloudflare.com
-    # pour que l'utilisateur obtienne une URL réelle fonctionnelle au lieu d'un placeholder vide.
-    has_valid_hostname = bool(fixed_hostname and "[Votre-Domaine" not in fixed_hostname and fixed_hostname.strip())
-
     if tunnel_token and not force_quick:
-        if not has_valid_hostname:
-            print("\n" + "─" * 76)
-            print("⚠️  \033[1;33mToken Cloudflare détecté, mais aucun nom de domaine (CLOUDFLARE_HOSTNAME) configuré.\033[0m")
-            print("ℹ️  Pour une URL fixe permanente, vous devez associer votre domaine public dans")
-            print("   Cloudflare Zero Trust (dash.cloudflare.com) et renseigner CLOUDFLARE_HOSTNAME.")
-            print("🔄 \033[1;32mBasculement automatique sur le Quick Tunnel gratuit (trycloudflare.com)...\033[0m")
-            print("─" * 76 + "\n")
-        else:
-            print(f"🌐 \033[1;32mDémarrage du tunnel FIXE Cloudflare (URL Permanente)...\033[0m")
+        print("\n" + "─" * 78)
+        print("🌐 \033[1;32mDémarrage du tunnel FIXE Cloudflare (Domaine Officiel : alterniamali.com)...\033[0m")
+        print(f"🔑 Token détecté : {tunnel_token[:10]}...{tunnel_token[-8:]}")
+        print(f"🌍 Domaine cible : {fixed_hostname}")
+        print("─" * 78)
+
+        if log_path.exists():
+            try:
+                log_path.unlink()
+            except Exception:
+                pass
+
+        log_file = open(log_path, "w", encoding="utf-8")
+        cmd = [bin_path, "tunnel", "run", "--token", tunnel_token]
+        proc = subprocess.Popen(
+            cmd,
+            stdout=log_file,
+            stderr=log_file,
+            text=True,
+        )
+
+        time.sleep(3)
+        if proc.poll() is not None:
+            log_file.close()
+            err = ""
             if log_path.exists():
-                try:
-                    log_path.unlink()
-                except Exception:
-                    pass
-
-            log_file = open(log_path, "w", encoding="utf-8")
-            cmd = [bin_path, "tunnel", "run", "--token", tunnel_token]
-            proc = subprocess.Popen(
-                cmd,
-                stdout=log_file,
-                stderr=log_file,
-                text=True,
-            )
-
-            time.sleep(3)
-            if proc.poll() is not None:
-                log_file.close()
-                err = ""
-                if log_path.exists():
-                    with open(log_path, "r", encoding="utf-8", errors="ignore") as f:
-                        err = f.read()
-                print(f"⚠️ Échec du tunnel fixe avec le token : {err.strip()[:300]}")
-                print("🔄 Basculement automatique sur le tunnel temporaire trycloudflare.com...")
-            else:
-                log_file.close()
-                public_url = fixed_hostname.strip()
-                if not public_url.startswith("http"):
-                    public_url = f"https://{public_url}"
-                return proc, public_url, True
+                with open(log_path, "r", encoding="utf-8", errors="ignore") as f:
+                    err = f.read()
+            print(f"⚠️ Échec du tunnel fixe avec le token : {err.strip()[:300]}")
+            print("🔄 Basculement automatique sur le tunnel temporaire trycloudflare.com...")
+        else:
+            log_file.close()
+            domain_urls = {
+                "root": f"https://{fixed_hostname}",
+                "admin": f"https://{admin_domain}",
+                "device": f"https://{device_domain}",
+                "api": f"https://{api_domain}",
+            }
+            save_tunnel_config({
+                "tunnel_token": tunnel_token,
+                "fixed_hostname": fixed_hostname,
+                "admin_domain": admin_domain,
+                "device_domain": device_domain,
+                "api_domain": api_domain,
+            })
+            return proc, domain_urls, True
 
     # =========================================================================
     # OPTION B : QUICK TUNNEL TEMPORAIRE (trycloudflare.com)
@@ -428,18 +444,20 @@ def start_tunnel(
                     break
         time.sleep(0.5)
 
-    if not public_url:
-        # Dernière tentative de lecture du log
-        if log_path.exists():
-            with open(log_path, "r", encoding="utf-8", errors="ignore") as f:
-                content = f.read()
-                matches = re.findall(r"(https://[a-zA-Z0-9-]+\.trycloudflare\.com)", content)
-                if matches:
-                    public_url = matches[-1]
+    if not public_url and log_path.exists():
+        with open(log_path, "r", encoding="utf-8", errors="ignore") as f:
+            content = f.read()
+            matches = re.findall(r"(https://[a-zA-Z0-9-]+\.trycloudflare\.com)", content)
+            if matches:
+                public_url = matches[-1]
 
-    if not public_url:
-        print(f"⚠️ Impossible d'obtenir l'URL Cloudflare automatiquement. Vérifiez les logs : {log_path}")
-    return proc, public_url, False
+    domain_urls = {
+        "root": public_url,
+        "admin": f"{public_url}/etablissement/tableau-de-bord" if public_url else "",
+        "device": f"{public_url}/device/" if public_url else "",
+        "api": public_url,
+    }
+    return proc, domain_urls, False
 
 
 def main():
@@ -458,27 +476,35 @@ def main():
     port = args.port
 
     # Démarrer le tunnel Cloudflare (fixe ou temporaire)
-    tunnel_proc, public_url, is_fixed = start_tunnel(
+    tunnel_proc, domain_urls, is_fixed = start_tunnel(
         port=port,
         cli_token=args.token,
         cli_hostname=args.hostname,
         force_quick=args.quick
     )
 
-    print("\n" + "=" * 76)
-    if public_url:
-        if is_fixed:
-            print(f"🌟 \033[1;32mAlternIA Cloud Server est EN LIGNE avec une URL FIXE PERMANENTE !\033[0m")
-            print(f"🔗 \033[1;36mURL PUBLIQUE HTTPS (FIXE) :\033[0m \033[1;4m{public_url}\033[0m")
-            print(f"🔒 \033[1;33mCe lien ne changera JAMAIS, même après un redémarrage du serveur.\033[0m")
-        else:
-            print(f"🌟 \033[1;32mAlternIA Cloud Server est PRÊT ET EN LIGNE !\033[0m")
-            print(f"🔗 \033[1;36mURL PUBLIQUE HTTPS (TEMPORAIRE) :\033[0m \033[1;4m{public_url}\033[0m")
-            print(f"ℹ️ \033[1;33mPour fixer ce lien définitivement, configurez CLOUDFLARE_TUNNEL_TOKEN dans .env\033[0m")
-        print(f"📱 Pour connecter votre boîtier physique ou le web : \033[1m{public_url}/device\033[0m")
+    print("\n" + "=" * 80)
+    if is_fixed:
+        print("🌟 \033[1;32mAlternIA Cloud Server est EN LIGNE avec votre DOMAINE OFFICIEL !\033[0m")
+        print("🔒 \033[1;33mURLs FIXES & PERMANENTES — Aucun changement de lien de base requis :\033[0m\n")
+        print(f"   👑 \033[1;36mDomaine Principal       :\033[0m \033[1;4m{domain_urls['root']}\033[0m")
+        print(f"   💼 \033[1;35mBackoffice Admin (Alta) :\033[0m \033[1;4m{domain_urls['admin']}\033[0m")
+        print(f"   📟 \033[1;32mKiosk Boîtier / Élève   :\033[0m \033[1;4m{domain_urls['device']}\033[0m (ou {domain_urls['root']}/device)")
+        print(f"   📱 \033[1;34mAPI Mobile & Synchro    :\033[0m \033[1;4m{domain_urls['api']}\033[0m")
+        print(f"   📚 Documentation Swagger    : {domain_urls['api']}/docs")
+        print("\n✅ \033[1;32mConnexion Mobile Garantie :\033[0m L'application mobile communique désormais en direct")
+        print(f"   avec \033[1m{domain_urls['api']}\033[0m à tout moment sans jamais perdre le lien !")
+    elif domain_urls.get("root"):
+        print("🌟 \033[1;32mAlternIA Cloud Server est EN LIGNE (Mode Temporaire Quick Tunnel) :\033[0m\n")
+        print(f"   🔗 URL Publique Temporaire  : \033[1;4m{domain_urls['root']}\033[0m")
+        print(f"   📱 Kiosk Boîtier / Élève    : {domain_urls['device']}")
+        print(f"   💼 Backoffice Admin Alta    : {domain_urls['admin']}")
+        print(f"   ⚡ API & Swagger            : {domain_urls['api']}/docs")
+        print("\nℹ️  Pour activer votre nom de domaine fixe alterniamali.com,")
+        print("   vérifiez votre token CLOUDFLARE_TUNNEL_TOKEN dans le fichier .env.")
     else:
         print(f"🌟 AlternIA Server démarré localement sur : http://127.0.0.1:{port}")
-    print("=" * 76 + "\n")
+    print("=" * 80 + "\n")
 
     # Démarrer FastAPI avec Uvicorn
     import uvicorn

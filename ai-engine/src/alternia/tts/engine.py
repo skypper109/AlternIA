@@ -80,12 +80,21 @@ class TTSEngine:
         return f"Système ({self.system_voice})"
 
     def _resolve_neural_voice(self, voice_name: str) -> str:
-        """Résout un nom court de voix en identifiant officiel Azure Neural."""
-        cleaned = voice_name.strip().lower()
+        """Résout un nom court ou label de voix en identifiant officiel Azure Neural."""
+        if not voice_name:
+            return NEURAL_VOICES["vivienne"]
+        cleaned = voice_name.strip().lower().replace("é", "e").replace("è", "e")
         if cleaned in NEURAL_VOICES:
             return NEURAL_VOICES[cleaned]
         if "neural" in cleaned:
             return voice_name
+        for key in NEURAL_VOICES:
+            if key in cleaned:
+                return NEURAL_VOICES[key]
+        if any(k in cleaned for k in ["masculin", "homme", "male", "garcon"]):
+            return NEURAL_VOICES["remy"]
+        if any(k in cleaned for k in ["feminin", "femme", "female"]):
+            return NEURAL_VOICES["vivienne"]
         return NEURAL_VOICES["vivienne"]
 
     def set_voice(self, voice_name: str) -> str:

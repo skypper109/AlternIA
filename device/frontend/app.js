@@ -66,14 +66,15 @@ export class AlternIAApp {
       isLogoMode: true
     });
 
-    // Modal Vortex si présent
+    // Modal Vortex si présent (en mode carré immersif plein cadre)
     if (this.modalAvatarCanvas) {
       this.modalVortex = new VortexUI({
         canvasId: 'modal-avatar-canvas',
         statusTextId: 'modal-status-text',
         statusDotId: 'modal-status-dot',
         defaultImageUrl: 'assets/Alternia.svg',
-        isLogoMode: false
+        isLogoMode: false,
+        isSquareMode: true
       });
     } else {
       this.modalVortex = null;
@@ -119,7 +120,11 @@ export class AlternIAApp {
           this.questionInput.value = transcript;
         }
         if (this.avatarTranscription) {
-          this.avatarTranscription.textContent = transcript;
+          this.avatarTranscription.innerHTML = `
+            <div class="p-4 bg-slate-50 border border-slate-200/80 rounded-2xl text-slate-800 font-medium text-lg leading-relaxed">
+              « ${transcript} »
+            </div>
+          `;
         }
       },
       onEnd: (finalTranscript) => {
@@ -178,14 +183,11 @@ export class AlternIAApp {
             const style = data.stylePedagogique ? ` • Style ${data.stylePedagogique}` : '';
             this.modalAvatarSubtitle.textContent = `${subject}${style}`;
           }
-          // Initialisation proactive du flux Simli WebRTC (avec Face ID) et de la voix TTS
+          // Configuration de la voix TTS de l'avatar actif (Simli ne sera initialisé QUE si on ouvre le modal avatar)
           if (this.audio) {
-            const faceId = data.face_id || data.faceId || null;
-            if (this.audio.simli) {
-              this.audio.simli.init(faceId);
-            }
             const chosenVoice = data.voixTts || data.voix_tts || data.voixId || 'vivienne';
             this.audio.setVoice(chosenVoice);
+            const faceId = data.face_id || data.faceId || null;
             console.log(`🎬 [AlternIA Kiosk] Avatar actif: "${data.nom}" | Voix TTS: "${chosenVoice}" | Face ID: "${faceId}"`);
           }
         }
@@ -214,7 +216,11 @@ export class AlternIAApp {
     }
 
     if (this.avatarTranscription) {
-      this.avatarTranscription.textContent = presentationText;
+      this.avatarTranscription.innerHTML = `
+        <div class="p-4 bg-slate-50 border border-slate-200/80 rounded-2xl text-slate-800 leading-relaxed text-base sm:text-lg font-normal">
+          ${presentationText}
+        </div>
+      `;
     }
 
     if (this.avatarCanvas) this.avatarCanvas.classList.remove('hidden');
@@ -224,8 +230,13 @@ export class AlternIAApp {
   openAvatarModal() {
     if (!this.avatarModal) return;
     this.avatarModal.classList.remove('hidden');
-    if (this.audio && this.audio.simli) {
-      this.audio.simli.init();
+    // Activer et initialiser Simli UNIQUEMENT lors de l'interaction avec le modal avatar
+    if (this.audio) {
+      this.audio.setSimliActive(true);
+      const faceId = this.activeAvatar?.face_id || this.activeAvatar?.faceId || null;
+      if (this.audio.simli) {
+        this.audio.simli.init(faceId);
+      }
     }
     this.playAvatarPresentation();
   }
@@ -235,6 +246,10 @@ export class AlternIAApp {
     this.avatarModal.classList.add('hidden');
     if (this.modalAvatarVideo) {
       this.modalAvatarVideo.pause();
+    }
+    // Fermer et déconnecter immédiatement Simli à la fermeture du modal pour libérer les flux
+    if (this.audio) {
+      this.audio.setSimliActive(false);
     }
   }
 
@@ -288,14 +303,18 @@ export class AlternIAApp {
     if (this.modalAvatarCanvas) {
       this.modalAvatarCanvas.onclick = () => {
         if (this.audio && this.audio.simli) {
-          this.audio.simli.init();
+          const faceId = this.activeAvatar?.face_id || this.activeAvatar?.faceId || null;
+          this.audio.setSimliActive(true);
+          this.audio.simli.init(faceId);
         }
       };
     }
     if (this.modalAvatarVideo) {
       this.modalAvatarVideo.onclick = () => {
         if (this.audio && this.audio.simli) {
-          this.audio.simli.init();
+          const faceId = this.activeAvatar?.face_id || this.activeAvatar?.faceId || null;
+          this.audio.setSimliActive(true);
+          this.audio.simli.init(faceId);
         }
       };
     }
@@ -409,7 +428,15 @@ export class AlternIAApp {
     }
 
     if (this.avatarTranscription) {
-      this.avatarTranscription.textContent = "Recherche dans le programme officiel...";
+      this.avatarTranscription.innerHTML = `
+        <div class="p-4 bg-slate-100 border border-slate-200/80 rounded-2xl text-slate-900 font-medium mb-4 text-base sm:text-lg">
+          ${question}
+        </div>
+        <div class="flex items-center gap-3 text-slate-500 py-3">
+          <div class="w-4 h-4 border-2 border-[#314999] border-t-transparent rounded-full animate-spin"></div>
+          <span class="text-sm font-medium">Recherche et formulation de la réponse...</span>
+        </div>
+      `;
     }
 
     let fullText = "";
@@ -430,8 +457,18 @@ export class AlternIAApp {
           this.katex.renderFormulasInElement(this.speechContentArea);
         }
         if (this.avatarTranscription) {
-          this.avatarTranscription.innerHTML = this.formatMarkdownText(fullText);
+          this.avatarTranscription.innerHTML = `
+            <div class="p-4 bg-slate-100 border border-slate-200/80 rounded-2xl text-slate-900 font-medium mb-4 text-base sm:text-lg">
+              ${question}
+            </div>
+            <div class="text-slate-800 text-base sm:text-lg leading-relaxed space-y-3 font-normal">
+              ${this.formatMarkdownText(fullText)}
+            </div>
+          `;
           this.katex.renderFormulasInElement(this.avatarTranscription);
+          if (this.avatarTranscription.parentElement) {
+            this.avatarTranscription.parentElement.scrollTop = this.avatarTranscription.parentElement.scrollHeight;
+          }
         }
 
         sentenceBuffer += chunk;
@@ -459,8 +496,18 @@ export class AlternIAApp {
           this.katex.renderFormulasInElement(this.speechContentArea);
         }
         if (this.avatarTranscription) {
-          this.avatarTranscription.innerHTML = this.formatMarkdownText(fullText);
+          this.avatarTranscription.innerHTML = `
+            <div class="p-4 bg-slate-100 border border-slate-200/80 rounded-2xl text-slate-900 font-medium mb-4 text-base sm:text-lg">
+              ${question}
+            </div>
+            <div class="text-slate-800 text-base sm:text-lg leading-relaxed space-y-3 font-normal">
+              ${this.formatMarkdownText(fullText)}
+            </div>
+          `;
           this.katex.renderFormulasInElement(this.avatarTranscription);
+          if (this.avatarTranscription.parentElement) {
+            this.avatarTranscription.parentElement.scrollTop = this.avatarTranscription.parentElement.scrollHeight;
+          }
         }
 
         // Si le buffer contient encore du texte restant

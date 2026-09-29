@@ -20,11 +20,18 @@ export class AudioService {
     this.currentSource = null;
     this.currentVoice = 'vivienne'; // Voix TTS par défaut, mise à jour dynamiquement selon l'avatar actif
     
-    this.ENABLE_SIMLI = true; // Streaming Simli en parallèle si connecté
+    this.enableSimli = false; // Désactivé par défaut ! Activé UNIQUEMENT quand l'avatar modal est ouvert
     this.simli = new SimliService('modal-avatar-video', 'simli-audio');
 
     // Déblocage automatique de l'AudioContext dès le premier clic/toucher utilisateur
     this.setupUserGestureUnlock();
+  }
+
+  setSimliActive(active) {
+    this.enableSimli = !!active;
+    if (!active && this.simli) {
+      this.simli.close();
+    }
   }
 
   setVoice(voice) {
@@ -192,15 +199,15 @@ export class AudioService {
         const audioBlob = await item.audioPromise;
 
         if (audioBlob && audioBlob.size > 100) {
-          // 1. Envoi parallèle vers Simli WebRTC (si connecté pour l'avatar vidéo)
-          if (this.ENABLE_SIMLI && this.simli && this.simli.isConnected) {
+          // 1. Envoi vers Simli WebRTC UNIQUEMENT si l'avatar est actif et connecté
+          if (this.enableSimli && this.simli && this.simli.isConnected) {
             this.resampleToPCM16(audioBlob).then(({ pcm16Data, duration }) => {
-              console.log(`🚀 [Simli] Envoi audio PCM16 (${(duration).toFixed(1)}s) vers WebRTC...`);
+              console.log(`🚀 [Simli] Envoi audio PCM16 (${(duration).toFixed(1)}s) pour Lip-Sync avatar...`);
               this.simli.sendAudioBuffer(pcm16Data);
             }).catch(() => {});
           }
 
-          // 2. Lecture audio locale directe avec analyseur FFT pour le Vortex
+          // 2. Lecture audio locale directe (indépendante de Simli) avec analyseur FFT
           let played = false;
           this.ensureAudioContext();
 
@@ -221,7 +228,7 @@ export class AudioService {
               this.currentSource = source;
 
               const gainNode = this.audioCtx.createGain();
-              gainNode.gain.value = (this.ENABLE_SIMLI && this.simli && this.simli.isConnected) ? 0 : 1;
+              gainNode.gain.value = 1; // TOUJOURS 1 ! La voix TTS locale est souveraine et ne dépend pas de Simli
 
               source.connect(gainNode);
               gainNode.connect(this.audioCtx.destination);

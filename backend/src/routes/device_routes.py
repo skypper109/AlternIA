@@ -63,6 +63,13 @@ def get_device_info():
         "rag_local": True,
         "rag_ready": state.rag_ready,
         "indexed_chunks": state.chunks_count,
+        "domain": "alterniamali.com",
+        "domains": {
+            "root": "https://alterniamali.com",
+            "admin": "https://admin.alterniamali.com",
+            "device": "https://device.alterniamali.com",
+            "api": "https://api.alterniamali.com",
+        },
     }
 
 

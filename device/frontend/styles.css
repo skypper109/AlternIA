@@ -519,3 +519,19 @@ body {
   max-width: 600px;
   width: 100%;
 }
+
+/* ── Modal Avatar Plein Écran : Scrollbar Transcription Stylisée (Mode Clair) ── */
+.custom-transcription-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-transcription-scroll::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 8px;
+}
+.custom-transcription-scroll::-webkit-scrollbar-thumb {
+  background: rgba(49, 73, 153, 0.2);
+  border-radius: 8px;
+}
+.custom-transcription-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(49, 73, 153, 0.4);
+}

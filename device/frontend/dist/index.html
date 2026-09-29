@@ -49,8 +49,8 @@
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
 
   <!-- Styles personnalisés épurés Kiosk -->
-  <script type="module" crossorigin src="./assets/index-C1n4aCuF.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-DN_ZCGnb.css">
+  <script type="module" crossorigin src="./assets/index-CWOIugUc.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-CWMuXM0Y.css">
 </head>
 
 <body class="bg-[#FDFBF7] text-slate-800 font-display min-h-screen flex flex-col justify-between overflow-hidden select-none">
@@ -231,53 +231,85 @@
     </div>
   </div>
 
-  <!-- Avatar Interactif Plein Écran Modal -->
-  <div id="avatar-fullscreen-modal" class="hidden fixed inset-0 z-50 flex flex-col items-center justify-between bg-[#060911]/95 backdrop-blur-xl p-6 select-none">
+  <!-- Avatar Interactif Plein Écran Modal (Mode Clair Épuré & Élégant) -->
+  <div id="avatar-fullscreen-modal" class="hidden fixed inset-0 z-50 flex flex-col bg-[#FDFBF7] p-4 md:p-6 select-none overflow-hidden">
     
     <!-- En-tête Avatar Modal -->
-    <div class="w-full max-w-4xl flex items-center justify-between border-b border-white/10 pb-4">
+    <div class="w-full flex items-center justify-between border-b border-slate-200 pb-3 shrink-0">
       <div class="flex items-center gap-3">
-        <div class="w-3 h-3 rounded-full bg-emerald-400 animate-pulse"></div>
+        <div id="modal-status-dot" class="w-3 h-3 rounded-full bg-emerald-500 shrink-0"></div>
         <div>
-          <h2 id="modal-avatar-title" class="text-xl font-bold text-white tracking-tight">Professeur Virtuel AlternIA</h2>
-          <p id="modal-avatar-subtitle" class="text-xs text-cyan-400 font-medium">Tuteur Pédagogique Officiel</p>
+          <div class="flex items-center gap-2">
+            <h2 id="modal-avatar-title" class="text-xl md:text-2xl font-bold text-slate-900 tracking-tight">Professeur Virtuel AlternIA</h2>
+            <span id="modal-status-text" class="text-xs text-slate-400 font-medium ml-1">Prêt</span>
+          </div>
+          <p id="modal-avatar-subtitle" class="text-xs md:text-sm text-[#314999] font-medium">Tuteur Pédagogique Officiel</p>
         </div>
       </div>
-      <button id="btn-close-avatar" class="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white text-xl transition-all cursor-pointer">✕</button>
+      <div class="flex items-center gap-3">
+        <button id="btn-close-avatar" class="w-10 h-10 md:w-11 md:h-11 bg-white hover:bg-slate-100 active:scale-95 rounded-full flex items-center justify-center text-slate-600 hover:text-slate-900 text-lg transition-all cursor-pointer border border-slate-200 shadow-sm" title="Fermer le mode plein écran">✕</button>
+      </div>
     </div>
 
-    <!-- Centre : Avatar Vidéo Réel Simli WebRTC ou Canvas 2.5D Haute Définition -->
-    <div class="flex-1 flex flex-col items-center justify-center my-4 relative w-full max-h-[50vh]">
-      <div class="relative w-[280px] h-[280px] md:w-[360px] md:h-[360px] rounded-full overflow-hidden shadow-[0_0_60px_rgba(2,132,199,0.4)] ring-4 ring-cyan-500/50 bg-[#0c1220] cursor-pointer" id="modal-avatar-wrapper">
-        <video id="modal-avatar-video" class="absolute inset-0 w-full h-full object-cover z-20 opacity-0 transition-opacity duration-500" autoplay playsinline muted></video>
-        <audio id="simli-audio" autoplay hidden></audio>
-        <canvas id="modal-avatar-canvas" width="360" height="360" class="absolute inset-0 w-full h-full z-10"></canvas>
-      </div>
+    <!-- Corps Principal en 2 Colonnes : Gauche = Avatar (Vrai Carré Plein Espace) | Droite = Transcription -->
+    <div class="flex-1 w-full grid grid-cols-1 lg:grid-cols-12 gap-5 my-3 min-h-0 overflow-hidden items-stretch">
       
-      <!-- Statut Badge dans le Modal -->
-      <div class="mt-4 px-4 py-1.5 rounded-full bg-white/10 border border-white/15 backdrop-blur-md flex items-center gap-2">
-        <span id="modal-status-dot" class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
-        <span id="modal-status-text" class="text-xs font-semibold text-slate-200">Prêt à répondre</span>
+      <!-- =========================================================================
+           COLONNE GAUCHE : AVATAR VIDÉO / CANVAS (VRAI CARRÉ PLEIN CADRE) & MICROPHONE (~42%)
+           ========================================================================= -->
+      <div class="lg:col-span-5 flex flex-col justify-between bg-white border border-slate-200/90 rounded-3xl p-4 md:p-5 shadow-sm min-h-0 overflow-hidden">
+        
+        <!-- Boîte Avatar : Vrai Carré Immersif Occupant Tout Son Espace -->
+        <div class="relative w-full flex-1 min-h-[300px] rounded-2xl md:rounded-3xl overflow-hidden bg-slate-950 border border-slate-200/90 shadow-inner group" id="modal-avatar-wrapper">
+          <video id="modal-avatar-video" class="absolute inset-0 w-full h-full object-cover object-top z-20 opacity-0 transition-opacity duration-500" autoplay playsinline muted></video>
+          <audio id="simli-audio" autoplay hidden muted></audio>
+          <canvas id="modal-avatar-canvas" width="720" height="720" class="absolute inset-0 w-full h-full object-cover z-10"></canvas>
+        </div>
+
+        <!-- Contrôle Microphone Push-To-Talk -->
+        <div class="flex flex-col items-center gap-2 pt-4 shrink-0 w-full">
+          <button id="btn-mic-modal" class="w-16 h-16 md:w-18 md:h-18 rounded-full bg-gradient-to-tr from-[#314999] via-[#0284C7] to-[#314999] flex items-center justify-center shadow-lg active:scale-95 transition-all text-white hover:scale-105 cursor-pointer ring-4 ring-[#314999]/20" title="Toucher pour parler">
+            <svg class="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+              <line x1="12" y1="19" x2="12" y2="22"></line>
+            </svg>
+          </button>
+          <span class="text-xs md:text-sm text-slate-500 font-medium text-center">
+            Touchez pour parler
+          </span>
+        </div>
+
       </div>
-    </div>
 
-    <!-- Zone de Transcription & Réponse -->
-    <div class="w-full max-w-3xl min-h-[70px] max-h-[120px] overflow-y-auto px-4 py-3 bg-white/5 border border-white/10 rounded-2xl text-center flex items-center justify-center mb-4">
-      <p id="avatar-fullscreen-transcription" class="text-base md:text-lg font-medium text-cyan-100 leading-relaxed">
-        Touchez le micro ci-dessous pour poser votre question au professeur !
-      </p>
-    </div>
+      <!-- =========================================================================
+           COLONNE DROITE : TRANSCRIPTION & EXPLICATION DU COURS (~58%)
+           ========================================================================= -->
+      <div class="lg:col-span-7 flex flex-col bg-white border border-slate-200/90 rounded-3xl p-5 md:p-6 shadow-sm min-h-0 overflow-hidden">
+        
+        <!-- En-tête de la boîte de dialogue -->
+        <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-100 shrink-0">
+          <div class="flex items-center gap-2.5 text-[#314999]">
+            <div class="w-7 h-7 rounded-lg bg-[#314999]/10 flex items-center justify-center text-[#314999]">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+              </svg>
+            </div>
+            <div>
+              <h3 class="text-sm font-bold text-slate-900 tracking-tight">Transcription & Explications</h3>
+              <p class="text-[11px] text-slate-400 font-medium">Réponses en direct & formules scientifiques</p>
+            </div>
+          </div>
+        </div>
 
-    <!-- Contrôle Microphone Push-To-Talk dans le Modal Avatar -->
-    <div class="flex flex-col items-center gap-2 pb-2">
-      <button id="btn-mic-modal" class="w-16 h-16 rounded-full bg-gradient-to-tr from-amber-500 to-[#F1851F] flex items-center justify-center shadow-[0_0_25px_rgba(241,133,31,0.5)] active:scale-95 transition-all text-white hover:scale-105 cursor-pointer" title="Toucher pour parler">
-        <svg class="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-          <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
-          <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-          <line x1="12" y1="19" x2="12" y2="22"></line>
-        </svg>
-      </button>
-      <span class="text-xs text-slate-400 font-medium">Touchez pour parler, retouchez pour envoyer</span>
+        <!-- Zone de texte scrollable pour la transcription -->
+        <div class="flex-1 overflow-y-auto pr-3 custom-transcription-scroll min-h-0 flex flex-col justify-start">
+          <div id="avatar-fullscreen-transcription" class="text-base sm:text-lg text-slate-700 leading-relaxed space-y-3 pt-1 font-normal">
+            Touchez le micro pour poser votre question au professeur.
+          </div>
+        </div>
+      </div>
+
     </div>
 
   </div>

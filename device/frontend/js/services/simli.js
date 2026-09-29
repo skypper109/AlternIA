@@ -44,6 +44,9 @@ export class SimliService {
 
     const videoEl = this.getVideoElement();
     const audioEl = this.getAudioElement();
+    if (audioEl) {
+      audioEl.muted = true; // Mute le flux audio Simli pour que le TTS local souverain gère le son sans écho
+    }
 
     const statusText = document.getElementById('modal-status-text');
     const statusDot = document.getElementById('modal-status-dot');
@@ -184,5 +187,9 @@ export class SimliService {
       this.isConnected = false;
       this.isConnecting = false;
     }
+    const videoEl = this.getVideoElement();
+    const statusText = document.getElementById('modal-status-text');
+    const statusDot = document.getElementById('modal-status-dot');
+    this._cleanup(videoEl, statusText, statusDot);
   }
 }
