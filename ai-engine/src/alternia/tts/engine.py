@@ -46,11 +46,11 @@ class TTSEngine:
     ):
         self.system = platform.system()
         self.use_neural = use_neural
-        self.neural_voice = self._resolve_neural_voice(voice or "vivienne")
+        self.neural_voice = self._resolve_neural_voice(voice or "henri")
         self.system_voice = self._detect_best_system_voice()
         self.rate = rate or 190
 
-        # Répertoire de cache pour accélérer la voix Vivienne sur Raspberry Pi
+        # Répertoire de cache pour accélérer la voix Henri sur le serveur
         if cache_dir:
             self.cache_dir = Path(cache_dir)
         else:
@@ -82,7 +82,7 @@ class TTSEngine:
     def _resolve_neural_voice(self, voice_name: str) -> str:
         """Résout un nom court ou label de voix en identifiant officiel Azure Neural."""
         if not voice_name:
-            return NEURAL_VOICES["vivienne"]
+            return NEURAL_VOICES["henri"]
         cleaned = voice_name.strip().lower().replace("é", "e").replace("è", "e")
         if cleaned in NEURAL_VOICES:
             return NEURAL_VOICES[cleaned]
@@ -92,10 +92,10 @@ class TTSEngine:
             if key in cleaned:
                 return NEURAL_VOICES[key]
         if any(k in cleaned for k in ["masculin", "homme", "male", "garcon"]):
-            return NEURAL_VOICES["remy"]
+            return NEURAL_VOICES["henri"]
         if any(k in cleaned for k in ["feminin", "femme", "female"]):
             return NEURAL_VOICES["vivienne"]
-        return NEURAL_VOICES["vivienne"]
+        return NEURAL_VOICES["henri"]
 
     def set_voice(self, voice_name: str) -> str:
         """Change dynamiquement la voix utilisée."""

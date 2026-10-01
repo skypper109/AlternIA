@@ -54,7 +54,7 @@ class Settings(BaseSettings):
     backend_port: int = 8000
 
     default_class: str = "12eme"
-    tts_voice: str = "vivienne"
+    tts_voice: str = "henri"
     tts_rate: int = 190
 
     embedding_model_path: str = str(

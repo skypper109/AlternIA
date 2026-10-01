@@ -113,25 +113,31 @@ export class SimliService {
         if (videoEl) {
           videoEl.classList.remove('opacity-0');
           videoEl.classList.add('opacity-100');
+          videoEl.muted = true; // IMPORTANT : La balise vidéo DOIT rester muette pour éviter le doublon avec audioEl
           videoEl.play().catch(() => { });
         }
-        if (statusText) statusText.textContent = "Prof Hamza est en direct !";
+        if (audioEl) {
+          audioEl.muted = false; // L'audio WebRTC de Simli sort UNIQUEMENT par audioEl
+          audioEl.volume = 1.0;
+          audioEl.play().catch(() => { });
+        }
+        if (statusText) statusText.textContent = "Professeur est en direct !";
         if (statusDot) statusDot.className = "w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse";
       });
 
       this.client.on("stop", (reason) => {
         console.log(" [SimliService] Session Simli terminée :", reason);
-        this._cleanup(videoEl, statusText, statusDot);
+        this._cleanup(videoEl, audioEl, statusText, statusDot);
       });
 
       this.client.on("error", (reason) => {
         console.warn("[SimliService] Erreur WebRTC Simli :", reason);
-        this._cleanup(videoEl, statusText, statusDot);
+        this._cleanup(videoEl, audioEl, statusText, statusDot);
       });
 
       this.client.on("startup_error", (reason) => {
         console.warn("[SimliService] Erreur de démarrage Simli :", reason);
-        this._cleanup(videoEl, statusText, statusDot);
+        this._cleanup(videoEl, audioEl, statusText, statusDot);
       });
 
       // Étape 4 : Démarrer la connexion WebRTC
@@ -146,13 +152,29 @@ export class SimliService {
     }
   }
 
-  _cleanup(videoEl, statusText, statusDot) {
+  async waitForConnection(timeoutMs = 3500) {
+    if (this.isConnected) return true;
+    if (!this.isConnecting) return false;
+    const start = Date.now();
+    while (this.isConnecting && !this.isConnected && (Date.now() - start < timeoutMs)) {
+      await new Promise(r => setTimeout(r, 100));
+    }
+    return this.isConnected;
+  }
+
+  _cleanup(videoEl, audioEl, statusText, statusDot) {
     this.isConnected = false;
     this.isConnecting = false;
     this.client = null;
     if (videoEl) {
       videoEl.classList.remove('opacity-100');
       videoEl.classList.add('opacity-0');
+      videoEl.muted = true;
+      try { videoEl.pause(); } catch (_) {}
+    }
+    if (audioEl) {
+      audioEl.muted = true;
+      try { audioEl.pause(); } catch (_) {}
     }
     if (statusText) statusText.textContent = "Prêt à répondre";
     if (statusDot) statusDot.className = "w-2.5 h-2.5 rounded-full bg-emerald-400";
@@ -188,8 +210,9 @@ export class SimliService {
       this.isConnecting = false;
     }
     const videoEl = this.getVideoElement();
+    const audioEl = this.getAudioElement();
     const statusText = document.getElementById('modal-status-text');
     const statusDot = document.getElementById('modal-status-dot');
-    this._cleanup(videoEl, statusText, statusDot);
+    this._cleanup(videoEl, audioEl, statusText, statusDot);
   }
 }

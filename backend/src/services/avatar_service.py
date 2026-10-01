@@ -494,7 +494,7 @@ async def save_viseme_photo(file: UploadFile, viseme_id: str) -> Dict[str, Any]:
 async def test_voice_audio(req: StudioVocalTestRequest) -> Response:
     """Génère un test audio pour le Studio Vocal (voix neurale haute fidélité)."""
     phrase = req.phrase or "Bonjour ! Je suis ton enseignant virtuel AlternIA. Quelle notion souhaites-tu réviser aujourd'hui ?"
-    tts_engine = TTSEngine(voice=req.voix or "vivienne")
+    tts_engine = TTSEngine(voice=req.voix or "henri")
     try:
         audio_bytes = await tts_engine.synthesize_to_bytes(phrase)
         if not audio_bytes:
@@ -546,7 +546,7 @@ async def generate_avatar_video(
 
     nom_prof = (nom or (avatar.nom if avatar else "ton professeur")).strip()
     matiere_nom = (matiere or (avatar.matiere if avatar else "SVT & Sciences Naturelles")).strip()
-    chosen_voice = (voice or (avatar.voix_tts if avatar else "vivienne")).strip().lower()
+    chosen_voice = (voice or (avatar.voix_tts if avatar else "henri")).strip().lower()
 
     # Discours de présentation officiel de l'enseignant
     text_to_speak = phrase or f"Bonjour ! Je suis {nom_prof}. Je suis prêt à t'expliquer toutes les notions de {matiere_nom}. Pose-moi toutes tes questions !"

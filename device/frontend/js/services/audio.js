@@ -18,7 +18,7 @@ export class AudioService {
     this.isPlayingQueue = false;
     this.currentPlayer = null;
     this.currentSource = null;
-    this.currentVoice = 'vivienne'; // Voix TTS par défaut, mise à jour dynamiquement selon l'avatar actif
+    this.currentVoice = 'henri'; // Voix TTS masculine par défaut (Henri)
     
     this.enableSimli = false; // Désactivé par défaut ! Activé UNIQUEMENT quand l'avatar modal est ouvert
     this.simli = new SimliService('modal-avatar-video', 'simli-audio');
@@ -148,7 +148,7 @@ export class AudioService {
 
     this.ensureAudioContext();
 
-    const voiceToUse = voiceOverride || this.currentVoice || 'vivienne';
+    const voiceToUse = voiceOverride || this.currentVoice || 'henri';
     console.log(`🎙️ [AudioService] Synthèse vocale (${voiceToUse}) : "${cleanText.substring(0, 45)}..."`);
 
     // Pré-chargement immédiat du blob en arrière-plan
@@ -195,19 +195,37 @@ export class AudioService {
     while (this.audioQueue.length > 0 && !this.isMuted) {
       const item = this.audioQueue.shift();
       try {
-        console.log("🔊 [AudioService] Lecture de la phrase :", item.text);
+        console.log("🔊 [AudioService] Traitement de la phrase :", item.text);
         const audioBlob = await item.audioPromise;
 
         if (audioBlob && audioBlob.size > 100) {
-          // 1. Envoi vers Simli WebRTC UNIQUEMENT si l'avatar est actif et connecté
-          if (this.enableSimli && this.simli && this.simli.isConnected) {
-            this.resampleToPCM16(audioBlob).then(({ pcm16Data, duration }) => {
-              console.log(`🚀 [Simli] Envoi audio PCM16 (${(duration).toFixed(1)}s) pour Lip-Sync avatar...`);
-              this.simli.sendAudioBuffer(pcm16Data);
-            }).catch(() => {});
+          const isSimliActive = this.enableSimli && this.simli;
+          let simliReady = false;
+
+          // 1. Envoi vers Simli WebRTC UNIQUEMENT si l'avatar modal est actif
+          if (isSimliActive) {
+            // Si la connexion Simli est en cours, attendre qu'elle s'établisse pour ne pas perdre la voix
+            if (!this.simli.isConnected && this.simli.isConnecting) {
+              await this.simli.waitForConnection(3500);
+            }
+            if (this.simli.isConnected) {
+              try {
+                const { pcm16Data, duration } = await this.resampleToPCM16(audioBlob);
+                console.log(`🚀 [Simli] Envoi audio PCM16 (${duration.toFixed(1)}s) pour Lip-Sync avatar...`);
+                this.simli.sendAudioBuffer(pcm16Data);
+                simliReady = true;
+              } catch (resampleErr) {
+                console.warn("⚠️ [AudioService] Erreur rééchantillonnage Simli :", resampleErr);
+              }
+            }
           }
 
-          // 2. Lecture audio locale directe (indépendante de Simli) avec analyseur FFT
+          // 2. Lecture audio avec analyseur FFT
+          // RÈGLE ANTI-DOUBLON STRICTE :
+          // Si Simli est actif et connecté, le son sort EXCLUSIVEMENT par le flux WebRTC de Simli.
+          // Le gain local audioCtx est forcé à 0 (silence absolu sur les haut-parleurs locaux).
+          // Il reste connecté uniquement à l'analyser FFT pour animer les ondes visuelles.
+          // Si Simli a échoué ou n'est pas actif, le gain passe à 1 pour jouer le son en local.
           let played = false;
           this.ensureAudioContext();
 
@@ -228,15 +246,15 @@ export class AudioService {
               this.currentSource = source;
 
               const gainNode = this.audioCtx.createGain();
-              gainNode.gain.value = 1; // TOUJOURS 1 ! La voix TTS locale est souveraine et ne dépend pas de Simli
+              // Silence complet en local si Simli est actif et diffuse le son
+              gainNode.gain.value = (isSimliActive && simliReady) ? 0.0 : 1.0;
 
               source.connect(gainNode);
               gainNode.connect(this.audioCtx.destination);
 
               if (this.analyser) {
-                // Déconnecter l'analyseur de toute destination précédente pour éviter l'écho
                 this.analyser.disconnect();
-                // Connecter la source à l'analyseur juste pour lire les données FFT (animation)
+                // Toujours connecter à l'analyseur pour garder les ondes visuelles en direct
                 source.connect(this.analyser);
               }
 
@@ -253,11 +271,10 @@ export class AudioService {
             }
           }
 
-          // 3. Fallback : HTML5 Audio player
-          if (!played) {
+          // 3. Fallback HTML5 Audio player UNIQUEMENT si Simli n'est pas actif
+          if (!played && (!isSimliActive || !simliReady)) {
             await this.playWithAudioElement(audioBlob);
           }
-
         } else if (this.speechSynthesis) {
           // 4. Fallback ultime : Web Speech API si le backend n'a pas produit de blob
           await this.speakWithWebSpeech(item.text);

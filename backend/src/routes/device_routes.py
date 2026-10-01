@@ -79,7 +79,7 @@ async def tts_post_endpoint(req: TTSRequest):
     if not req.text or not req.text.strip():
         raise HTTPException(status_code=400, detail="Texte manquant pour la synthèse vocale")
 
-    voice_name = req.voice or settings.tts_voice or "vivienne"
+    voice_name = req.voice or settings.tts_voice or "henri"
     tts_engine = TTSEngine(voice=voice_name)
     try:
         audio_bytes = await tts_engine.synthesize_to_bytes(req.text)
@@ -91,12 +91,12 @@ async def tts_post_endpoint(req: TTSRequest):
 
 
 @router.get("/api/tts")
-async def tts_get_endpoint(text: str, voice: Optional[str] = "vivienne"):
+async def tts_get_endpoint(text: str, voice: Optional[str] = "henri"):
     """Synthèse vocale neurale haute fidélité (GET query param)."""
     if not text.strip():
         raise HTTPException(status_code=400, detail="Texte manquant pour la synthèse vocale")
 
-    tts_engine = TTSEngine(voice=voice or "vivienne")
+    tts_engine = TTSEngine(voice=voice or "henri")
     try:
         audio_bytes = await tts_engine.synthesize_to_bytes(text)
         if not audio_bytes:

@@ -1,8 +1,8 @@
 /**
  * Service de reconnaissance vocale Speech-to-Text (STT) haute fidélité.
- * Hybride & 100% Résilient :
- * 1. Web Speech API (transcription temps réel continue)
- * 2. MediaRecorder local automatique vers /api/stt (Faster-Whisper GPU)
+ * Hybride & 100% Réactif au clic unique (1 clic pour enregistrer, 1 clic pour couper et envoyer) :
+ * 1. Web Speech API immédiat (transcription mot par mot en temps réel)
+ * 2. MediaRecorder local automatique vers /api/stt (Faster-Whisper GPU si Web Speech vide)
  * 3. Feedback visuel réactif en direct.
  */
 
@@ -19,8 +19,6 @@ export class SpeechService {
 
     this.recognition = null;
     this.isRecording = false;
-    this.isStarting = false;
-    this.isStopping = false;
     this.currentTranscript = '';
     this.finalTranscriptAccumulated = '';
 
@@ -73,7 +71,7 @@ export class SpeechService {
         };
 
         this.recognition.onend = () => {
-          if (this.isRecording && this.recognition && !this.isStopping) {
+          if (this.isRecording && this.recognition) {
             try {
               this.recognition.start();
             } catch (e) {}
@@ -94,8 +92,6 @@ export class SpeechService {
   }
 
   async toggle() {
-    if (this.isStarting || this.isStopping) return;
-
     if (this.isRecording) {
       await this.stop();
     } else {
@@ -104,15 +100,33 @@ export class SpeechService {
   }
 
   async start() {
-    if (this.isRecording || this.isStarting) return;
-    this.isStarting = true;
+    if (this.isRecording) return;
+    this.isRecording = true;
     this.currentTranscript = '';
     this.finalTranscriptAccumulated = '';
     this.audioChunks = [];
 
-    if (this.onStart) this.onStart();
+    // Notifier immédiatement l'UI pour mise à jour visuelle instantanée
+    if (this.onStart) {
+      this.onStart();
+    }
 
-    // 1. Démarrer l'enregistrement micro physique MediaRecorder
+    // 1. Démarrer Web Speech API IMMÉDIATEMENT (sans attendre getUserMedia)
+    if (this.recognition) {
+      try {
+        this.recognition.start();
+      } catch (err) {
+        console.warn("Web Speech start :", err);
+      }
+    }
+
+    // 2. Initialiser le micro physique en tâche de fond pour l'analyseur et le fallback Whisper
+    this.startMediaRecorderBackground().catch((err) => {
+      console.warn("MediaRecorder background error :", err);
+    });
+  }
+
+  async startMediaRecorderBackground() {
     try {
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         this.stream = await navigator.mediaDevices.getUserMedia({
@@ -124,40 +138,37 @@ export class SpeechService {
           }
         });
 
+        // Si l'utilisateur a déjà cliqué pour couper pendant l'autorisation, arrêter immédiatement
+        if (!this.isRecording) {
+          if (this.stream) {
+            this.stream.getTracks().forEach(t => t.stop());
+            this.stream = null;
+          }
+          return;
+        }
+
         this.setupAudioAnalyser(this.stream);
 
         let mimeType = 'audio/webm';
-        if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
-          mimeType = 'audio/webm;codecs=opus';
-        } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
-          mimeType = 'audio/mp4';
-        }
-
-        this.mediaRecorder = new MediaRecorder(this.stream, { mimeType });
-        this.mediaRecorder.ondataavailable = (e) => {
-          if (e.data && e.data.size > 0) {
-            this.audioChunks.push(e.data);
+        if (typeof MediaRecorder !== 'undefined') {
+          if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+            mimeType = 'audio/webm;codecs=opus';
+          } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+            mimeType = 'audio/mp4';
           }
-        };
-        this.mediaRecorder.start(100);
+
+          this.mediaRecorder = new MediaRecorder(this.stream, { mimeType });
+          this.mediaRecorder.ondataavailable = (e) => {
+            if (e.data && e.data.size > 0) {
+              this.audioChunks.push(e.data);
+            }
+          };
+          this.mediaRecorder.start(100);
+        }
       }
     } catch (err) {
-      console.warn("Accès microphone refusé :", err);
-      if (this.onError) this.onError("Accès microphone requis.");
-      this.isStarting = false;
-      this.isRecording = false;
-      return;
+      console.warn("Accès microphone partiel ou refusé :", err);
     }
-
-    // 2. Démarrer Web Speech en parallèle
-    if (this.recognition) {
-      try {
-        this.recognition.start();
-      } catch (err) {}
-    }
-
-    this.isRecording = true;
-    this.isStarting = false;
   }
 
   setupAudioAnalyser(stream) {
@@ -189,8 +200,7 @@ export class SpeechService {
   }
 
   async stop() {
-    if (!this.isRecording || this.isStopping) return;
-    this.isStopping = true;
+    if (!this.isRecording) return;
     this.isRecording = false;
 
     if (this.animFrameId) {
@@ -222,20 +232,21 @@ export class SpeechService {
       this.audioCtx = null;
     }
 
-    // Délai pour s'assurer que tous les chunks sont dans audioChunks
-    await new Promise(r => setTimeout(r, 150));
-
-    await this.finalizeRecording();
-    this.isStopping = false;
-  }
-
-  async finalizeRecording() {
+    // Récupérer le texte transcrit immédiatement
     let text = (this.finalTranscriptAccumulated + ' ' + this.currentTranscript).trim();
 
-    // Si Web Speech n'a pas capté de texte mais qu'on a un enregistrement audio
-    if (!text && this.audioChunks.length > 0) {
+    // Si Web Speech a déjà capturé du texte, on l'envoie SANS ATTENDRE pour réactivité instantanée
+    if (text && text.length > 0) {
+      if (this.onEnd) {
+        this.onEnd(text);
+      }
+      return;
+    }
+
+    // Fallback : si Web Speech n'a rien capturé mais qu'on a des morceaux audio MediaRecorder
+    if (this.audioChunks.length > 0) {
       try {
-        console.log("🎙️ [SpeechService] Transcription via Faster-Whisper GPU...");
+        console.log("🎙️ [SpeechService] Transcription de secours Faster-Whisper GPU...");
         const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
         if (audioBlob.size > 200) {
           text = await ApiService.transcribeAudioBlob(audioBlob);
@@ -247,7 +258,7 @@ export class SpeechService {
     }
 
     if (this.onEnd) {
-      this.onEnd(text);
+      this.onEnd(text || '');
     }
   }
 }
