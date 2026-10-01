@@ -460,6 +460,42 @@ def start_tunnel(
     return proc, domain_urls, False
 
 
+def free_port(port: int):
+    """Libère le port s'il est déjà occupé par un ancien processus uvicorn/python."""
+    import socket
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        s.bind(("0.0.0.0", port))
+        s.close()
+        return
+    except OSError:
+        pass
+    finally:
+        try:
+            s.close()
+        except Exception:
+            pass
+
+    print(f"⚠️ \033[1;33mPort {port} déjà utilisé. Libération automatique en cours...\033[0m")
+    try:
+        subprocess.run(["fuser", "-k", f"{port}/tcp"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except Exception:
+        pass
+    try:
+        res = subprocess.run(["lsof", "-t", f"-i:{port}"], stdout=subprocess.PIPE, text=True)
+        pids = res.stdout.strip().split()
+        current_pid = os.getpid()
+        for pid in pids:
+            if pid and int(pid) != current_pid:
+                try:
+                    os.kill(int(pid), 9)
+                except Exception:
+                    pass
+    except Exception:
+        pass
+    time.sleep(1)
+
+
 def main():
     import argparse
     parser = argparse.ArgumentParser(description="AlternIA Cloud Server Runner")
@@ -469,11 +505,12 @@ def main():
     parser.add_argument("--quick", action="store_true", help="Forcer l'utilisation du tunnel temporaire gratuit (trycloudflare.com)")
     args, _ = parser.parse_known_args()
 
+    port = args.port
+    free_port(port)
+
     print_banner()
     ensure_environment()
     detect_hardware()
-
-    port = args.port
 
     # Démarrer le tunnel Cloudflare (fixe ou temporaire)
     tunnel_proc, domain_urls, is_fixed = start_tunnel(
