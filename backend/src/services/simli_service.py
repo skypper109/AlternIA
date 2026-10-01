@@ -37,6 +37,29 @@ class SimliBackendService:
             logger.warning(f"Erreur conversion FFmpeg PCM16 pour Simli : {e}")
             return None
 
+    def transcode_to_ios_compatible_mp4(self, input_path: str, output_path: str) -> bool:
+        """
+        Transcode la vidéo en H.264 (yuv420p) + AAC 44.1kHz avec +faststart.
+        Obligatoire pour que le lecteur iOS (AVPlayer de Flutter) et Android lisent
+        la vidéo instantanément en streaming sans geler ni bloquer l'image.
+        """
+        try:
+            temp_fixed = str(output_path) + ".tmp_ios.mp4"
+            cmd = [
+                "ffmpeg", "-y", "-i", str(input_path),
+                "-c:v", "libx264", "-pix_fmt", "yuv420p", "-preset", "veryfast",
+                "-c:a", "aac", "-b:a", "128k", "-ar", "44100",
+                "-movflags", "+faststart",
+                temp_fixed
+            ]
+            subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+            if Path(temp_fixed).exists() and Path(temp_fixed).stat().st_size > 1000:
+                Path(temp_fixed).replace(output_path)
+                return True
+        except Exception as e:
+            logger.warning(f"Erreur transcodage FFmpeg iOS MP4 : {e}")
+        return False
+
     async def generate_video(
         self,
         audio_path: str,
@@ -54,6 +77,51 @@ class SimliBackendService:
         target_output.parent.mkdir(parents=True, exist_ok=True)
 
         try:
+            # RÈGLE CRITIQUE FFmpeg / PyAV :
+            # Dans PyAV, le codec 'vorbis' est marqué comme expérimental par FFmpeg.
+            # Sans strict=-2 ou strict='experimental', PyAV lève l'exception fatale :
+            # [Errno 733130664] Experimental feature: 'avcodec_open2("vorbis", {})'
+            # On patche OutputContainer.add_stream pour autoriser les codecs expérimentaux :
+            try:
+                import av
+                if hasattr(av.container, "OutputContainer") and hasattr(av.container.OutputContainer, "add_stream"):
+                    _orig_add_stream = av.container.OutputContainer.add_stream
+
+                    def _safe_add_stream(self_cont, *args, **kwargs):
+                        if len(args) >= 3:
+                            args_list = list(args)
+                            opts = dict(args_list[2] or {})
+                            opts["strict"] = "experimental"
+                            args_list[2] = opts
+                            args = tuple(args_list)
+                        else:
+                            opts = dict(kwargs.get("options") or {})
+                            opts["strict"] = "experimental"
+                            kwargs["options"] = opts
+
+                        stream = _orig_add_stream(self_cont, *args, **kwargs)
+                        try:
+                            if hasattr(stream, "codec_context") and stream.codec_context:
+                                stream.codec_context.strict = -2
+                        except Exception:
+                            pass
+                        return stream
+
+                    av.container.OutputContainer.add_stream = _safe_add_stream
+
+                if hasattr(av, "open"):
+                    _orig_av_open = av.open
+
+                    def _safe_av_open(*args, **kwargs):
+                        opts = dict(kwargs.get("options") or {})
+                        opts.setdefault("strict", "experimental")
+                        kwargs["options"] = opts
+                        return _orig_av_open(*args, **kwargs)
+
+                    av.open = _safe_av_open
+            except Exception as patch_err:
+                logger.debug(f"PyAV strict patch note : {patch_err}")
+
             from simli import SimliClient, SimliConfig
             from simli.renderers.renderers import FileRenderer
 
@@ -73,7 +141,9 @@ class SimliBackendService:
                 await renderer.render()
 
             if target_output.exists() and target_output.stat().st_size > 1000:
-                logger.info(f"✅ [SimliBackendService] Vidéo générée avec succès : {target_output.name}")
+                # Transcodage immédiat en MP4 H.264/AAC avec faststart pour iOS & Android
+                self.transcode_to_ios_compatible_mp4(str(target_output), str(target_output))
+                logger.info(f"✅ [SimliBackendService] Vidéo Simli générée et optimisée avec succès : {target_output.name}")
                 return str(target_output)
 
         except ImportError as err:

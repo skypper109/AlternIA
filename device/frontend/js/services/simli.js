@@ -50,7 +50,7 @@ export class SimliService {
 
     const statusText = document.getElementById('modal-status-text');
     const statusDot = document.getElementById('modal-status-dot');
-    if (statusText) statusText.textContent = "Connexion à l'avatar Simli...";
+    if (statusText) statusText.textContent = "Connexion avec le professeur...";
     if (statusDot) statusDot.className = "w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse";
 
     try {
