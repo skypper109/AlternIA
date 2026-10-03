@@ -34,6 +34,7 @@ from backend.src.routes import (
     rapports_router,
     revision_router,
     vocal_router,
+    esp32_router,
 )
 
 
@@ -104,6 +105,8 @@ app.include_router(insights_router)
 app.include_router(parent_router)
 app.include_router(rapports_router)
 app.include_router(revision_router)
+app.include_router(esp32_router)
+
 
 # ==============================================================================
 # HÉBERGEMENT DES INTERFACES WEB : DEVICE (KIOSK BOÎTIER) & ALTA (PORTAIL ANGULAR)
@@ -150,6 +153,12 @@ if DEVICE_FRONTEND_DIR.exists():
     async def redirect_to_device():
         """Redirige /device vers /device/ pour assurer la résolution des modules ES6 relatifs."""
         return RedirectResponse(url="/device/", status_code=307)
+
+    @app.get("/esp32")
+    async def redirect_to_esp32_dashboard():
+        """Accès direct au tableau de bord ESP32."""
+        return RedirectResponse(url="/api/esp32/dashboard", status_code=307)
+
 
 
 @app.get("/")

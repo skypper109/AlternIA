@@ -1,0 +1,9 @@
+CompileFlags:
+  Add:
+    - --target=riscv32-unknown-elf
+    - -isystem/Users/ibrahimsorydiallo/.platformio/packages/toolchain-xtensa-esp32/xtensa-esp32-elf/include/c++/8.4.0
+    - -isystem/Users/ibrahimsorydiallo/.platformio/packages/toolchain-xtensa-esp32/xtensa-esp32-elf/include/c++/8.4.0/xtensa-esp32-elf
+    - -isystem/Users/ibrahimsorydiallo/.platformio/packages/toolchain-xtensa-esp32/xtensa-esp32-elf/include
+    - -isystem/Users/ibrahimsorydiallo/.platformio/packages/toolchain-xtensa-esp32/lib/gcc/xtensa-esp32-elf/8.4.0/include
+    - -Wno-unknown-attributes
+    - -Wno-unknown-warning-option

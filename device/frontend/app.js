@@ -482,7 +482,11 @@ export class AlternIAApp {
     if (vocalLabels[classId]) {
       this.audio.speakText(`Tu as sélectionné la ${vocalLabels[classId]}.`);
     }
+
+    // Synchronisation immédiate avec l'ESP32 (Actionne la LED Blanche si micro prêt)
+    fetch(`/api/esp32/select-class?classe=${encodeURIComponent(classId)}&mic_connected=true`, { method: 'POST' }).catch(() => {});
   }
+
 
   async submitQuestion(questionText) {
     const question = questionText || (this.questionInput ? this.questionInput.value.trim() : '');

@@ -18,6 +18,62 @@ SIMLI_API_KEY = os.getenv("SIMLI_API_KEY", "1e1ikibdppliekw9mt04nf")
 SIMLI_FACE_ID = os.getenv("SIMLI_FACE_ID", "b9e5fba3-071a-4e35-896e-211c4d6eaa7b")
 
 
+_pyav_strict_patched = False
+
+
+def _patch_pyav_for_experimental_codecs():
+    """
+    RÈGLE FFmpeg / PyAV :
+    Si un codec expérimental (comme vorbis) est utilisé, FFmpeg requiert l'option 'strict: experimental'.
+    On injecte de manière idempotente l'option dans PyAV via les options du dictionnaire,
+    sans manipuler d'attribut interne 'strict' inexistant sur AudioCodecContext (Cython).
+    """
+    global _pyav_strict_patched
+    if _pyav_strict_patched:
+        return
+
+    try:
+        import av
+        if getattr(av, "_alternia_strict_patched", False):
+            _pyav_strict_patched = True
+            return
+
+        if hasattr(av.container, "OutputContainer") and hasattr(av.container.OutputContainer, "add_stream"):
+            _orig_add_stream = av.container.OutputContainer.add_stream
+
+            def _safe_add_stream(self_cont, *args, **kwargs):
+                if len(args) >= 3:
+                    args_list = list(args)
+                    opts = dict(args_list[2] or {})
+                    opts.setdefault("strict", "experimental")
+                    args_list[2] = opts
+                    args = tuple(args_list)
+                else:
+                    opts = dict(kwargs.get("options") or {})
+                    opts.setdefault("strict", "experimental")
+                    kwargs["options"] = opts
+
+                return _orig_add_stream(self_cont, *args, **kwargs)
+
+            av.container.OutputContainer.add_stream = _safe_add_stream
+
+        if hasattr(av, "open"):
+            _orig_av_open = av.open
+
+            def _safe_av_open(*args, **kwargs):
+                opts = dict(kwargs.get("options") or {})
+                opts.setdefault("strict", "experimental")
+                kwargs["options"] = opts
+                return _orig_av_open(*args, **kwargs)
+
+            av.open = _safe_av_open
+
+        setattr(av, "_alternia_strict_patched", True)
+        _pyav_strict_patched = True
+    except Exception as patch_err:
+        logger.debug(f"PyAV strict patch note : {patch_err}")
+
+
 class SimliBackendService:
     def __init__(self, api_key: str = SIMLI_API_KEY, face_id: str = SIMLI_FACE_ID):
         self.api_key = api_key
@@ -77,55 +133,12 @@ class SimliBackendService:
         target_output.parent.mkdir(parents=True, exist_ok=True)
 
         try:
-            # RÈGLE CRITIQUE FFmpeg / PyAV :
-            # Dans PyAV, le codec 'vorbis' est marqué comme expérimental par FFmpeg.
-            # Sans strict=-2 ou strict='experimental', PyAV lève l'exception fatale :
-            # [Errno 733130664] Experimental feature: 'avcodec_open2("vorbis", {})'
-            # On patche OutputContainer.add_stream pour autoriser les codecs expérimentaux :
-            try:
-                import av
-                if hasattr(av.container, "OutputContainer") and hasattr(av.container.OutputContainer, "add_stream"):
-                    _orig_add_stream = av.container.OutputContainer.add_stream
-
-                    def _safe_add_stream(self_cont, *args, **kwargs):
-                        if len(args) >= 3:
-                            args_list = list(args)
-                            opts = dict(args_list[2] or {})
-                            opts["strict"] = "experimental"
-                            args_list[2] = opts
-                            args = tuple(args_list)
-                        else:
-                            opts = dict(kwargs.get("options") or {})
-                            opts["strict"] = "experimental"
-                            kwargs["options"] = opts
-
-                        stream = _orig_add_stream(self_cont, *args, **kwargs)
-                        try:
-                            if hasattr(stream, "codec_context") and stream.codec_context:
-                                stream.codec_context.strict = -2
-                        except Exception:
-                            pass
-                        return stream
-
-                    av.container.OutputContainer.add_stream = _safe_add_stream
-
-                if hasattr(av, "open"):
-                    _orig_av_open = av.open
-
-                    def _safe_av_open(*args, **kwargs):
-                        opts = dict(kwargs.get("options") or {})
-                        opts.setdefault("strict", "experimental")
-                        kwargs["options"] = opts
-                        return _orig_av_open(*args, **kwargs)
-
-                    av.open = _safe_av_open
-            except Exception as patch_err:
-                logger.debug(f"PyAV strict patch note : {patch_err}")
+            _patch_pyav_for_experimental_codecs()
 
             from simli import SimliClient, SimliConfig
             from simli.renderers.renderers import FileRenderer
 
-            logger.info(f"🚀 [SimliBackendService] Lancement de la génération vidéo Simli (Face ID: {target_face_id})...")
+            logger.info(f"[SimliBackendService] Lancement de la génération vidéo Simli (Face ID: {target_face_id})...")
             
             simli_config = SimliConfig(
                 faceId=target_face_id,
@@ -137,7 +150,13 @@ class SimliBackendService:
                 config=simli_config,
             ) as connection:
                 await connection.send(pcm_bytes)
-                renderer = FileRenderer(client=connection, filename=str(target_output))
+                # On force 'aac' pour l'audio au lieu de 'vorbis' afin d'éviter les codecs expérimentaux dans MP4
+                renderer = FileRenderer(
+                    client=connection,
+                    filename=str(target_output),
+                    videoCodec="h264",
+                    audioCodec="aac",
+                )
                 await renderer.render()
 
             if target_output.exists() and target_output.stat().st_size > 1000:
