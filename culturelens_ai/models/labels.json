@@ -1,6 +1,21 @@
 {
-  "monument_al_quouds": {
+  "monument_Place_de_la_liberté": {
     "index": 0,
+    "name": "Place de la Liberté",
+    "ville": "Bamako",
+    "coords": [
+      12.6514,
+      -7.9982
+    ],
+    "category": "Urbanisme & Histoire",
+    "visual_features": [
+      "Place circulaire arborée",
+      "Esplanade centrale",
+      "Cœur battant historique"
+    ]
+  },
+  "monument_al_quouds": {
+    "index": 1,
     "name": "Monument Al-Qoods (Al-Qods)",
     "ville": "Bamako",
     "coords": [
@@ -15,7 +30,7 @@
     ]
   },
   "monument_armee_noire_bamako": {
-    "index": 1,
+    "index": 2,
     "name": "Monument des Héros de l'Armée Noire",
     "ville": "Bamako",
     "coords": [
@@ -31,7 +46,7 @@
     ]
   },
   "monument_cathedrale_bamako": {
-    "index": 2,
+    "index": 3,
     "name": "Cathédrale du Sacré-Cœur",
     "ville": "Bamako",
     "coords": [
@@ -46,7 +61,7 @@
     ]
   },
   "monument_djingareyber": {
-    "index": 3,
+    "index": 4,
     "name": "Mosquée Djingareyber",
     "ville": "Tombouctou",
     "coords": [
@@ -61,7 +76,7 @@
     ]
   },
   "monument_fort_medine": {
-    "index": 4,
+    "index": 5,
     "name": "Fort de Médine",
     "ville": "Kayes",
     "coords": [
@@ -76,7 +91,7 @@
     ]
   },
   "monument_independance_bamako": {
-    "index": 5,
+    "index": 6,
     "name": "Monument de l'Indépendance",
     "ville": "Bamako",
     "coords": [
@@ -92,7 +107,7 @@
     ]
   },
   "monument_kwame_nkrumah_bamako": {
-    "index": 6,
+    "index": 7,
     "name": "Monument Kwamé Nkrumah",
     "ville": "Bamako",
     "coords": [
@@ -107,7 +122,7 @@
     ]
   },
   "monument_maliba_bamako": {
-    "index": 7,
+    "index": 8,
     "name": "Monument MaliBa (Grand Mali)",
     "ville": "Bamako",
     "coords": [
@@ -122,7 +137,7 @@
     ]
   },
   "monument_martyrs_bamako": {
-    "index": 8,
+    "index": 9,
     "name": "Monument des Martyrs",
     "ville": "Bamako",
     "coords": [
@@ -137,7 +152,7 @@
     ]
   },
   "monument_mosquee_djenne": {
-    "index": 9,
+    "index": 10,
     "name": "Grande Mosquée de Djenné",
     "ville": "Djenné",
     "coords": [
@@ -152,8 +167,23 @@
       "Crépissage rituel"
     ]
   },
+  "monument_obelisque_bamako": {
+    "index": 11,
+    "name": "Obélisque de Bamako",
+    "ville": "Bamako",
+    "coords": [
+      12.651,
+      -7.9985
+    ],
+    "category": "Cœur Civique & Historique",
+    "visual_features": [
+      "Obélisque en pierre",
+      "Stèle commémorative",
+      "Carrefour urbain"
+    ]
+  },
   "monument_paix_bamako": {
-    "index": 10,
+    "index": 12,
     "name": "Monument de la Paix",
     "ville": "Bamako",
     "coords": [
@@ -169,7 +199,7 @@
     ]
   },
   "monument_samory_toure_bamako": {
-    "index": 11,
+    "index": 13,
     "name": "Monument Samory Touré",
     "ville": "Bamako",
     "coords": [
@@ -183,8 +213,23 @@
       "Cheval cabré en bronze"
     ]
   },
+  "monument_sankore": {
+    "index": 14,
+    "name": "Université & Mosquée de Sankoré",
+    "ville": "Tombouctou",
+    "coords": [
+      16.7758,
+      -3.0031
+    ],
+    "category": "Patrimoine Mondial UNESCO",
+    "visual_features": [
+      "Minaret en gradins",
+      "Proportions Kaaba",
+      "Cité des 700 000 manuscrits"
+    ]
+  },
   "monument_sogolon_bamako": {
-    "index": 12,
+    "index": 15,
     "name": "Statue de Sogolon Kolonkan",
     "ville": "Bamako",
     "coords": [
@@ -198,8 +243,38 @@
       "Héroïne fondatrice du Mandé"
     ]
   },
+  "monument_tata_sikasso": {
+    "index": 16,
+    "name": "Tata de Sikasso",
+    "ville": "Sikasso",
+    "coords": [
+      11.3176,
+      -5.6664
+    ],
+    "category": "Monument Historique National",
+    "visual_features": [
+      "Muraille de banco et pierres",
+      "Colline du Mamelon",
+      "Fortification militaire"
+    ]
+  },
+  "monument_tombeau_askia": {
+    "index": 17,
+    "name": "Tombeau des Askia",
+    "ville": "Gao",
+    "coords": [
+      16.2994,
+      -0.045
+    ],
+    "category": "Patrimoine Mondial UNESCO",
+    "visual_features": [
+      "Pyramide en terre banco",
+      "Échafaudages de bois",
+      "Nécropole Songhoï"
+    ]
+  },
   "monument_tour_afrique_bamako": {
-    "index": 13,
+    "index": 18,
     "name": "Tour de l'Afrique",
     "ville": "Bamako",
     "coords": [
@@ -215,7 +290,7 @@
     ]
   },
   "segou": {
-    "index": 14,
+    "index": 19,
     "name": "Ségou-Koro & Cité des Balanzans",
     "ville": "Ségou",
     "coords": [

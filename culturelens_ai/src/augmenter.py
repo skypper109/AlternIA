@@ -40,17 +40,17 @@ class MonumentDataAugmenter:
         dy = int(h * intensity * (random.uniform(0.5, 1.0)))
 
         mode = random.choice(["bottom_up", "left_tilt", "right_tilt", "top_down"])
-        src = np.float32([[0, 0], [w, 0], [w, h], [0, h]])
+        src = np.array([[0, 0], [w, 0], [w, h], [0, h]], dtype=np.float32)
 
         if mode == "bottom_up":
             # Sommet rétréci, base élargie (vue depuis le sol en regardant vers le haut)
-            dst = np.float32([[dx, dy], [w - dx, dy], [w, h], [0, h]])
+            dst = np.array([[dx, dy], [w - dx, dy], [w, h], [0, h]], dtype=np.float32)
         elif mode == "top_down":
-            dst = np.float32([[0, 0], [w, 0], [w - dx, h - dy], [dx, h - dy]])
+            dst = np.array([[0, 0], [w, 0], [w - dx, h - dy], [dx, h - dy]], dtype=np.float32)
         elif mode == "left_tilt":
-            dst = np.float32([[0, dy], [w, 0], [w, h], [0, h - dy]])
+            dst = np.array([[0, dy], [w, 0], [w, h], [0, h - dy]], dtype=np.float32)
         else:
-            dst = np.float32([[0, 0], [w, dy], [w, h - dy], [0, h]])
+            dst = np.array([[0, 0], [w, dy], [w, h - dy], [0, h]], dtype=np.float32)
 
         matrix = cv2.getPerspectiveTransform(src, dst)
         warped = cv2.warpPerspective(img, matrix, (w, h), borderMode=cv2.BORDER_REFLECT_101)
@@ -199,17 +199,19 @@ def augment_monument_dataset(
     reference_dir: Path = REFERENCE_DIR,
     target_count_per_monument: int = 40,
     save_to_disk: bool = True,
+    clean_existing: bool = True,
     augmented_dir_name: str = "augmented",
 ) -> Dict[str, int]:
     """Exécute la data augmentation sur tous les sous-dossiers ayant des photos.
 
     Pour chaque monument :
+    - Nettoie les anciens fichiers générés si clean_existing=True
     - Détecte les images sources déposées par l'utilisateur
     - Génère des variations réalistes jusqu'à atteindre 'target_count_per_monument'
     - Sauvegarde les images augmentées avec des noms explicites
     """
     augmenter = MonumentDataAugmenter()
-    valid_exts = {".jpg", ".jpeg", ".png", ".webp"}
+    valid_exts = {".jpg", ".jpeg", ".png", ".webp", ".avif"}
 
     stats: Dict[str, int] = {}
     total_generated = 0
@@ -222,6 +224,13 @@ def augment_monument_dataset(
     for monument_dir in sorted(reference_dir.iterdir()):
         if not monument_dir.is_dir() or monument_dir.name.startswith("."):
             continue
+
+        if clean_existing:
+            for old_aug in monument_dir.glob("aug_*"):
+                try:
+                    old_aug.unlink()
+                except Exception:
+                    pass
 
         # Récupération des images sources brutes (non générées)
         source_images = [

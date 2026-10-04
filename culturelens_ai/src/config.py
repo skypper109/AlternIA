@@ -193,6 +193,22 @@ BAMAKO_MONUMENTS = {
         "visual_features": ["Lettres monumentales MaliBa", "Emblème Vert Jaune Rouge", "Fierté civique"],
         "category": "Fierté Patriotique & Jeunesse",
     },
+    "monument_obelisque_bamako": {
+        "name": "Obélisque de Bamako",
+        "ville": "Bamako",
+        "quartier": "Centre-ville / Place de la Liberté",
+        "coords": (12.6510, -7.9985),
+        "visual_features": ["Obélisque en pierre", "Stèle commémorative", "Carrefour urbain"],
+        "category": "Cœur Civique & Historique",
+    },
+    "monument_Place_de_la_liberté": {
+        "name": "Place de la Liberté",
+        "ville": "Bamako",
+        "quartier": "Centre-ville",
+        "coords": (12.6514, -7.9982),
+        "visual_features": ["Place circulaire arborée", "Esplanade centrale", "Cœur battant historique"],
+        "category": "Urbanisme & Histoire",
+    },
 }
 
 # Paramètres du modèle
