@@ -6,6 +6,9 @@ from datetime import datetime
 import json
 import logging
 import math
+import random
+import time
+import unicodedata
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
@@ -22,6 +25,16 @@ from backend.src.db.models import (
 )
 
 logger = logging.getLogger("AlternIA.CultureService")
+
+
+def _normalize_text(text: str) -> str:
+    """Nettoie et supprime les accents, la ponctuation et met en minuscules."""
+    if not text:
+        return ""
+    nfkd = unicodedata.normalize('NFKD', text)
+    no_accent = "".join([c for c in nfkd if not unicodedata.combining(c)])
+    clean = no_accent.lower().replace("'", " ").replace("’", " ").replace("-", " ")
+    return " ".join(clean.split())
 
 
 def _calculate_haversine_distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -224,12 +237,26 @@ class CultureService:
         """
         all_monuments = db.query(CultureMonument).all()
         if not all_monuments:
+            print("\033[1;31m❌ [CultureLens AI] Erreur : Aucun monument dans le catalogue local\033[0m")
             return {
                 "success": False,
                 "confidence": 0.0,
                 "message": "Aucun monument dans le catalogue local",
                 "target": None,
             }
+
+        t_start = time.perf_counter()
+        print(f"\n\033[1;35m════════════════════════════════════════════════════════════════════════════════\033[0m")
+        print(f"\033[1;35m📸 [CultureLens AI]\033[0m Requête de scan reçue sur \033[1;36mPOST /api/v1/culture/identify\033[0m")
+        if image_base64:
+            b64_size_kb = (len(image_base64) * 3 / 4) / 1024
+            print(f"   • Données image     : Base64 présente ({b64_size_kb:.1f} KB)")
+        if image_name:
+            print(f"   • Nom de fichier    : {image_name}")
+        if latitude is not None and longitude is not None:
+            print(f"   • Coordonnées GPS   : ({latitude:.4f}, {longitude:.4f})")
+        if hint_id:
+            print(f"   • Hint ID fourni    : {hint_id}")
 
         matched_monument: Optional[CultureMonument] = None
         confidence = 0.0
@@ -242,7 +269,7 @@ class CultureService:
                 import base64
                 import sys
                 from pathlib import Path
-                ai_root = Path(__file__).resolve().parent.parent.parent / "culturelens_ai"
+                ai_root = Path(__file__).resolve().parents[3] / "culturelens_ai"
                 if str(ai_root) not in sys.path:
                     sys.path.insert(0, str(ai_root))
                 from culturelens_ai.src.recognizer import CultureLensRecognizer
@@ -252,6 +279,7 @@ class CultureService:
                 user_coords = (latitude, longitude) if (latitude is not None and longitude is not None) else None
                 ai_result = CultureLensRecognizer.get_instance().predict(img_bytes, user_coords=user_coords)
             except Exception as e:
+                print(f"\033[1;31m⚠️  [CultureLens AI] Exception lors de l'inférence neuronale : {e}\033[0m")
                 logger.warning(f"Inférence CultureLensRecognizer échouée : {e}")
 
         elif image_name:
@@ -263,28 +291,50 @@ class CultureService:
                     sys.path.insert(0, str(ai_root))
                 from culturelens_ai.src.recognizer import CultureLensRecognizer
 
-                candidate_files = [
-                    ai_root / "dataset" / "test_images" / image_name,
-                    ai_root / "dataset" / "reference_images" / image_name,
-                ]
-                for c_path in candidate_files:
-                    if c_path.exists():
+                # Recherche récursive de l'image dans le dataset de référence ou de test
+                found_files = list((ai_root / "dataset").rglob(image_name))
+                for c_path in found_files:
+                    if c_path.exists() and c_path.is_file():
                         user_coords = (latitude, longitude) if (latitude is not None and longitude is not None) else None
                         ai_result = CultureLensRecognizer.get_instance().predict(c_path, user_coords=user_coords)
                         break
             except Exception as e:
+                print(f"\033[1;31m⚠️  [CultureLens AI] Exception locale : {e}\033[0m")
                 logger.warning(f"Inférence CultureLensRecognizer locale échouée : {e}")
 
         if ai_result:
             ai_conf = float(ai_result.get("confidence", 0.0))
             is_id = bool(ai_result.get("is_identified", False))
-            ai_monument_id = ai_result.get("monument_id")
+            ai_monument_id = str(ai_result.get("monument_id", ""))
+
+            # Résolution tolérante dans la base de données de monuments
             if is_id and ai_conf >= 0.45 and ai_monument_id:
-                found = next((m for m in all_monuments if m.id == ai_monument_id), None)
-                if not found and "segou" in ai_monument_id:
-                    found = next((m for m in all_monuments if "segou" in m.id), None)
-                if not found:
-                    found = next((m for m in all_monuments if m.id == f"monument_{ai_monument_id}"), None)
+                norm_ai_id = ai_monument_id.lower().strip()
+                clean_ai_id = norm_ai_id.replace("monument_", "")
+
+                found = None
+                for m in all_monuments:
+                    m_norm = m.id.lower().strip()
+                    m_clean = m_norm.replace("monument_", "")
+                    if m_norm == norm_ai_id or m_clean == clean_ai_id:
+                        found = m
+                        break
+                    if "segou" in clean_ai_id and "segou" in m_clean:
+                        found = m
+                        break
+                    if "obelisque" in clean_ai_id and "obelisque" in m_clean:
+                        found = m
+                        break
+                    if "martyrs" in clean_ai_id and "martyrs" in m_clean:
+                        found = m
+                        break
+                    if "independance" in clean_ai_id and "independance" in m_clean:
+                        found = m
+                        break
+                    if "tour_afrique" in clean_ai_id and "tour_afrique" in m_clean:
+                        found = m
+                        break
+
                 if found:
                     matched_monument = found
                     confidence = ai_conf
@@ -296,6 +346,7 @@ class CultureService:
             matched_monument = next((m for m in all_monuments if m.id == hint_id), None)
             if matched_monument:
                 confidence = 0.988
+                print(f"\033[36m   💡 [CultureLens Hint]\033[0m Hint ID appliqué directement : {matched_monument.nom}")
 
         # Cas 2 : Recherche par mots-clés ou nom de fichier
         if not matched_monument and (keywords or image_name):
@@ -320,10 +371,11 @@ class CultureService:
                     best_candidate = m
 
             if best_candidate and best_score >= 1:
-                kw_conf = min(0.985, 0.50 + (best_score * 0.08))
+                kw_conf = min(0.985, 0.70 + (best_score * 0.07))
                 if kw_conf >= 0.45:
                     matched_monument = best_candidate
                     confidence = kw_conf
+                    print(f"\033[36m   🔎 [Mots-Clés]\033[0m Correspondance lexicale trouvée : {matched_monument.nom} ({kw_conf*100:.1f}%)")
 
         # Cas 3 : Croisement géospatial (Proximité GPS si autorisée)
         estimated_distance_km: Optional[float] = None
@@ -341,6 +393,7 @@ class CultureService:
                 if not matched_monument:
                     matched_monument = closest_m
                     confidence = 0.92
+                    print(f"\033[36m   📍 [GPS Proximité]\033[0m À {min_dist:.2f} km de {closest_m.nom}")
                 elif matched_monument.id == closest_m.id:
                     confidence = min(0.996, confidence + 0.03)
 
@@ -349,10 +402,17 @@ class CultureService:
                     latitude, longitude, matched_monument.latitude, matched_monument.longitude
                 )
 
+        dt_total = time.perf_counter() - t_start
+
         # Seuil d'acceptation strict de 45% (0.45) :
         # Si aucun monument n'est identifié ou si la certitude est inférieure à 45%, retour d'échec poli
         if not matched_monument or confidence < 0.45:
             conf_val = round(confidence, 3) if confidence > 0 else 0.0
+            print(f"\n\033[1;33m⚠️  [VERDICT CULTURELENS]\033[0m Monument NON RECONNU (< 45%) en {dt_total:.2f}s :")
+            print(f"   • Confiance maximale : {conf_val * 100:.1f}%")
+            print(f"   • Statut             : Correspondance insuffisante avec le patrimoine répertorié")
+            print(f"\033[1;35m════════════════════════════════════════════════════════════════════════════════\033[0m\n")
+
             return {
                 "success": False,
                 "target": None,
@@ -370,6 +430,12 @@ class CultureService:
 
         serialized = _serialize_monument(matched_monument)
         detected_features = serialized.get("detectionFeatures", [])
+
+        print(f"\n\033[1;32m✅ [VERDICT CULTURELENS]\033[0m Monument identifié et certifié en {dt_total:.2f}s :")
+        print(f"   • Monument           : \033[1m{matched_monument.nom}\033[0m ({matched_monument.id})")
+        print(f"   • Confiance certifiée: \033[1;32m{confidence * 100:.1f}%\033[0m (Seuil minimum: 45.0%)")
+        print(f"   • Région / Ville     : {matched_monument.region_nom} ({matched_monument.ville})")
+        print(f"\033[1;35m════════════════════════════════════════════════════════════════════════════════\033[0m\n")
 
         return {
             "success": True,
@@ -392,182 +458,307 @@ class CultureService:
     ) -> Dict[str, Any]:
         """
         Assistant RAG du Guide Culturel :
-        - Contexte documentaire précis extrait de la base haute fidélité
-        - Distingue formellement : Faits documentés, Traditions orales, Interprétations
+        - Contexte documentaire précis extrait de la base haute fidélité (Monuments, Personnages, Lieux, Contes, Proverbes)
+        - Reformulation dynamique, chaleureuse et variée par le LLM (Vieux Sage / Griot du Mali)
+        - À chaque demande, même posée deux fois de suite, la reformulation est vivante et renouvelée (temp=0.72)
         """
+        t0_ask = time.perf_counter()
         clean_q = question.strip().lower()
+        norm_q = _normalize_text(question)
 
-        # 1. Salutations et présentations
-        if any(clean_q.startswith(g) or g in clean_q for g in ["bonjour", "bonsoir", "salut", "i ni ce", "i ni sogoma", "aw ni ce", "qui es-tu", "qui est-tu", "tu es qui", "presente-toi", "présente-toi", "ton role", "ton rôle"]):
-            reponse = (
-                "I ni ce, noble voyageur de la connaissance ! Je suis le Vieux Sage et Griot de la mémoire ancestrale du Mali.\n\n"
-                "Sous cet arbre à palabres, je veille sur la mémoire de nos trois grands empires (Ghana, Manden, Songhoï), "
-                "les récits héroïques de Soundiata Keïta et Mansa Moussa, les trésors architecturaux de Bamako et du pays tout entier, "
-                "ainsi que nos contes au clair de lune. Quelle sagesse souhaites-tu explorer aujourd'hui ?"
-            )
-            return {
-                "answer": reponse,
-                "reponse": reponse,
-                "sources": ["Tradition Orale des Griots du Mali", "Charte du Manden (1236)"],
-                "contextItem": None,
-                "ragVerified": True,
-                "timestamp": datetime.utcnow().isoformat(),
-            }
+        matched_item_name: Optional[str] = None
+        matched_item_type: str = "general"
+        context_item: Optional[Dict[str, Any]] = None
+        sources: List[str] = []
+        facts_blocks: List[str] = []
 
-        # 2. Questions de nature / sciences / métaphores ancestrales (ex: photosynthèse, baobab, fleuve, soleil)
-        if any(w in clean_q for w in ["photosynthes", "chlorophylle", "arbre", "plante", "nature", "fleuve", "djoliba", "soleil", "baobab", "balanzan", "eau", "terre", "science", "biologie"]):
-            reponse = (
-                "I ni ce, noble enfant de notre terre ! Écoute ce que le Vieux Sage et la sagesse des anciens nous enseignent :\n\n"
-                "La photosynthèse est le secret par lequel les feuilles de nos vénérables baobabs et des 4 444 balanzans de Ségou "
-                "captent les rayons ardents du soleil pour transformer l'air en sève nourricière et offrir l'ombrage protecteur aux voyageurs.\n\n"
-                "Dans notre tradition, la nature et l'arbre sont sacrés : comme le stipule la Charte de Kouroukan Fouga (1236), nul ne doit couper un arbre sans utilité. "
-                "Sous cet arbre à palabres, je garde l'histoire de notre patrimoine, de nos bâtisseurs et de nos empires. "
-                "Souhaites-tu que je te parle de l'épopée de Soundiata, de la Tour de l'Afrique ou d'un conte de nos veillées ?"
-            )
-            return {
-                "answer": reponse,
-                "reponse": reponse,
-                "sources": ["Sagesse des Anciens du Manden", "Charte de Kouroukan Fouga (1236)"],
-                "contextItem": None,
-                "ragVerified": True,
-                "timestamp": datetime.utcnow().isoformat(),
-            }
+        # ── 1. RECHERCHE DANS LES MONUMENTS (Scoring spécifique par mot discriminant) ──
+        STOP_WORDS = {
+            "de", "du", "la", "le", "les", "des", "un", "une", "a", "au", "aux", "en", "sur",
+            "monument", "place", "grande", "grand", "bamako", "mali", "ville", "histoire",
+            "raconte", "parle", "moi", "qui", "est", "quoi", "c'est", "ce", "cette"
+        }
 
-        # 3. Récupération du monument concerné
         target_monument: Optional[CultureMonument] = None
         if monument_id:
             target_monument = db.query(CultureMonument).filter(CultureMonument.id == monument_id).first()
 
         if not target_monument:
-            norm_q = clean_q.replace("'", " ").replace("’", " ").replace("-", " ")
-            for m in db.query(CultureMonument).all():
-                norm_m_nom = m.nom.lower().replace("'", " ").replace("’", " ").replace("-", " ")
-                if norm_m_nom in norm_q or m.id.lower() in clean_q or (len(m.nom) > 4 and any(word in norm_q.split() for word in norm_m_nom.split() if len(word) >= 5)):
-                    target_monument = m
-                    break
+            all_monuments = db.query(CultureMonument).all()
+            best_monument = None
+            best_monument_score = 0
+            for m in all_monuments:
+                score = 0
+                m_nom_norm = _normalize_text(m.nom)
+                m_id_norm = _normalize_text(m.id)
+                clean_target_id = _normalize_text(m.id.replace("monument_", ""))
+
+                if m_id_norm in norm_q or clean_target_id in norm_q:
+                    score += 100
+                if m_nom_norm in norm_q:
+                    score += 80
+
+                # Mots discriminants (ex: "obelisque", "martyrs", "independance", "paix", "afrique")
+                m_words = [w for w in m_nom_norm.split() if len(w) >= 4 and w not in STOP_WORDS]
+                for w in m_words:
+                    if w in norm_q.split() or (len(w) >= 5 and w in norm_q):
+                        score += 45
+
+                if score > best_monument_score:
+                    best_monument_score = score
+                    best_monument = m
+
+            if best_monument and best_monument_score >= 45:
+                target_monument = best_monument
 
         if target_monument:
-            sources = [f"Catalogue National — {target_monument.nom}", f"Statut : {target_monument.statut_validation}"]
-            if any(w in clean_q for w in ["qui", "construit", "fondateur", "auteur", "origine"]):
-                reponse = (
-                    f"**Faits documentés :** {target_monument.nom} a été érigé lors de la période : {target_monument.epoque}.\n\n"
-                    f"**Histoire :** {target_monument.recit_historique}\n\n"
-                    f"**Style architectural :** {target_monument.style_architectural}."
-                )
-            elif any(w in clean_q for w in ["secret", "mystere", "anecdote", "tradition", "legende"]):
-                reponse = (
-                    f"**Traditions orales & Récits transmis :** {target_monument.secrets_et_mysteres}\n\n"
-                    f"**Portée patrimoniale :** {target_monument.pourquoi_ce_lieu_compte}"
-                )
-            elif any(w in clean_q for w in ["pourquoi", "importance", "symbole", "valeur"]):
-                reponse = (
-                    f"**Valeur patrimoniale certifiée :** {target_monument.pourquoi_ce_lieu_compte}\n\n"
-                    f"**Localisation :** {target_monument.details_localisation} ({target_monument.ville})."
-                )
-            else:
-                reponse = (
-                    f"**Présentation du monument :** {target_monument.nom} ({target_monument.sous_titre}).\n\n"
-                    f"**Contexte historique :** {target_monument.recit_historique}\n\n"
-                    f"**Secrets du site :** {target_monument.secrets_et_mysteres}"
-                )
-            return {
-                "answer": reponse,
-                "reponse": reponse,
-                "sources": sources,
-                "contextItem": _serialize_monument(target_monument),
-                "ragVerified": True,
-                "timestamp": datetime.utcnow().isoformat(),
-            }
+            matched_item_name = target_monument.nom
+            matched_item_type = "monument"
+            context_item = _serialize_monument(target_monument)
+            sources = [
+                f"Catalogue National — {target_monument.nom}",
+                f"Statut : {target_monument.statut_validation}",
+                f"Région : {target_monument.region_nom} ({target_monument.ville})",
+            ]
+            facts_blocks.append(
+                f"MONUMENT DU PATRIMOINE : {target_monument.nom} ({target_monument.sous_titre})\n"
+                f"VILLE & RÉGION : {target_monument.ville}, Région de {target_monument.region_nom}\n"
+                f"LOCALISATION : {target_monument.details_localisation}\n"
+                f"ÉPOQUE & HISTOIRE : Érigé lors de : {target_monument.epoque}.\n"
+                f"RÉCIT HISTORIQUE DÉTAILLÉ : {target_monument.recit_historique}\n"
+                f"STYLE ARCHITECTURAL & FORME : {target_monument.style_architectural}\n"
+                f"SECRETS, ANECDOTES & TRADITIONS ORALES DU LIEU : {target_monument.secrets_et_mysteres}\n"
+                f"SYMBOLE ET IMPORTANCE POUR LA NATION : {target_monument.pourquoi_ce_lieu_compte}"
+            )
 
-        # 4. Recherche dans les Grands Personnages
-        for fig in db.query(CulturePersonnage).all():
-            if fig.nom.lower() in clean_q or fig.id.lower() in clean_q or any(p in clean_q for p in fig.nom.lower().split()):
-                reponse = (
-                    f"**{fig.nom} — {fig.titre_honorifique} ({fig.periode})**\n\n"
-                    f"{fig.resume}\n\n"
-                    f"*{fig.citation_historique}*\n\n"
-                    f"**Héritage pour le Mali :** Sa mémoire demeure un phare de dignité et de gouvernance pour notre nation."
-                )
-                return {
-                    "answer": reponse,
-                    "reponse": reponse,
-                    "sources": [f"Archives Historiques Nationales — {fig.nom}", "UNESCO Patrimoine Immatériel"],
-                    "contextItem": {"type": "personnage", "id": fig.id, "name": fig.nom},
-                    "ragVerified": True,
-                    "timestamp": datetime.utcnow().isoformat(),
-                }
+        # ── 2. RECHERCHE DANS LES GRANDS PERSONNAGES ──────────────────────
+        if not matched_item_name:
+            all_figs = db.query(CulturePersonnage).all()
+            best_fig = None
+            best_fig_score = 0
+            for fig in all_figs:
+                score = 0
+                fig_nom_norm = _normalize_text(fig.nom)
+                fig_id_norm = _normalize_text(fig.id)
+                if fig_id_norm in norm_q or fig_nom_norm in norm_q:
+                    score += 80
+                fig_words = [w for w in fig_nom_norm.split() if len(w) >= 4 and w not in STOP_WORDS]
+                for w in fig_words:
+                    if w in norm_q.split() or (len(w) >= 5 and w in norm_q):
+                        score += 45
+                if score > best_fig_score:
+                    best_fig_score = score
+                    best_fig = fig
 
-        # 5. Recherche dans les Villes & Terroirs
-        for lieu in db.query(CultureLieu).all():
-            if lieu.nom.lower() in clean_q or lieu.id.lower() in clean_q:
-                info_fondation = f"**Fondation & Histoire :** {lieu.fondation}"
-                if lieu.population_ou_details:
-                    info_fondation += f" (Population : {lieu.population_ou_details})"
-                reponse = (
-                    f"**{lieu.nom} — {lieu.sous_titre}**\n\n"
-                    f"{lieu.resume}\n\n"
-                    f"{info_fondation}"
+            if best_fig and best_fig_score >= 45:
+                matched_item_name = best_fig.nom
+                matched_item_type = "personnage"
+                context_item = {"type": "personnage", "id": best_fig.id, "name": best_fig.nom, "title": best_fig.titre_honorifique}
+                sources = [f"Archives Historiques Nationales — {best_fig.nom}", "UNESCO Patrimoine Immatériel"]
+                facts_blocks.append(
+                    f"GRAND PERSONNAGE HISTORIQUE : {best_fig.nom} ({best_fig.titre_honorifique})\n"
+                    f"PÉRIODE & RÉGION D'ATTACHEMENT : {best_fig.periode}, {best_fig.region_nom}\n"
+                    f"BIOGRAPHIE ET RÉALISATIONS : {best_fig.resume}\n"
+                    f"CITATION HISTORIQUE ATTRIBUÉE : {best_fig.citation_historique or 'Non documentée'}\n"
+                    f"PORTÉE HISTORIQUE : Mémoire de la dignité, de la justice et de la gouvernance au Mali."
                 )
-                return {
-                    "answer": reponse,
-                    "reponse": reponse,
-                    "sources": [f"Terroirs du Mali — {lieu.nom}", f"Région : {lieu.region_nom}"],
-                    "contextItem": {"type": "lieu", "id": lieu.id, "name": lieu.nom},
-                    "ragVerified": True,
-                    "timestamp": datetime.utcnow().isoformat(),
-                }
 
-        # 6. Recherche dans les Contes & Légendes
-        for conte in db.query(CultureConte).all():
-            if any(w in clean_q for w in ["conte", "fable", "legende", "histoire"]) or conte.titre.lower() in clean_q:
-                reponse = (
-                    f"**Conte Ancestral : {conte.titre}**\n\n"
-                    f"« {conte.sous_titre} »\n\n"
-                    f"{conte.resume}\n\n"
-                    f"**Morale de nos aïeux :** {conte.morale}"
+        # ── 3. RECHERCHE DANS LES LIEUX & VILLES DU PATRIMOINE ───────────
+        if not matched_item_name:
+            all_lieux = db.query(CultureLieu).all()
+            best_lieu = None
+            best_lieu_score = 0
+            for lieu in all_lieux:
+                score = 0
+                lieu_nom_norm = _normalize_text(lieu.nom)
+                lieu_id_norm = _normalize_text(lieu.id)
+                if lieu_id_norm in norm_q or lieu_nom_norm in norm_q:
+                    score += 80
+                lieu_words = [w for w in lieu_nom_norm.split() if len(w) >= 4 and w not in STOP_WORDS]
+                for w in lieu_words:
+                    if w in norm_q.split() or (len(w) >= 5 and w in norm_q):
+                        score += 45
+                if score > best_lieu_score:
+                    best_lieu_score = score
+                    best_lieu = lieu
+
+            if best_lieu and best_lieu_score >= 45:
+                matched_item_name = best_lieu.nom
+                matched_item_type = "lieu"
+                context_item = {"type": "lieu", "id": best_lieu.id, "name": best_lieu.nom}
+                sources = [f"Terroirs du Mali — {best_lieu.nom}", f"Région : {best_lieu.region_nom}"]
+                facts_blocks.append(
+                    f"CITÉ ET TERROIR HISTORIQUE : {best_lieu.nom} ({best_lieu.sous_titre})\n"
+                    f"RÉGION : {best_lieu.region_nom} | FONDATION ET ORIGINES : {best_lieu.fondation}\n"
+                    f"HISTOIRE & DÉTAILS DU TERROIR : {best_lieu.resume} (Détails : {best_lieu.population_ou_details or 'N/A'})"
                 )
-                return {
-                    "answer": reponse,
-                    "reponse": reponse,
-                    "sources": [f"Veillées Traditionnelles — {conte.titre}", f"Origine : {conte.origine}"],
-                    "contextItem": {"type": "conte", "id": conte.id, "name": conte.titre},
-                    "ragVerified": True,
-                    "timestamp": datetime.utcnow().isoformat(),
-                }
 
-        # 7. Recherche dans les Proverbes et Sagesses
-        if any(w in clean_q for w in ["proverbe", "sagesse", "devise", "adage"]):
+        # ── 4. RECHERCHE DANS LES CONTES & LÉGENDES ───────────────────────
+        if not matched_item_name and (any(w in clean_q for w in ["conte", "fable", "legende", "histoire"]) or any(c.titre.lower() in clean_q for c in db.query(CultureConte).all())):
+            matched_conte = None
+            for conte in db.query(CultureConte).all():
+                if conte.titre.lower() in clean_q:
+                    matched_conte = conte
+                    break
+            if not matched_conte:
+                matched_conte = db.query(CultureConte).first()
+
+            if matched_conte:
+                matched_item_name = matched_conte.titre
+                matched_item_type = "conte"
+                context_item = {"type": "conte", "id": matched_conte.id, "name": matched_conte.titre}
+                sources = [f"Veillées Traditionnelles — {matched_conte.titre}", f"Origine : {matched_conte.origine}"]
+                facts_blocks.append(
+                    f"CONTE ANCESTRAL DU MALI : {matched_conte.titre} (« {matched_conte.sous_titre} »)\n"
+                    f"ORIGINE GÉOGRAPHIQUE / ETHNIQUE : {matched_conte.origine}\n"
+                    f"RÉCIT DU CONTE : {matched_conte.resume}\n"
+                    f"MORALE ENSEIGNÉE AUX ENFANTS : {matched_conte.morale}"
+                )
+
+        # ── 5. RECHERCHE DANS LES PROVERBES ET SAGESSES ───────────────────
+        if not matched_item_name and any(w in clean_q for w in ["proverbe", "sagesse", "devise", "adage"]):
             prov = db.query(CultureProverbe).first()
             if prov:
-                texte_bambara = prov.texte_original or prov.texte
-                reponse = (
-                    f"Voici une parole de sagesse de nos ancêtres :\n\n"
-                    f"« {texte_bambara} »\n\n"
-                    f"**Signification :** « {prov.signification} »\n\n"
-                    f"**Morale :** {prov.morale}"
+                matched_item_name = "Parole de Sagesse Bambara"
+                matched_item_type = "proverbe"
+                context_item = {"type": "proverbe", "id": prov.id}
+                sources = ["Sagesse Populaire Mandingue", f"Thème : {prov.theme}"]
+                facts_blocks.append(
+                    f"PROVERBE EN LANGUE NATIONALE : « {prov.texte_original or prov.texte} »\n"
+                    f"SIGNIFICATION ET EXPLICATION : « {prov.signification} »\n"
+                    f"ENSEIGNEMENT MORAL : {prov.morale}\n"
+                    f"THÈME DE LA SAGESSE : {prov.theme}"
                 )
-                return {
-                    "answer": reponse,
-                    "reponse": reponse,
-                    "sources": ["Sagesse Populaire Mandingue", f"Thème : {prov.theme}"],
-                    "contextItem": {"type": "proverbe", "id": prov.id},
-                    "ragVerified": True,
-                    "timestamp": datetime.utcnow().isoformat(),
-                }
 
-        # 8. Réponse par défaut chaleureuse et culturelle du Vieux Sage
-        reponse = (
-            f"Noble voyageur, en tant que Vieux Sage et Griot de notre terre, j'accueille ta question : « {question} ».\n\n"
-            f"La mémoire du Mali est vaste comme le fleuve Djoliba. Elle englobe nos 12 monuments de Bamako "
-            f"(la Tour de l'Afrique, le Monument de l'Indépendance, le Monument de la Paix...), nos sanctuaires classés par l'UNESCO "
-            f"(Djenné, Tombouctou, Gao), et les épopées de Soundiata Keïta et Mansa Moussa.\n\n"
-            f"Pose-moi une question sur nos rois, nos forteresses, nos masques sacrés ou nos contes d'autrefois !"
+        # ── 6. CONTEXTE GÉNÉRAL DU PATRIMOINE DU MALI SI AUCUN ÉLÉMENT ──
+        if not facts_blocks:
+            sources = ["Base de Connaissances CultureLens AlternIA", "Tradition Vivante des Griots du Mali"]
+            facts_blocks.append(
+                "MÉMOIRE ANCESTRALE DU MALI : Le Mali est l'héritier de trois grands empires universels "
+                "(le Ghana ou Wagadou, le Manden fondé par Soundiata Keïta au XIIIe siècle, et le Songhoï sous Sonni Ali Ber et l'Askia Mohammed). "
+                "En 1236, la Charte de Kouroukan Fouga a proclamé la paix, les droits humains et le respect de la nature sacrée. "
+                "Le pays abrite des trésors mondiaux (la Grande Mosquée de Djenné en terre cuite, les manuscrits et mosquées de Tombouctou, "
+                "le Tombeau des Askia à Gao, le pays Dogon), ainsi que les grands monuments de la capitale Bamako "
+                "(la Tour de l'Afrique, le Monument de l'Indépendance, l'Obélisque de Bamako, le Monument de la Paix, le Monument des Martyrs). "
+                "Le fleuve Djoliba (Niger) est l'artère de vie qui nourrit nos terres et inspire nos contes au clair de lune."
+            )
+
+        facts_text = "\n\n".join(facts_blocks)
+
+        # ── 7. PROMPT POUR LE VIEUX SAGE & REFORMULATION ORALE PAR LE LLM ──
+        system_prompt = (
+            "Tu es le « Vieux Sage et Griot du Mali », vénérable gardien de la mémoire orale, des contes et de l'histoire sous l'arbre à palabres.\n\n"
+            "DIRECTIVES IMPÉRATIVES D'ÉLOQUENCE ET D'AUTHENTICITÉ :\n"
+            "1. VÉRITÉ HISTORIQUE STRICTE : Appuie-toi en priorité absolue sur le [CONTEXTE FACTUEL DU MALI] fourni. Respecte fidèlement les faits historiques, noms, dates, lieux et symboles réels.\n"
+            "2. REFORMULATION VIVANTE ET POÉTIQUE : Ne copie JAMAIS textuellement la fiche ! Parle avec la verve, la musicalité et la chaleur d'un véritable griot ouest-africain (images évocatrices, chaleur humaine, fierté du patrimoine).\n"
+            "3. VARIABILITÉ TOTALE À CHAQUE RÉPONSE : Ne récite jamais deux fois la même réponse si l'on te pose une question similaire ! Invente à chaque fois une entrée en matière unique (ex: 'I ni ce, noble voyageur', 'Écoute ce que le vent du Djoliba dépose sous notre baobab...', 'Approche-toi du feu de veillée, voyageur de la lumière...'), change l'ordre de tes anecdotes et emploie des métaphores variées pour que le dialogue reste interactif, captivant et vivant.\n"
+            "4. DISTINCTION FAITS ET TRADITIONS : S'il y a des secrets ou légendes, présente-les comme la mémoire orale transmise par nos aïeux.\n"
+            "5. STRUCTURE PARFAITE : Fais une réponse équilibrée et fluide de 2 à 4 paragraphes rythmés (ni trop courte, ni assommante), sans liste à puces mécanique, terminée par une formule de bénédiction ou une invitation bienveillante."
         )
+
+        user_prompt = (
+            f"--- CONTEXTE FACTUEL DU PATRIMOINE DU MALI (BASE DE DONNÉES DE RÉFÉRENCE) ---\n"
+            f"{facts_text}\n"
+            f"--------------------------------------------------------------------------\n\n"
+            f"Question du voyageur : « {question} »\n\n"
+            f"En tant que Vieux Sage et Griot, réponds au voyageur en t'imprégnant de ce contexte pour le reformuler avec sagesse, vivacité et éloquence :"
+        )
+
+        reponse: Optional[str] = None
+        dt_llm = 0.0
+
+        # Tentative d'appel du LLM avec température dynamique pour variation garantie
+        try:
+            from backend.src.services.orchestrator_service import get_llm_client
+            llm_client = get_llm_client()
+            t_gen_start = time.perf_counter()
+            # Température 0.72 pour assurer de la spontanéité et de la fraîcheur lexicale
+            raw_gen = llm_client.generate(
+                prompt=user_prompt,
+                system_prompt=system_prompt,
+                temperature=0.72,
+                max_tokens=250,
+            )
+            dt_llm = time.perf_counter() - t_gen_start
+            if raw_gen and len(raw_gen.strip()) > 30:
+                gen_clean = raw_gen.strip()
+                # Supprimer d'éventuels préfixes de rôle ou formules méta
+                for pfx in [
+                    "Griot :", "Vieux Sage :", "Le Vieux Sage :", "Griot:", "Réponse :", "Narrateur :",
+                    "Voici ma réponse, empreinte de sagesse et vivacité :",
+                    "Voici ma réponse, empreinte de sagesse et d'éloquence :",
+                    "Voici ma réponse :",
+                ]:
+                    if gen_clean.startswith(pfx):
+                        gen_clean = gen_clean[len(pfx):].strip()
+
+                # Clôture propre : si le texte est coupé en fin de token, tronquer au dernier signe de ponctuation
+                if not gen_clean.endswith((".", "!", "?", "»", "…")):
+                    last_punct = max(gen_clean.rfind("."), gen_clean.rfind("!"), gen_clean.rfind("?"), gen_clean.rfind("»"))
+                    if last_punct > 80:
+                        gen_clean = gen_clean[:last_punct + 1].strip()
+                    else:
+                        gen_clean = gen_clean + "..."
+
+                reponse = gen_clean
+        except Exception as exc:
+            logger.warning("CultureService.ask_cultural_guide : Inférence LLM indisponible (%s), repli dynamique", exc)
+
+        # ── 8. REPLI DYNAMIQUE (SI LLM INDISPONIBLE) AVEC VARIATIONS ──────
+        if not reponse:
+            intros = [
+                "I ni ce, noble voyageur de la connaissance ! Sous cet arbre à palabres, écoute ce que nos anciens nous transmettent :",
+                "Que la paix soit sur ton chemin, noble voyageur ! La mémoire du Mali s'ouvre à toi sous l'ombrage protecteur de notre terre :",
+                "Assieds-toi près de moi, voyageur de la lumière. Le fleuve Djoliba murmure une histoire que nos ancêtres ont gravée dans la pierre et le cœur :",
+                "I ni ce ! C'est avec une grande joie que le Vieux Sage accueille ta soif d'apprendre. Prête l'oreille à ce récit vivant :"
+            ]
+            intro = random.choice(intros)
+            
+            if target_monument:
+                corps = (
+                    f"{target_monument.nom} ({target_monument.sous_titre}) veille fièrement sur {target_monument.ville}, "
+                    f"dans la région de {target_monument.region_nom}. {target_monument.recit_historique}\n\n"
+                    f"Sur le plan architectural, il illustre avec majesté : {target_monument.style_architectural}. "
+                    f"Comme le racontent les anciens sous le clair de lune : {target_monument.secrets_et_mysteres}\n\n"
+                    f"Ce lieu compte profondément pour notre nation : {target_monument.pourquoi_ce_lieu_compte}"
+                )
+            elif matched_item_name:
+                corps = f"Concernant {matched_item_name} :\n\n{facts_text}"
+            else:
+                corps = (
+                    "Le Mali est le berceau des grands bâtisseurs et des poètes de la parole. "
+                    "De la Charte de Kouroukan Fouga (1236) aux monuments de Bamako et aux merveilles de Djenné et Tombouctou, "
+                    "notre patrimoine est une source inépuisable de fierté et de concorde."
+                )
+
+            outro_list = [
+                "Quelle autre merveille de notre terre souhaites-tu explorer avec moi ?",
+                "La parole est comme l'eau du fleuve, elle fertilise l'esprit de qui sait écouter. Pose-moi une autre question quand tu le désires !",
+                "Sous cet arbre à palabres, mes souvenirs restent éveillés pour éclairer tes prochains pas. À très bientôt, voyageur !"
+            ]
+            reponse = f"{intro}\n\n{corps}\n\n{random.choice(outro_list)}"
+
+        dt_total = time.perf_counter() - t0_ask
+
+        # ── 9. LOGS CONSOLE STYLE CHAT INTERACTIF ─────────────────────────
+        print(f"\n\033[1;35m════════════════════════════════════════════════════════════════════════════════\033[0m")
+        print(f"\033[1;36m🗣️  [Guide Culturel IA]\033[0m Requête reçue sur \033[1mPOST /api/v1/culture/ask\033[0m")
+        print(f"   • Question           : \033[1m\"{question}\"\033[0m")
+        print(f"   • Cible RAG détectée : \033[1;33m{matched_item_name or 'Patrimoine Général du Mali'}\033[0m (Type: {matched_item_type})")
+        print(f"   • Contexte injecté   : \033[36m{len(facts_blocks)} bloc(s) de faits authentiques extraits de la BDD\033[0m")
+        if dt_llm > 0:
+            print(f"   • Inférence LLM      : \033[1;32mGénération réussie via Qwen2.5 en {dt_llm:.2f}s\033[0m (Temp: 0.72 | Variabilité active)")
+        else:
+            print(f"   • Inférence LLM      : \033[1;33mMode de repli dynamique contextuel\033[0m")
+        print(f"   • Temps total        : {dt_total:.2f}s")
+        print(f"   • Début de réponse   : \033[37m\"{reponse[:150].strip()}...\"\033[0m")
+        print(f"\033[1;35m════════════════════════════════════════════════════════════════════════════════\033[0m\n")
+
         return {
             "answer": reponse,
             "reponse": reponse,
-            "sources": ["Base de Connaissances CultureLens AlternIA", "Mémoire Vivante des Griots"],
-            "contextItem": None,
+            "sources": sources,
+            "contextItem": context_item,
             "ragVerified": True,
             "timestamp": datetime.utcnow().isoformat(),
         }

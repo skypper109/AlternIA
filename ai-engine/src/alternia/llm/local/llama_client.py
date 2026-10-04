@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Iterator, cast
 
 from alternia.llm.client import LLMClient
 
@@ -63,6 +63,8 @@ class LocalLlamaClient(LLMClient):
         *,
         messages: list[dict[str, str]] | None = None,
         system_prompt: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
     ) -> str:
 
         if messages is None:
@@ -83,14 +85,17 @@ class LocalLlamaClient(LLMClient):
                     }
                 )
 
+        effective_temp = temperature if temperature is not None else self.temperature
+        effective_max_tokens = max_tokens if max_tokens is not None else self.max_tokens
+
         raw_response = self.llm.create_chat_completion(
             messages=cast(Any, messages),
-            temperature=self.temperature,
+            temperature=effective_temp,
             top_p=self.top_p,
             repeat_penalty=self.repeat_penalty,
             frequency_penalty=self.frequency_penalty,
             presence_penalty=self.presence_penalty,
-            max_tokens=self.max_tokens,
+            max_tokens=effective_max_tokens,
         )
         response: dict[str, Any] = cast(dict[str, Any], raw_response)
 
@@ -108,7 +113,9 @@ class LocalLlamaClient(LLMClient):
         *,
         messages: list[dict[str, str]] | None = None,
         system_prompt: str | None = None,
-    ):
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+    ) -> Iterator[str]:
         if messages is None:
             messages = []
             if system_prompt:
@@ -116,14 +123,17 @@ class LocalLlamaClient(LLMClient):
             if prompt:
                 messages.append({"role": "user", "content": prompt})
 
+        effective_temp = temperature if temperature is not None else self.temperature
+        effective_max_tokens = max_tokens if max_tokens is not None else self.max_tokens
+
         raw_stream = self.llm.create_chat_completion(
             messages=cast(Any, messages),
-            temperature=self.temperature,
+            temperature=effective_temp,
             top_p=self.top_p,
             repeat_penalty=self.repeat_penalty,
             frequency_penalty=self.frequency_penalty,
             presence_penalty=self.presence_penalty,
-            max_tokens=self.max_tokens,
+            max_tokens=effective_max_tokens,
             stream=True,
         )
 

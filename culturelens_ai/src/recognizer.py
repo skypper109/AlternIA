@@ -194,17 +194,35 @@ class CultureLensRecognizer:
             except Exception:
                 pass
 
-        # Calibrage robuste de la confiance : similarité cosinus directe + marge relative
+        # Calibrage robuste et continu de la confiance (aucun seuil négatif brutal)
         cos_sim = float(best_match["cosine_similarity"])
-        margin = float(cos_sim - top_matches[1]["cosine_similarity"]) if len(top_matches) > 1 else 0.2
-        norm_sim = min(1.0, max(0.0, (cos_sim - 0.55) / 0.40))
-        calibrated_conf = min(1.0, 0.60 * norm_sim + 0.25 * float(best_match["confidence"]) + 0.15 * min(1.0, margin * 5) + geo_bonus)
+        margin = max(0.0, float(cos_sim - top_matches[1]["cosine_similarity"])) if len(top_matches) > 1 else 0.15
+        softmax_conf = float(best_match["confidence"])
+
+        # Confiance globale : 70% similarité cosinus directe + 20% probabilité relative softmax + 10% marge
+        calibrated_conf = min(0.999, max(0.0, 0.70 * cos_sim + 0.20 * softmax_conf + 0.10 * min(1.0, margin * 4) + geo_bonus))
 
         # Seuil minimal de matching strict : au moins 45% (0.45)
         min_threshold = confidence_threshold
         is_identified = (calibrated_conf >= min_threshold) and (cos_sim >= 0.45)
 
         inference_time_ms = round((time.perf_counter() - start_time) * 1000, 2)
+
+        # ── AFFICHAGE CONSOLE DÉTAILLÉ DU PARCOURS NEURONAL ───────────────────
+        print(f"\n\033[1;36m🧠 [CultureLens Backbone]\033[0m Embedding 576-D extrait ({inference_time_ms} ms)")
+        print(f"\033[36m   🔍 [Index Vectoriel]\033[0m Comparaison avec {len(self.prototypes)} centroïdes et {len(self.exemplar_embeddings) if self.exemplar_embeddings is not None else 0} exemplars")
+        print(f"\033[36m   📊 [Top {top_k} Correspondances Visuelles] :\033[0m")
+        for rank, match in enumerate(top_matches, start=1):
+            sim_pct = match['cosine_similarity'] * 100
+            prob_pct = match['confidence'] * 100
+            color = "\033[1;32m" if rank == 1 else "\033[37m"
+            print(f"      {color}#{rank}: {match['name']} ({match['monument_id']})\033[0m")
+            print(f"          • Similarité cosinus : \033[1;33m{sim_pct:.1f}%\033[0m ({match['cosine_similarity']})")
+            print(f"          • Proba softmax      : {prob_pct:.1f}%")
+
+        status_color = "\033[1;32m" if is_identified else "\033[1;31m"
+        status_text = "IDENTIFIÉ (>= 45%) ✅" if is_identified else "REJETÉ (< 45%) ❌"
+        print(f"\033[36m   🎯 [Score Final]\033[0m Similarité cosinus: \033[1m{cos_sim*100:.1f}%\033[0m | Confiance calibrée: \033[1m{calibrated_conf*100:.1f}%\033[0m -> {status_color}{status_text}\033[0m")
 
         return {
             "is_identified": is_identified,

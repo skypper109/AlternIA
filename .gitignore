@@ -66,4 +66,5 @@ node_modules/
 # Temporary files
 tmp/
 temp/
+.ocr_cache/
 

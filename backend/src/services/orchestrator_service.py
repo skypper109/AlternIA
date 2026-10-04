@@ -13,6 +13,7 @@ from typing import Optional
 from alternia.config.settings import PROJECT_ROOT, settings
 from alternia.conversation.manager import ConversationManager
 from alternia.learner.manager import LearnerManager
+from alternia.llm.client import LLMClient
 from alternia.llm.local_client import LocalLLMClient
 from alternia.orchestration.orchestrator import AlterniaOrchestrator
 from alternia.pedagogical.engine import PedagogicalEngine
@@ -97,3 +98,10 @@ def normalize_student_class(class_id: str) -> str:
     if cid in {"12eme", "12e", "12", "tse", "tsexp", "tss", "tll", "tseco", "terminale"}:
         return "12eme"
     return "12eme"
+
+
+def get_llm_client() -> LLMClient:
+    """Récupère l'instance unique du client LLM (chargée via get_orchestrator)."""
+    orch = get_orchestrator()
+    return orch.llm_client
+

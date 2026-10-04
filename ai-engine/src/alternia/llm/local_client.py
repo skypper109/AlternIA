@@ -207,6 +207,8 @@ class LocalLLMClient(LLMClient):
         *,
         messages: list[dict[str, str]] | None = None,
         system_prompt: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
     ) -> str:
         if messages is None:
             if prompt is None:
@@ -215,7 +217,9 @@ class LocalLLMClient(LLMClient):
 
         start_time = time.perf_counter()
         model_name = Path(self.model_path).name
-        print(f"\033[35m⏱️  [local_client.py]\033[0m Appel LLM synchrone ({model_name})...")
+        effective_temp = temperature if temperature is not None else self.temperature
+        effective_max_tokens = max_tokens if max_tokens is not None else self._max_tokens
+        print(f"\033[35m⏱️  [local_client.py]\033[0m Appel LLM synchrone ({model_name}, temp={effective_temp})...")
 
         # Stop sequences sûres : bloquent la fuite de balises de fin de tour ou séparateurs
         stop_sequences = [
@@ -230,12 +234,12 @@ class LocalLLMClient(LLMClient):
 
         raw_response = self.llm.create_chat_completion(
             messages=cast(Any, messages),
-            temperature=self.temperature,
+            temperature=effective_temp,
             top_p=self.top_p,
             repeat_penalty=self.repeat_penalty,
             frequency_penalty=self.frequency_penalty,
             presence_penalty=self.presence_penalty,
-            max_tokens=self._max_tokens,
+            max_tokens=effective_max_tokens,
             stop=stop_sequences,
         )
         response: dict[str, Any] = cast(dict[str, Any], raw_response)
@@ -264,6 +268,8 @@ class LocalLLMClient(LLMClient):
         *,
         messages: list[dict[str, str]] | None = None,
         system_prompt: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
     ) -> Iterator[str]:
         """
         Génère la réponse token par token.
@@ -282,6 +288,9 @@ class LocalLLMClient(LLMClient):
                 raise ValueError("Soit 'prompt' soit 'messages' doit être fourni.")
             messages = self._build_messages(prompt, system_prompt)
 
+        effective_temp = temperature if temperature is not None else self.temperature
+        effective_max_tokens = max_tokens if max_tokens is not None else self._max_tokens
+
         print(f"\033[35m⏱️  [local_client.py]\033[0m Ingestion du prompt par llama.cpp ({model_name})...")
 
         # Stop sequences sûres : bloquent la fuite de balises de fin de tour ou séparateurs
@@ -297,12 +306,12 @@ class LocalLLMClient(LLMClient):
 
         raw_stream = self.llm.create_chat_completion(
             messages=cast(Any, messages),
-            temperature=self.temperature,
+            temperature=effective_temp,
             top_p=self.top_p,
             repeat_penalty=self.repeat_penalty,
             frequency_penalty=self.frequency_penalty,
             presence_penalty=self.presence_penalty,
-            max_tokens=self._max_tokens,
+            max_tokens=effective_max_tokens,
             stop=stop_sequences,
             stream=True,
         )

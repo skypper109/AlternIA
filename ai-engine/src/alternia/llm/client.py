@@ -22,6 +22,8 @@ class LLMClient(ABC):
         *,
         messages: list[dict[str, str]] | None = None,
         system_prompt: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
     ) -> str:
         """
         Génère une réponse textuelle complète à partir d'un prompt ou d'une liste de messages.
@@ -34,6 +36,8 @@ class LLMClient(ABC):
         *,
         messages: list[dict[str, str]] | None = None,
         system_prompt: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
     ) -> Iterator[str]:
         """
         Génère un flux de tokens/mots (streaming).
@@ -44,4 +48,6 @@ class LLMClient(ABC):
             prompt=prompt,
             messages=messages,
             system_prompt=system_prompt,
+            temperature=temperature,
+            max_tokens=max_tokens,
         )
