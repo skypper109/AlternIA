@@ -57,11 +57,71 @@ def _make_no_context_response(
     )
 
 
+def _is_culture_request(req: ChatRequest) -> bool:
+    q = (req.question or "").lower()
+    sc = (req.student_class or "").lower()
+    subj = (req.subject or "").lower()
+    mat = (getattr(req, "matiere", None) or "").lower()
+    sys_prompt = (getattr(req, "system", None) or "").lower()
+
+    if sc in {"culture", "culturelens", "patrimoine"}:
+        return True
+    if "culture" in subj or "patrimoine" in subj:
+        return True
+    if "culture" in mat or "patrimoine" in mat:
+        return True
+    if any(k in sys_prompt for k in ["vieux sage", "griot", "culture", "patrimoine"]):
+        return True
+    cultural_terms = [
+        "vieux sage", "griot", "monument", "soundiata", "mansa moussa", "babemba",
+        "tour de l'afrique", "tour afrique", "kouroukan fouga", "banco", "baobab",
+        "balanzan", "empire du mali", "empire songhoï", "empire du ghana", "wagadou",
+        "ciwara", "tata de sikasso"
+    ]
+    if any(t in q for t in cultural_terms):
+        return True
+    return False
+
+
 @router.post("/api/chat", response_model=ChatResponse)
 @router.post("/api/ask", response_model=ChatResponse)
 def chat_endpoint(req: ChatRequest):
     """Endpoint principal de réponse pédagogique non-streamée."""
     t0_req = time.perf_counter()
+    # ── ROUTAGE SPÉCIFIQUE CULTURE / VIEUX SAGE ─────────────────────────────
+    # Si la requête provient de l'espace CultureLens ou demande la culture malienne,
+    # on répond avec la voix du Vieux Sage et non avec le tuteur scolaire ALTA !
+    if _is_culture_request(req):
+        from ..services.culture_service import CultureService
+        from ..db.database import SessionLocal
+        with SessionLocal() as db_session:
+            cult_res = CultureService.ask_cultural_guide(db=db_session, question=req.question)
+            chat_sources = [
+                ChatSource(
+                    chunk_id=f"culture-{i}",
+                    document=str(src),
+                    chapter="Patrimoine & Histoire du Mali",
+                    score=1.0,
+                    content_preview=str(src),
+                )
+                for i, src in enumerate(cult_res.get("sources", []))
+            ]
+            return ChatResponse(
+                answer=cult_res["answer"],
+                intent="cultural_dialogue",
+                student_class="culture",
+                subject="Culture & Patrimoine du Mali",
+                sources=chat_sources,
+                should_ask_followup=False,
+                followup_question=None,
+                metadata={
+                    "cultural_guide": True,
+                    "persona": "Le Vieux Sage du Mali",
+                    "rag_verified": cult_res.get("ragVerified", True),
+                    "latency_ms": round((time.perf_counter() - t0_req) * 1000, 1),
+                },
+            )
+
     orch = get_orchestrator()
     norm_class = normalize_student_class(req.student_class)
     session_id = req.session_id or f"session_{req.student_id}"
@@ -174,6 +234,39 @@ def chat_endpoint(req: ChatRequest):
 async def chat_stream_endpoint(req: ChatRequest):
     """Endpoint de streaming Server-Sent Events (SSE) token par token."""
     t0_req = time.perf_counter()
+    if _is_culture_request(req):
+        from ..services.culture_service import CultureService
+        from ..db.database import SessionLocal
+        with SessionLocal() as db_session:
+            cult_res = CultureService.ask_cultural_guide(db=db_session, question=req.question)
+        full_text = cult_res["answer"]
+
+        async def sse_cultural_generator() -> AsyncIterator[str]:
+            words = full_text.split(" ")
+            for i, word in enumerate(words):
+                chunk = word + (" " if i < len(words) - 1 else "")
+                payload = json.dumps({"chunk": chunk, "done": False}, ensure_ascii=False)
+                yield f"data: {payload}\n\n"
+                await asyncio.sleep(0.015)
+            done_payload = json.dumps({
+                "done": True,
+                "answer": full_text,
+                "intent": "cultural_dialogue",
+                "student_class": "culture",
+                "subject": "Culture & Patrimoine du Mali",
+                "sources": [
+                    {
+                        "document": str(s),
+                        "chapter": "Patrimoine & Histoire du Mali",
+                        "score": 1.0,
+                    }
+                    for s in cult_res.get("sources", [])
+                ],
+            }, ensure_ascii=False)
+            yield f"data: {done_payload}\n\n"
+
+        return StreamingResponse(sse_cultural_generator(), media_type="text/event-stream")
+
     orch = get_orchestrator()
     norm_class = normalize_student_class(req.student_class)
     session_id = req.session_id or f"session_{req.student_id}"

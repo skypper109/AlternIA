@@ -35,7 +35,9 @@ from backend.src.routes import (
     revision_router,
     vocal_router,
     esp32_router,
+    culture_router,
 )
+
 
 
 @asynccontextmanager
@@ -106,6 +108,8 @@ app.include_router(parent_router)
 app.include_router(rapports_router)
 app.include_router(revision_router)
 app.include_router(esp32_router)
+app.include_router(culture_router)
+
 
 
 # ==============================================================================

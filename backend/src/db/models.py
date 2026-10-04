@@ -219,3 +219,168 @@ class RapportModel(Base):
     taille_fichier_octets: Mapped[int] = mapped_column(Integer, default=450000)
     url_telechargement: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     date_generation: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+# ==============================================================================
+# MODÈLES CULTURELENS & PATRIMOINE DU MALI (BASE DE DONNÉES CENTRALE)
+# ==============================================================================
+
+class CultureMonument(Base):
+    __tablename__ = "culture_monuments"
+
+    id: Mapped[str] = mapped_column(String(100), primary_key=True)  # ex: 'monument_independance_bamako'
+    nom: Mapped[str] = mapped_column(String(150), nullable=False, index=True)
+    sous_titre: Mapped[str] = mapped_column(String(200), nullable=False)
+    region_id: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    region_nom: Mapped[str] = mapped_column(String(100), nullable=False)
+    ville: Mapped[str] = mapped_column(String(100), nullable=False, index=True, default="Bamako")
+    epoque: Mapped[str] = mapped_column(String(150), nullable=False)
+    style_architectural: Mapped[str] = mapped_column(Text, nullable=False)
+    details_localisation: Mapped[str] = mapped_column(String(255), nullable=False)
+    photo_url: Mapped[str] = mapped_column(String(255), nullable=False)
+    tag: Mapped[str] = mapped_column(String(100), default="Monument National")
+    latitude: Mapped[float] = mapped_column(Float, nullable=False)
+    longitude: Mapped[float] = mapped_column(Float, nullable=False)
+    badge_debloque: Mapped[str] = mapped_column(String(150), nullable=False)
+    xp_recompense: Mapped[int] = mapped_column(Integer, default=50)
+    mots_cles_json: Mapped[str] = mapped_column(Text, nullable=False)  # JSON list
+    caracteristiques_detection_json: Mapped[str] = mapped_column(Text, nullable=False)  # JSON list
+    secrets_et_mysteres: Mapped[str] = mapped_column(Text, nullable=False)
+    recit_historique: Mapped[str] = mapped_column(Text, nullable=False)
+    narration_audio_texte: Mapped[str] = mapped_column(Text, nullable=False)
+    pourquoi_ce_lieu_compte: Mapped[str] = mapped_column(Text, nullable=False)
+    route_path: Mapped[str] = mapped_column(String(200), nullable=False)
+    modele_3d_url: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    ar_disponible: Mapped[bool] = mapped_column(Boolean, default=False)
+    audio_url: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    statut_validation: Mapped[str] = mapped_column(String(100), default="Patrimoine vérifié")
+    date_mise_a_jour: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
+
+    decouvertes: Mapped[List["CultureDecouverte"]] = relationship("CultureDecouverte", back_populates="monument")
+
+
+class CulturePersonnage(Base):
+    __tablename__ = "culture_personnages"
+
+    id: Mapped[str] = mapped_column(String(100), primary_key=True)
+    nom: Mapped[str] = mapped_column(String(150), nullable=False, index=True)
+    titre_honorifique: Mapped[str] = mapped_column(String(200), nullable=False)
+    periode: Mapped[str] = mapped_column(String(100), nullable=False)
+    region_id: Mapped[str] = mapped_column(String(50), nullable=False)
+    region_nom: Mapped[str] = mapped_column(String(100), nullable=False)
+    tag: Mapped[str] = mapped_column(String(100), default="Héros Historique")
+    photo_url: Mapped[str] = mapped_column(String(255), nullable=False)
+    photo_credits: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    resume: Mapped[str] = mapped_column(Text, nullable=False)
+    citation_historique: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    faits_marquants_json: Mapped[str] = mapped_column(Text, nullable=False)  # JSON list
+    chapitres_json: Mapped[str] = mapped_column(Text, nullable=False)        # JSON list
+    elements_lies_json: Mapped[str] = mapped_column(Text, nullable=False)     # JSON list
+    audio_narration: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    date_creation: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class CultureLieu(Base):
+    __tablename__ = "culture_lieux"
+
+    id: Mapped[str] = mapped_column(String(100), primary_key=True)
+    nom: Mapped[str] = mapped_column(String(150), nullable=False, index=True)
+    sous_titre: Mapped[str] = mapped_column(String(200), nullable=False)
+    region_id: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    region_nom: Mapped[str] = mapped_column(String(100), nullable=False)
+    tag: Mapped[str] = mapped_column(String(100), default="Cité Historique")
+    photo_url: Mapped[str] = mapped_column(String(255), nullable=False)
+    photo_credits: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    fondation: Mapped[str] = mapped_column(String(150), nullable=False)
+    latitude: Mapped[float] = mapped_column(Float, default=12.6392)
+    longitude: Mapped[float] = mapped_column(Float, default=-8.0029)
+    population_ou_details: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
+    resume: Mapped[str] = mapped_column(Text, nullable=False)
+    chapitres_json: Mapped[str] = mapped_column(Text, nullable=False)
+    elements_lies_json: Mapped[str] = mapped_column(Text, nullable=False)
+    date_creation: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
+
+    @property
+    def surnom(self) -> str:
+        return self.sous_titre
+
+    @property
+    def description_detaillee(self) -> str:
+        return self.resume
+
+    @property
+    def evenements_majeurs(self) -> str:
+        return self.fondation
+
+
+
+class CultureConte(Base):
+    __tablename__ = "culture_contes"
+
+    id: Mapped[str] = mapped_column(String(100), primary_key=True)
+    titre: Mapped[str] = mapped_column(String(150), nullable=False, index=True)
+    sous_titre: Mapped[str] = mapped_column(String(200), nullable=False)
+    origine: Mapped[str] = mapped_column(String(150), nullable=False)
+    region_id: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    region_nom: Mapped[str] = mapped_column(String(100), default="Tout le Mali")
+    tag: Mapped[str] = mapped_column(String(100), default="Fable & Conte")
+    photo_url: Mapped[str] = mapped_column(String(255), nullable=False)
+    photo_credits: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    resume: Mapped[str] = mapped_column(Text, nullable=False)
+    conteur: Mapped[str] = mapped_column(String(120), default="Griot AlternIA")
+    duree_audio: Mapped[str] = mapped_column(String(30), default="5 min")
+    duree_lecture: Mapped[str] = mapped_column(String(30), default="3 min")
+    morale: Mapped[str] = mapped_column(Text, nullable=False)
+    scenes_json: Mapped[str] = mapped_column(Text, nullable=False)
+    elements_lies_json: Mapped[str] = mapped_column(Text, nullable=False)
+    date_creation: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class CultureProverbe(Base):
+    __tablename__ = "culture_proverbes"
+
+    id: Mapped[str] = mapped_column(String(100), primary_key=True)
+    texte: Mapped[str] = mapped_column(Text, nullable=False)
+    texte_original: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    signification: Mapped[str] = mapped_column(Text, nullable=False)
+    morale: Mapped[str] = mapped_column(String(255), nullable=False)
+    origine: Mapped[str] = mapped_column(String(150), nullable=False)
+    theme: Mapped[str] = mapped_column(String(80), nullable=False, index=True)
+    region_id: Mapped[str] = mapped_column(String(50), nullable=False)
+    region_nom: Mapped[str] = mapped_column(String(100), nullable=False)
+    xp_recompense: Mapped[int] = mapped_column(Integer, default=40)
+    orateur_nom: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    orateur_role: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    accent_color_hex: Mapped[str] = mapped_column(String(10), default="#F1851F")
+
+
+class CultureDecouverte(Base):
+    __tablename__ = "culture_decouvertes"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    apprenant_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True, index=True)
+    monument_id: Mapped[str] = mapped_column(String(100), ForeignKey("culture_monuments.id"), nullable=False)
+    confidence: Mapped[float] = mapped_column(Float, default=0.98)
+    est_favori: Mapped[bool] = mapped_column(Boolean, default=False)
+    notes_personnelles: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    image_scannee_url: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    date_decouverte: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
+
+    monument: Mapped["CultureMonument"] = relationship("CultureMonument", back_populates="decouvertes")
+
+
+class CulturePack(Base):
+    __tablename__ = "culture_packs"
+
+    id: Mapped[str] = mapped_column(String(100), primary_key=True)
+    titre: Mapped[str] = mapped_column(String(150), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    region_id: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    region_nom: Mapped[str] = mapped_column(String(100), nullable=False)
+    taille_mo: Mapped[float] = mapped_column(Float, default=12.5)
+    version: Mapped[str] = mapped_column(String(20), default="1.0.0")
+    elements_count: Mapped[int] = mapped_column(Integer, default=15)
+    inclus_json: Mapped[str] = mapped_column(Text, nullable=False)  # JSON summary
+    bundle_data_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # Full offline JSON
+    date_mise_a_jour: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
+

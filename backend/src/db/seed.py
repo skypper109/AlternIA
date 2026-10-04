@@ -21,8 +21,13 @@ def seed_initial_data(db: Session, force: bool = False):
     """Insère les données de base si la base est vide et garantit le hachage des mots de passe."""
     from backend.src.services.security import hash_password
 
+    from backend.src.db.seed_culture import seed_culture_data
+
     try:
-        # Vérification si les données existent déjà
+        # Toujours garantir le peuplement du patrimoine culturel CultureLens
+        seed_culture_data(db, force=force)
+
+        # Vérification si les données utilisateurs existent déjà
         existing_users = db.query(Utilisateur).all()
         if existing_users and not force:
             for u in existing_users:

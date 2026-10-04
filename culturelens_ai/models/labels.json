@@ -1,0 +1,233 @@
+{
+  "monument_al_quouds": {
+    "index": 0,
+    "name": "Monument Al-Qoods (Al-Qods)",
+    "ville": "Bamako",
+    "coords": [
+      12.636,
+      -8.025
+    ],
+    "category": "Solidarité Internationale & Fraternité",
+    "visual_features": [
+      "Dôme doré Al-Quds",
+      "Arcades orientales",
+      "Croissant commémoratif"
+    ]
+  },
+  "monument_armee_noire_bamako": {
+    "index": 1,
+    "name": "Monument des Héros de l'Armée Noire",
+    "ville": "Bamako",
+    "coords": [
+      12.6512,
+      -7.9989
+    ],
+    "category": "Mémoire Militaire (1924)",
+    "visual_features": [
+      "Statue de bronze tirailleurs",
+      "Soldats africains en uniforme",
+      "Piédestal en pierre sculptée",
+      "Plinth commémoratif"
+    ]
+  },
+  "monument_cathedrale_bamako": {
+    "index": 2,
+    "name": "Cathédrale du Sacré-Cœur",
+    "ville": "Bamako",
+    "coords": [
+      12.645,
+      -7.997
+    ],
+    "category": "Patrimoine Religieux (1927)",
+    "visual_features": [
+      "Façade en pierres de taille",
+      "Style néo-roman africain",
+      "Clocher en grès"
+    ]
+  },
+  "monument_djingareyber": {
+    "index": 3,
+    "name": "Mosquée Djingareyber",
+    "ville": "Tombouctou",
+    "coords": [
+      16.7711,
+      -3.0094
+    ],
+    "category": "Patrimoine Mondial UNESCO",
+    "visual_features": [
+      "Minaret tronconique sahélien",
+      "Mansa Moussa 1327",
+      "Architecture terre et pierre"
+    ]
+  },
+  "monument_fort_medine": {
+    "index": 4,
+    "name": "Fort de Médine",
+    "ville": "Kayes",
+    "coords": [
+      14.375,
+      -11.365
+    ],
+    "category": "Monument Historique National",
+    "visual_features": [
+      "Bastion en pierre",
+      "Chutes du Félou",
+      "Récits El Hadj Oumar Tall"
+    ]
+  },
+  "monument_independance_bamako": {
+    "index": 5,
+    "name": "Monument de l'Indépendance",
+    "ville": "Bamako",
+    "coords": [
+      12.6469,
+      -8.0028
+    ],
+    "category": "Symbole National (1960)",
+    "visual_features": [
+      "Obélisque étagé soudanais",
+      "Frises géométriques mandingues",
+      "Place circulaire",
+      "Palmiers"
+    ]
+  },
+  "monument_kwame_nkrumah_bamako": {
+    "index": 6,
+    "name": "Monument Kwamé Nkrumah",
+    "ville": "Bamako",
+    "coords": [
+      12.638,
+      -8.012
+    ],
+    "category": "Panafricanisme",
+    "visual_features": [
+      "Buste en bronze Nkrumah",
+      "Père du panafricanisme",
+      "Stèle noire gravée"
+    ]
+  },
+  "monument_maliba_bamako": {
+    "index": 7,
+    "name": "Monument MaliBa (Grand Mali)",
+    "ville": "Bamako",
+    "coords": [
+      12.648,
+      -8.001
+    ],
+    "category": "Fierté Patriotique & Jeunesse",
+    "visual_features": [
+      "Lettres monumentales MaliBa",
+      "Emblème Vert Jaune Rouge",
+      "Fierté civique"
+    ]
+  },
+  "monument_martyrs_bamako": {
+    "index": 8,
+    "name": "Monument des Martyrs",
+    "ville": "Bamako",
+    "coords": [
+      12.6358,
+      -7.9942
+    ],
+    "category": "Démocratie & Mémoire",
+    "visual_features": [
+      "Stèle commémorative mars 1991",
+      "Flamme démocratique",
+      "Abords du fleuve Niger"
+    ]
+  },
+  "monument_mosquee_djenne": {
+    "index": 9,
+    "name": "Grande Mosquée de Djenné",
+    "ville": "Djenné",
+    "coords": [
+      13.9056,
+      -4.555
+    ],
+    "category": "Patrimoine Mondial UNESCO",
+    "visual_features": [
+      "Banco terre crue",
+      "3 minarets soudanais",
+      "Torons en bois de palmier",
+      "Crépissage rituel"
+    ]
+  },
+  "monument_paix_bamako": {
+    "index": 10,
+    "name": "Monument de la Paix",
+    "ville": "Bamako",
+    "coords": [
+      12.6311,
+      -8.0267
+    ],
+    "category": "Paix & Vivre-Ensemble (1996)",
+    "visual_features": [
+      "Colombe métallique monumentale",
+      "Ailes ajourées en acier",
+      "Socle blanc géométrique",
+      "Carrefour ACI"
+    ]
+  },
+  "monument_samory_toure_bamako": {
+    "index": 11,
+    "name": "Monument Samory Touré",
+    "ville": "Bamako",
+    "coords": [
+      12.6105,
+      -8.055
+    ],
+    "category": "Résistance Anticoloniale",
+    "visual_features": [
+      "Statue équestre Samory Touré",
+      "Résistant anticolonial",
+      "Cheval cabré en bronze"
+    ]
+  },
+  "monument_sogolon_bamako": {
+    "index": 12,
+    "name": "Statue de Sogolon Kolonkan",
+    "ville": "Bamako",
+    "coords": [
+      12.634,
+      -8.02
+    ],
+    "category": "Matrimoine & Mémoire Mandingue",
+    "visual_features": [
+      "Statue de Sogolon",
+      "Mère de Soundiata Keïta",
+      "Héroïne fondatrice du Mandé"
+    ]
+  },
+  "monument_tour_afrique_bamako": {
+    "index": 13,
+    "name": "Tour de l'Afrique",
+    "ville": "Bamako",
+    "coords": [
+      12.5975,
+      -7.9542
+    ],
+    "category": "Panafricanisme (2001)",
+    "visual_features": [
+      "Tour cylindrique 46m",
+      "Architecture baobab",
+      "Flambeau sommet",
+      "Grand rond-point vert"
+    ]
+  },
+  "segou": {
+    "index": 14,
+    "name": "Ségou-Koro & Cité des Balanzans",
+    "ville": "Ségou",
+    "coords": [
+      13.4333,
+      -6.2667
+    ],
+    "category": "Cité Historique & Royaume Bambara",
+    "visual_features": [
+      "Vestiges du Royaume Bambara",
+      "Rives du Djoliba",
+      "Balanzans sacrés",
+      "Architecture banco"
+    ]
+  }
+}

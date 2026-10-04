@@ -14,6 +14,7 @@ from backend.src.routes.parent_routes import router as parent_router
 from backend.src.routes.rapports_routes import router as rapports_router
 from backend.src.routes.revision_routes import router as revision_router
 from backend.src.routes.esp32_routes import router as esp32_router
+from backend.src.routes.culture_routes import router as culture_router
 
 __all__ = [
     "chat_router",
@@ -29,4 +30,6 @@ __all__ = [
     "rapports_router",
     "revision_router",
     "esp32_router",
+    "culture_router",
 ]
+

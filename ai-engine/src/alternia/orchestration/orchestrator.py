@@ -250,7 +250,14 @@ class AlterniaOrchestrator:
         detected_subj = detect_malian_curriculum_subject(question)
         is_curriculum_topic = (detected_subj is not None)
 
-        if not (is_greeting_or_id or has_rag_sources or is_conversation_followup or is_curriculum_topic):
+        is_culture = (
+            student_class == "culture"
+            or "culture" in (student_class or "").lower()
+            or "culture" in (subject or "").lower()
+            or "patrimoine" in (subject or "").lower()
+        )
+
+        if not is_culture and not (is_greeting_or_id or has_rag_sources or is_conversation_followup or is_curriculum_topic):
             refusal_text = (
                 "Je suis ALTA, le tuteur pédagogique d'AlternIA dédié aux programmes scolaires du secondaire au Mali. "
                 "Je ne peux pas répondre aux questions hors du cadre scolaire. "
@@ -432,7 +439,14 @@ class AlterniaOrchestrator:
         detected_subj = detect_malian_curriculum_subject(question)
         is_curriculum_topic = (detected_subj is not None)
 
-        if not (is_greeting_or_id or has_rag_sources or is_conversation_followup or is_curriculum_topic):
+        is_culture = (
+            student_class == "culture"
+            or "culture" in (student_class or "").lower()
+            or "culture" in (subject or "").lower()
+            or "patrimoine" in (subject or "").lower()
+        )
+
+        if not is_culture and not (is_greeting_or_id or has_rag_sources or is_conversation_followup or is_curriculum_topic):
             refusal_text = (
                 "Je suis ALTA, le tuteur pédagogique d'AlternIA dédié aux programmes scolaires du secondaire au Mali. "
                 "Je ne peux pas répondre aux questions hors du cadre scolaire. "

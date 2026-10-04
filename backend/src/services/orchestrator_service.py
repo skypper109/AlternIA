@@ -86,8 +86,10 @@ def get_orchestrator() -> AlterniaOrchestrator:
 
 
 def normalize_student_class(class_id: str) -> str:
-    """Mappe les identifiants de classe malienne vers les valeurs supportées ('10eme', '11eme', '12eme')."""
+    """Mappe les identifiants de classe malienne vers les valeurs supportées ('10eme', '11eme', '12eme', 'culture')."""
     cid = class_id.strip().lower()
+    if cid in {"culture", "culturelens", "patrimoine"}:
+        return "culture"
     if cid in {"10eme", "10e", "10", "10eme-cg", "10eme-ct"}:
         return "10eme"
     if cid in {"11eme", "11e", "11", "11eme-sc", "11eme-ll", "11eme-se", "11eme-sti"}:
