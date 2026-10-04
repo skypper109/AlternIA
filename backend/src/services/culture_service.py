@@ -228,7 +228,7 @@ class CultureService:
             }
 
         matched_monument: Optional[CultureMonument] = None
-        confidence = 0.50
+        confidence = 0.0
         detected_features = []
 
         # Cas 0 : Analyse neuronale par le modèle de vision CultureLens AI
@@ -271,16 +271,21 @@ class CultureService:
             except Exception as e:
                 logger.warning(f"Inférence CultureLensRecognizer locale échouée : {e}")
 
-        if ai_result and ai_result.get("is_identified") and ai_result.get("monument_id"):
-            ai_monument_id = ai_result["monument_id"]
-            found = next((m for m in all_monuments if m.id == ai_monument_id), None)
-            if not found and "segou" in ai_monument_id:
-                found = next((m for m in all_monuments if "segou" in m.id), None)
-            if not found:
-                found = next((m for m in all_monuments if m.id == f"monument_{ai_monument_id}"), None)
-            if found:
-                matched_monument = found
-                confidence = float(ai_result["confidence"])
+        if ai_result:
+            ai_conf = float(ai_result.get("confidence", 0.0))
+            is_id = bool(ai_result.get("is_identified", False))
+            ai_monument_id = ai_result.get("monument_id")
+            if is_id and ai_conf >= 0.45 and ai_monument_id:
+                found = next((m for m in all_monuments if m.id == ai_monument_id), None)
+                if not found and "segou" in ai_monument_id:
+                    found = next((m for m in all_monuments if "segou" in m.id), None)
+                if not found:
+                    found = next((m for m in all_monuments if m.id == f"monument_{ai_monument_id}"), None)
+                if found:
+                    matched_monument = found
+                    confidence = ai_conf
+            elif ai_conf < 0.45:
+                confidence = ai_conf
 
         # Cas 1 : Hint ID explicite
         if not matched_monument and hint_id:
@@ -298,6 +303,7 @@ class CultureService:
                 search_terms.extend(cleaned_name.split())
 
             best_score = 0
+            best_candidate = None
             for m in all_monuments:
                 m_score = 0
                 m_text = f"{m.nom} {m.sous_titre} {m.ville} {m.mots_cles_json}".lower()
@@ -307,10 +313,13 @@ class CultureService:
 
                 if m_score > best_score:
                     best_score = m_score
-                    matched_monument = m
+                    best_candidate = m
 
-            if matched_monument and best_score > 0:
-                confidence = min(0.985, 0.85 + (best_score * 0.04))
+            if best_candidate and best_score >= 1:
+                kw_conf = min(0.985, 0.50 + (best_score * 0.08))
+                if kw_conf >= 0.45:
+                    matched_monument = best_candidate
+                    confidence = kw_conf
 
         # Cas 3 : Croisement géospatial (Proximité GPS si autorisée)
         estimated_distance_km: Optional[float] = None
@@ -336,11 +345,24 @@ class CultureService:
                     latitude, longitude, matched_monument.latitude, matched_monument.longitude
                 )
 
-        # Si toujours non identifié, prise du premier monument de Bamako avec niveau d'incertitude explicite
-        if not matched_monument:
-            # Recherche d'un monument de Bamako de référence
-            matched_monument = next((m for m in all_monuments if m.ville == "Bamako"), all_monuments[0])
-            confidence = 0.72  # Indication d'incertitude mesurée
+        # Seuil d'acceptation strict de 45% (0.45) :
+        # Si aucun monument n'est identifié ou si la certitude est inférieure à 45%, retour d'échec poli
+        if not matched_monument or confidence < 0.45:
+            conf_val = round(confidence, 3) if confidence > 0 else 0.0
+            return {
+                "success": False,
+                "target": None,
+                "confidence": conf_val,
+                "confidencePercent": f"{round(conf_val * 100, 1)}%",
+                "message": (
+                    "Désolé, ce monument ou lieu n'a pas pu être identifié avec certitude "
+                    "parmi les sites du patrimoine malien répertoriés (taux de correspondance inférieur à 45%)."
+                ),
+                "recognizedFeatures": [],
+                "estimatedDistanceKm": None,
+                "isCertain": False,
+                "scannedAt": datetime.utcnow().isoformat(),
+            }
 
         serialized = _serialize_monument(matched_monument)
         detected_features = serialized.get("detectionFeatures", [])

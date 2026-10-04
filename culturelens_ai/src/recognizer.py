@@ -200,7 +200,11 @@ class CultureLensRecognizer:
         norm_sim = min(1.0, max(0.0, (cos_sim - 0.55) / 0.40))
         calibrated_conf = min(1.0, 0.60 * norm_sim + 0.25 * float(best_match["confidence"]) + 0.15 * min(1.0, margin * 5) + geo_bonus)
 
-        is_identified = (cos_sim >= 0.70) or (calibrated_conf >= 0.65 and cos_sim >= 0.62)
+        # Seuil minimal de matching strict : au moins 45% (0.45)
+        min_threshold = max(0.45, confidence_threshold)
+        is_identified = (calibrated_conf >= min_threshold and cos_sim >= 0.45) and (
+            (cos_sim >= 0.65) or (calibrated_conf >= 0.55)
+        )
 
         inference_time_ms = round((time.perf_counter() - start_time) * 1000, 2)
 
@@ -216,11 +220,10 @@ class CultureLensRecognizer:
             "visual_features": meta_best.get("visual_features", []),
             "inference_time_ms": inference_time_ms,
             "top_matches": top_matches,
-            "validation_status": "Vérifié & Certifié" if is_identified else "Incertain",
+            "validation_status": "Vérifié & Certifié" if is_identified else "Non reconnu (< 45%)",
             "explanation": (
-                f"Correspondance visuelle forte ({round(calibrated_conf*100, 1)}%) avec {best_match['name']} "
-                f"basée sur l'analyse des silhouettes architecturales."
+                f"Correspondance visuelle reconnue ({round(calibrated_conf*100, 1)}%) avec {best_match['name']}."
                 if is_identified
-                else f"Indices visuels modérés (confiance : {round(calibrated_conf*100, 1)}%)."
+                else f"Désolé, aucun monument répertorié ne correspond avec au moins 45% de certitude (confiance : {round(calibrated_conf*100, 1)}%)."
             ),
         }
