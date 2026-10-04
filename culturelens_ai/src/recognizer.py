@@ -201,10 +201,8 @@ class CultureLensRecognizer:
         calibrated_conf = min(1.0, 0.60 * norm_sim + 0.25 * float(best_match["confidence"]) + 0.15 * min(1.0, margin * 5) + geo_bonus)
 
         # Seuil minimal de matching strict : au moins 45% (0.45)
-        min_threshold = max(0.45, confidence_threshold)
-        is_identified = (calibrated_conf >= min_threshold and cos_sim >= 0.45) and (
-            (cos_sim >= 0.65) or (calibrated_conf >= 0.55)
-        )
+        min_threshold = confidence_threshold
+        is_identified = (calibrated_conf >= min_threshold) and (cos_sim >= 0.45)
 
         inference_time_ms = round((time.perf_counter() - start_time) * 1000, 2)
 

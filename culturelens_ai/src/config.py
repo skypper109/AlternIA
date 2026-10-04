@@ -215,5 +215,5 @@ BAMAKO_MONUMENTS = {
 IMAGE_SIZE = (224, 224)
 BACKBONE_NAME = "mobilenet_v3_small"  # Ultraléger, ultra-rapide sur mobile et ALTA Box
 EMBEDDING_DIM = 576
-CONFIDENCE_THRESHOLD = 0.65
+CONFIDENCE_THRESHOLD = 0.45
 TEMPERATURE = 12.0  # Température de scaling pour les probabilités softmax
