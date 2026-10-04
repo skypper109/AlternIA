@@ -191,10 +191,28 @@ def get_figures(db: Session = Depends(get_db)):
     return CultureService.get_figures(db)
 
 
+@router.get("/figures/{figure_id}")
+def get_figure_detail(figure_id: str, db: Session = Depends(get_db)):
+    """Récupère la fiche détaillée d'un grand personnage historique."""
+    f = CultureService.get_figure_by_id(db, figure_id)
+    if not f:
+        raise HTTPException(status_code=404, detail="Personnage introuvable")
+    return f
+
+
 @router.get("/places")
 def get_places(db: Session = Depends(get_db)):
     """Liste des terroirs et cités historiques du Mali."""
     return CultureService.get_places(db)
+
+
+@router.get("/places/{place_id}")
+def get_place_detail(place_id: str, db: Session = Depends(get_db)):
+    """Récupère la fiche détaillée d'une ville ou terroir historique."""
+    p = CultureService.get_place_by_id(db, place_id)
+    if not p:
+        raise HTTPException(status_code=404, detail="Lieu introuvable")
+    return p
 
 
 @router.get("/stories")

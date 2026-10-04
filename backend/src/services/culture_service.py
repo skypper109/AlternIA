@@ -48,6 +48,30 @@ def _serialize_monument(m: CultureMonument) -> Dict[str, Any]:
     except Exception:
         pass
 
+    key_facts = []
+    for f in caracteristiques:
+        lbl = f.get("label", "")
+        val = f.get("value", "")
+        if not val:
+            val = lbl
+            lbl = f.get("category", "Repère")
+        key_facts.append({
+            "label": lbl,
+            "value": val,
+            "icon": f.get("icon", "bookmark_border_rounded"),
+        })
+
+    chapters = [
+        {
+            "title": "Histoire & Proclamation",
+            "content": m.recit_historique,
+        },
+        {
+            "title": "Secrets & Portée Patrimoniale",
+            "content": m.secrets_et_mysteres,
+        },
+    ]
+
     res = {
         "id": m.id,
         "name": m.nom,
@@ -65,8 +89,13 @@ def _serialize_monument(m: CultureMonument) -> Dict[str, Any]:
         "style_architectural": m.style_architectural,
         "locationDetails": m.details_localisation,
         "details_localisation": m.details_localisation,
+        "presentation": m.recit_historique,
+        "architectureAndMaterials": m.style_architectural,
+        "whyItMatters": m.pourquoi_ce_lieu_compte,
+        "pourquoi_ce_lieu_compte": m.pourquoi_ce_lieu_compte,
         "photoUrl": m.photo_url,
         "photo_url": m.photo_url,
+        "photoCredits": "Direction Nationale du Patrimoine Culturel du Mali",
         "tag": m.tag,
         "latitude": m.latitude,
         "longitude": m.longitude,
@@ -78,14 +107,32 @@ def _serialize_monument(m: CultureMonument) -> Dict[str, Any]:
         "mots_cles": mots_cles,
         "detectionFeatures": caracteristiques,
         "caracteristiques_detection": caracteristiques,
+        "keyFacts": key_facts,
+        "chapters": chapters,
+        "connectedItems": [
+            {
+                "id": "ville_bamako",
+                "title": "Bamako",
+                "subtitle": "La Cité des Trois Caïmans",
+                "type": "ville",
+                "tag": "Capitale",
+                "regionName": "Bamako",
+            },
+            {
+                "id": "perso_soundiata",
+                "title": "Soundiata Keïta",
+                "subtitle": "Le Lion du Manden",
+                "type": "personnage",
+                "tag": "Mansa",
+                "regionName": "Koulikoro",
+            },
+        ],
         "secretsAndMysteries": m.secrets_et_mysteres,
         "secrets_et_mysteres": m.secrets_et_mysteres,
         "historicalStory": m.recit_historique,
         "recit_historique": m.recit_historique,
         "audioNarrationText": m.narration_audio_texte,
         "narration_audio_texte": m.narration_audio_texte,
-        "whyItMatters": m.pourquoi_ce_lieu_compte,
-        "pourquoi_ce_lieu_compte": m.pourquoi_ce_lieu_compte,
         "routePath": m.route_path,
         "route_path": m.route_path,
         "modele3dUrl": m.modele_3d_url,
@@ -559,6 +606,29 @@ class CultureService:
                 "connectedItems": lies,
             })
         return res
+
+    @staticmethod
+    def get_figure_by_id(db: Session, figure_id: str) -> Optional[Dict[str, Any]]:
+        figures = CultureService.get_figures(db)
+        for f in figures:
+            if f["id"] == figure_id:
+                return f
+        # Recherche par correspondance partielle si suffixe _traore etc.
+        for f in figures:
+            if f["id"].startswith(figure_id) or figure_id.startswith(f["id"]):
+                return f
+        return None
+
+    @staticmethod
+    def get_place_by_id(db: Session, place_id: str) -> Optional[Dict[str, Any]]:
+        places = CultureService.get_places(db)
+        for p in places:
+            if p["id"] == place_id:
+                return p
+        for p in places:
+            if p["id"].startswith(place_id) or place_id.startswith(p["id"]):
+                return p
+        return None
 
     @staticmethod
     def get_stories(db: Session) -> List[Dict[str, Any]]:

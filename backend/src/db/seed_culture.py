@@ -1226,15 +1226,15 @@ PACKS_DATA = [
 def seed_culture_data(db: Session, force: bool = False):
     """
     Peuple la base de données alta_db avec tous les monuments (priorité Bamako),
-    personnages, lieux, contes, proverbes et packs culturels.
+    personnages, lieux, contes, proverbes et packs culturels certifiés.
     """
     try:
-        monuments_count = db.query(CultureMonument).count()
-        if monuments_count > 0 and not force:
-            logger.info(f"Base de données culture déjà peuplée ({monuments_count} monuments trouvés).")
-            return
-
-        print("🏛️ Peuplement de la base de données CultureLens & Patrimoine du Mali...")
+        from backend.src.db.sync_culture_database import sync_database
+        sync_database(db)
+        return
+    except Exception as exc:
+        logger.error(f"Erreur lors du peuplement CultureLens : {exc}")
+        print(f"⚠️ Erreur peuplement CultureLens : {exc}")
 
         # 1. Insertion des Monuments (Bamako & National)
         for m in MONUMENTS_DATA:
