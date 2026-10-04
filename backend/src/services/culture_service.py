@@ -133,8 +133,8 @@ def _serialize_monument(m: CultureMonument) -> Dict[str, Any]:
         "recit_historique": m.recit_historique,
         "audioNarrationText": m.narration_audio_texte,
         "narration_audio_texte": m.narration_audio_texte,
-        "routePath": m.route_path,
-        "route_path": m.route_path,
+        "routePath": f"/culture/monument/{m.id}" if (not m.route_path or m.route_path == "/culture/monuments") else m.route_path,
+        "route_path": f"/culture/monument/{m.id}" if (not m.route_path or m.route_path == "/culture/monuments") else m.route_path,
         "modele3dUrl": m.modele_3d_url,
         "modele_3d_url": m.modele_3d_url,
         "arAvailable": m.ar_disponible,
@@ -156,7 +156,11 @@ def _serialize_monument(m: CultureMonument) -> Dict[str, Any]:
         valid_exts = {".jpg", ".jpeg", ".png", ".webp"}
         for img_p in sorted(ai_root.iterdir()):
             if img_p.is_file() and img_p.suffix.lower() in valid_exts and not img_p.name.startswith("aug_"):
-                real_photos.append(f"/api/v1/culture/dataset-images/{ai_root.name}/{img_p.name}")
+                # Chemin d'asset mobile prêt à l'emploi (rapide, hors-ligne et fiable)
+                real_photos.append(f"assets/images/culture/monuments/{folder_id}/{img_p.name}")
+
+    if not real_photos and m.photo_url:
+        real_photos.append(m.photo_url)
 
     res["realPhotos"] = real_photos
     res["galleryPhotos"] = real_photos
