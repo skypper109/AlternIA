@@ -4,7 +4,8 @@
   "extraPaths": [
     "backend/src",
     "ai-engine/src",
-    "culturelens_ai"
+    "culturelens_ai",
+    "culturelens_ai/src"
   ],
   "exclude": [
     "models",

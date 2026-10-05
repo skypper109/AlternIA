@@ -50,6 +50,30 @@ class ESP32Telemetry(BaseModel):
 
 
 # ==============================================================================
+# CALCUL ET RÈGLES DE COULEURS DES LEDS SELON LE CAHIER DES CHARGES
+# ==============================================================================
+
+def compute_class_led(selected_class: Optional[str]) -> str:
+    """
+    Règle demandée :
+    - 10ème -> BLEU
+    - 11ème -> ROUGE
+    - 12ème (Terminale) -> JAUNE
+    - Si aucune classe choisie -> VERT
+    """
+    if not selected_class:
+        return "GREEN"
+    c = str(selected_class).lower()
+    if "10" in c:
+        return "BLUE"
+    elif "11" in c:
+        return "RED"
+    elif "12" in c or "tse" in c or "term" in c or "bac" in c:
+        return "YELLOW"
+    return "GREEN"
+
+
+# ==============================================================================
 # GESTIONNAIRE CENTRALISÉ DES CONNEXIONS ESP32 (SINGLETON)
 # ==============================================================================
 
@@ -60,8 +84,9 @@ class ESP32ConnectionManager:
         self.esp32_sockets: Set[WebSocket] = set()
         self.dashboard_sockets: Set[WebSocket] = set()
         self.current_state: str = "DISCONNECTED"
-        self.selected_class: Optional[str] = "10eme"
+        self.selected_class: Optional[str] = None
         self.mic_plugged: bool = True  # Par défaut actif pour la simulation
+        self.is_tts_speaking: bool = False
         self.current_led: str = "OFF"
         self.last_telemetry: Dict[str, Any] = {
             "device_id": "ESP32-ALT-01",
@@ -71,7 +96,8 @@ class ESP32ConnectionManager:
             "free_heap": None,
             "battery_level": 95,
             "mic_plugged": True,
-            "selected_class": "10eme",
+            "selected_class": None,
+            "is_speaking": False,
             "state": "DISCONNECTED",
             "led": "OFF",
             "last_seen": 0,
@@ -82,13 +108,19 @@ class ESP32ConnectionManager:
         await websocket.accept()
         self.esp32_sockets.add(websocket)
         self.current_state = "CONNECTED"
-        self.current_led = "GREEN"  # Dès la connexion, LED Verte !
+        # RÈGLE ABSOLUE DU PROJET : Dès la connexion au serveur Runpod,
+        # la LED Verte doit impérativement s'allumer fixe !
+        self.current_led = "GREEN"
+        self.selected_class = None
+
         self.last_telemetry.update({
             "connected": True,
             "device_id": client_info.get("device_id", "ESP32-ALT-01"),
-            "ip": client_info.get("ip", "192.168.100.x"),
+            "ip": client_info.get("ip", "192.168.4.1"),
             "state": self.current_state,
             "led": self.current_led,
+            "selected_class": None,
+            "is_speaking": False,
             "last_seen": time.time(),
         })
 
@@ -98,9 +130,10 @@ class ESP32ConnectionManager:
             "command": "set_state",
             "state": "CONNECTED",
             "led": "GREEN",
-            "selected_class": self.selected_class,
+            "speaking": False,
+            "selected_class": None,
             "mic_plugged": self.mic_plugged,
-            "message": "Bienvenue sur le serveur distant AlternIA",
+            "message": "Connexion établie avec le serveur Runpod. LED VERTE activée.",
         })
 
         # Notifier les dashboards
@@ -108,7 +141,7 @@ class ESP32ConnectionManager:
             "event": "esp32_connected",
             "data": self.last_telemetry,
         })
-        logger.info(f"ESP32 connecté avec succès : {client_info}")
+        logger.info(f"ESP32 connecté avec succès : {client_info} (LED : {self.current_led})")
 
     def disconnect_esp32(self, websocket: WebSocket):
         """Retire l'ESP32 déconnecté."""
@@ -117,9 +150,11 @@ class ESP32ConnectionManager:
         if not self.esp32_sockets:
             self.current_state = "DISCONNECTED"
             self.current_led = "OFF"
+            self.is_tts_speaking = False
             self.last_telemetry["connected"] = False
             self.last_telemetry["state"] = "DISCONNECTED"
             self.last_telemetry["led"] = "OFF"
+            self.last_telemetry["is_speaking"] = False
 
     async def connect_dashboard(self, websocket: WebSocket):
         """Enregistre un tableau de bord web d'observation."""
@@ -169,6 +204,7 @@ class ESP32ConnectionManager:
         selected_class: Optional[str] = None,
         mic_plugged: Optional[bool] = None,
         led_color: Optional[str] = None,
+        speaking: Optional[bool] = None,
         message: Optional[str] = None,
     ):
         """Met à jour l'état logique et synchronise l'ESP32 et les tableaux de bord."""
@@ -180,35 +216,38 @@ class ESP32ConnectionManager:
             self.mic_plugged = mic_plugged
             self.last_telemetry["mic_plugged"] = mic_plugged
 
+        if speaking is not None:
+            self.is_tts_speaking = speaking
+
         if new_state:
             self.current_state = new_state
             self.last_telemetry["state"] = new_state
+            if new_state == "SPEAKING":
+                self.is_tts_speaking = True
+            elif new_state in ("CONNECTED", "CLASS_SELECTED", "IDLE"):
+                self.is_tts_speaking = False
 
-        # Détermination automatique de la couleur de LED si non explicitement fournie
         # RÈGLE DU PROJET :
-        # - Connecté seul : VERT
-        # - Micro branché ET Classe sélectionnée : BLANC
-        # - Thinking (RAG/LLM) : BLUE
-        # - Speaking (Voix) : YELLOW / PULSE
+        # 1. ESP connecté au serveur : LED VERTE allumée fixe.
+        # 2. Classe 10ème : LED BLEUE allumée fixe.
+        # 3. Classe 11ème : LED ROUGE allumée fixe.
+        # 4. Classe 12ème (Terminale) : LED JAUNE allumée fixe.
+        # 5. Synthèse vocale TTS : LED BLANCHE clignotante ! Dès la fin du TTS -> retour à la couleur de la classe.
         if led_color:
             self.current_led = led_color
+        elif self.is_tts_speaking or self.current_state == "SPEAKING":
+            self.current_led = "WHITE_BLINK"
+        elif not self.esp32_sockets and self.current_state == "DISCONNECTED":
+            self.current_led = "OFF"
+        elif self.selected_class:
+            self.current_led = compute_class_led(self.selected_class)
+        elif self.esp32_sockets or self.current_state in ("CONNECTED", "CONNECTED_IDLE"):
+            self.current_led = "GREEN"
         else:
-            if not self.esp32_sockets and self.current_state == "DISCONNECTED":
-                self.current_led = "OFF"
-            elif self.current_state in ("THINKING", "PROCESSING"):
-                self.current_led = "BLUE"
-            elif self.current_state == "SPEAKING":
-                self.current_led = "PULSE"
-            elif self.mic_plugged and self.selected_class:
-                # CLASSE SÉLECTIONNÉE + MICRO BRANCHÉ -> BLANC
-                self.current_led = "WHITE"
-            elif self.esp32_sockets or self.current_state == "CONNECTED":
-                # CONNECTÉ AU SERVEUR -> VERT
-                self.current_led = "GREEN"
-            else:
-                self.current_led = "OFF"
+            self.current_led = "OFF"
 
         self.last_telemetry["led"] = self.current_led
+        self.last_telemetry["is_speaking"] = self.is_tts_speaking
         self.last_telemetry["last_seen"] = time.time()
 
         # Envoi à l'ESP32
@@ -217,6 +256,7 @@ class ESP32ConnectionManager:
             "command": "set_state",
             "state": self.current_state,
             "led": self.current_led,
+            "speaking": self.is_tts_speaking,
             "selected_class": self.selected_class,
             "mic_plugged": self.mic_plugged,
             "message": message or f"État : {self.current_state} (LED: {self.current_led})",
@@ -313,10 +353,42 @@ async def websocket_esp32_endpoint(websocket: WebSocket):
                 question = data.get("text", "Bonjour AlternIA")
                 await manager.update_state(new_state="THINKING", led_color="BLUE")
                 await asyncio.sleep(1.0)  # Simulation réponse IA
-                await manager.update_state(new_state="SPEAKING", led_color="PULSE")
+                await manager.update_state(new_state="SPEAKING", led_color="WHITE_BLINK", speaking=True)
                 await asyncio.sleep(2.0)
-                # Retour à blanc (si classe et micro) ou vert
-                await manager.update_state(new_state="IDLE")
+                restored_led = compute_class_led(manager.selected_class) if manager.selected_class else "GREEN"
+                await manager.update_state(new_state="CLASS_SELECTED" if manager.selected_class else "CONNECTED", led_color=restored_led, speaking=False)
+
+            # 6. Notification de changement de classe (depuis boîtier ou simulateur)
+            elif msg_type == "class_change":
+                new_cls = data.get("selected_class")
+                if new_cls:
+                    led_target = compute_class_led(new_cls)
+                    await manager.update_state(
+                        new_state="CLASS_SELECTED",
+                        selected_class=new_cls,
+                        led_color=led_target,
+                        speaking=False,
+                        message=f"Changement de classe reçu : {new_cls} (LED {led_target})",
+                    )
+
+            # 7. Notification d'état de synthèse vocale TTS
+            elif msg_type == "tts_status":
+                speaking = bool(data.get("speaking", False))
+                if speaking:
+                    await manager.update_state(
+                        new_state="SPEAKING",
+                        led_color="WHITE_BLINK",
+                        speaking=True,
+                        message="Synthèse vocale en cours d'élocution (LED Blanche clignotante)",
+                    )
+                else:
+                    restored_led = compute_class_led(manager.selected_class) if (manager.esp32_sockets or manager.current_state != "DISCONNECTED") else "OFF"
+                    await manager.update_state(
+                        new_state="CLASS_SELECTED" if manager.selected_class else "CONNECTED",
+                        led_color=restored_led,
+                        speaking=False,
+                        message=f"Fin de synthèse vocale. LED restaurée en {restored_led}.",
+                    )
 
     except WebSocketDisconnect:
         manager.disconnect_esp32(websocket)
@@ -395,17 +467,23 @@ async def set_esp32_state(req: ESP32StateRequest):
 
 @router.post("/api/esp32/select-class")
 async def select_class_endpoint(
-    classe: str = Query(..., description="10eme, 11eme, TSE, etc."),
+    classe: str = Query(..., description="10eme, 11eme, 12eme, TSE"),
     mic_connected: bool = Query(True, description="Indique si le micro est branché")
 ):
     """
-    Appelé lors de la sélection d'une classe (depuis le Kiosk tactile ou le tableau de bord) :
-    Si le micro est branché, la LED passe immédiatement en BLANC !
+    Appelé lors de la sélection d'une classe (sur device.alterniamali.com) :
+    - 10ème -> BLEU (PIN 33)
+    - 11ème -> ROUGE (PIN 21)
+    - 12ème (Terminale) -> JAUNE (PIN 19)
     """
+    led_target = compute_class_led(classe)
     await manager.update_state(
         new_state="CLASS_SELECTED",
         selected_class=classe,
         mic_plugged=mic_connected,
+        led_color=led_target,
+        speaking=False,
+        message=f"Classe {classe} sélectionnée sur device.alterniamali.com (LED: {led_target})",
     )
     return {
         "status": "success",
@@ -413,6 +491,39 @@ async def select_class_endpoint(
         "mic_plugged": manager.mic_plugged,
         "led": manager.current_led,
         "message": f"Classe {classe} sélectionnée. LED passée en {manager.current_led} !"
+    }
+
+
+@router.post("/api/esp32/tts-speaking")
+async def tts_speaking_endpoint(
+    speaking: bool = Query(..., description="True si le TTS commence à parler, False s'il s'est arrêté")
+):
+    """
+    Appelé à chaque prise ou fin de parole de la synthèse vocale TTS :
+    - speaking=True  -> LED BLANCHE CLIGNOTANTE (PIN 4)
+    - speaking=False -> Restauration immédiate de la couleur de classe active (Bleu 10ème, Rouge 11ème, Jaune 12ème, ou Vert)
+    """
+    if speaking:
+        await manager.update_state(
+            new_state="SPEAKING",
+            led_color="WHITE_BLINK",
+            speaking=True,
+            message="Synthèse vocale en cours d'élocution (LED Blanche clignotante)",
+        )
+    else:
+        restored_led = compute_class_led(manager.selected_class) if (manager.esp32_sockets or manager.current_state != "DISCONNECTED") else "OFF"
+        await manager.update_state(
+            new_state="CLASS_SELECTED" if manager.selected_class else "CONNECTED",
+            led_color=restored_led,
+            speaking=False,
+            message=f"Fin de synthèse vocale. LED restaurée en {restored_led}.",
+        )
+    return {
+        "status": "success",
+        "speaking": speaking,
+        "current_led": manager.current_led,
+        "current_state": manager.current_state,
+        "selected_class": manager.selected_class,
     }
 
 
@@ -558,9 +669,10 @@ def get_dashboard_html():
     /* LED Visualizer */
     .led-cluster {
       display: flex;
+      flex-wrap: wrap;
       align-items: center;
       justify-content: center;
-      gap: 2rem;
+      gap: 1.2rem;
       padding: 1rem;
       width: 100%;
     }
@@ -568,13 +680,14 @@ def get_dashboard_html():
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 0.5rem;
-      font-size: 0.8rem;
+      gap: 0.4rem;
+      font-size: 0.75rem;
       color: var(--text-muted);
+      text-align: center;
     }
     .led-bulb {
-      width: 44px;
-      height: 44px;
+      width: 40px;
+      height: 40px;
       border-radius: 50%;
       background: #1e293b;
       border: 3px solid #334155;
@@ -584,39 +697,48 @@ def get_dashboard_html():
     .led-bulb.active-green {
       background: #22c55e;
       border-color: #86efac;
-      box-shadow: 0 0 30px #22c55e, 0 0 60px rgba(34, 197, 94, 0.4);
-    }
-    .led-bulb.active-white {
-      background: #ffffff;
-      border-color: #f1f5f9;
-      box-shadow: 0 0 35px #ffffff, 0 0 70px rgba(255, 255, 255, 0.6);
+      box-shadow: 0 0 30px #22c55e, 0 0 60px rgba(34, 197, 94, 0.5);
     }
     .led-bulb.active-blue {
       background: #38bdf8;
       border-color: #bae6fd;
-      box-shadow: 0 0 30px #38bdf8, 0 0 60px rgba(56, 189, 248, 0.4);
+      box-shadow: 0 0 30px #38bdf8, 0 0 60px rgba(56, 189, 248, 0.5);
     }
     .led-bulb.active-red {
       background: #ef4444;
       border-color: #fca5a5;
-      box-shadow: 0 0 30px #ef4444, 0 0 60px rgba(239, 68, 68, 0.4);
+      box-shadow: 0 0 30px #ef4444, 0 0 60px rgba(239, 68, 68, 0.5);
+    }
+    .led-bulb.active-yellow {
+      background: #eab308;
+      border-color: #fef08a;
+      box-shadow: 0 0 30px #eab308, 0 0 60px rgba(234, 179, 8, 0.5);
+    }
+    .led-bulb.active-white, .led-bulb.blinking-white {
+      background: #ffffff;
+      border-color: #f8fafc;
+      animation: blink-white 0.22s infinite alternate;
+    }
+    @keyframes blink-white {
+      0% { box-shadow: 0 0 10px #ffffff; opacity: 0.3; }
+      100% { box-shadow: 0 0 40px #ffffff, 0 0 70px rgba(255, 255, 255, 0.9); opacity: 1; }
     }
     .led-tag {
       font-family: 'JetBrains Mono', monospace;
-      font-size: 0.75rem;
-      font-weight: 600;
+      font-size: 0.72rem;
+      font-weight: 700;
     }
     /* Interactive Controls */
     .btn-group {
       display: flex;
       flex-wrap: wrap;
-      gap: 0.6rem;
+      gap: 0.5rem;
     }
     button {
       font-family: inherit;
-      font-size: 0.88rem;
+      font-size: 0.85rem;
       font-weight: 600;
-      padding: 0.65rem 1.1rem;
+      padding: 0.6rem 1rem;
       border-radius: 0.75rem;
       border: 1px solid rgba(255,255,255,0.12);
       background: #1e293b;
@@ -636,17 +758,17 @@ def get_dashboard_html():
       background: linear-gradient(135deg, #2563eb, #1d4ed8);
       border-color: #3b82f6;
     }
-    button.primary:hover {
-      background: linear-gradient(135deg, #1d4ed8, #1e40af);
-      box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4);
-    }
     button.success {
       background: linear-gradient(135deg, #059669, #047857);
       border-color: #10b981;
     }
-    button.success:hover {
-      background: linear-gradient(135deg, #047857, #065f46);
-      box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
+    button.warning {
+      background: linear-gradient(135deg, #d97706, #b45309);
+      border-color: #f59e0b;
+    }
+    button.danger {
+      background: linear-gradient(135deg, #dc2626, #b91c1c);
+      border-color: #ef4444;
     }
     /* Status Pills */
     .status-badge {
@@ -658,7 +780,6 @@ def get_dashboard_html():
       font-size: 0.8rem;
       font-weight: 700;
       background: rgba(255,255,255,0.06);
-      margin-bottom: 0.5rem;
     }
     .status-dot {
       width: 10px;
@@ -698,13 +819,14 @@ def get_dashboard_html():
     .terminal .white { color: #f8fafc; font-weight: 600; }
     .terminal .blue { color: #38bdf8; }
     .terminal .yellow { color: #facc15; }
+    .terminal .red { color: #f87171; }
   </style>
 </head>
 <body>
   <div class="container">
     <header>
       <h1>AlternIA ESP32 Live Hub</h1>
-      <p>Supervision temps réel et simulation de la liaison matérielle ESP32 ↔ Serveur distant</p>
+      <p>Supervision temps réel et simulation matérielle ESP32 ↔ Serveur Runpod</p>
     </header>
 
     <div class="grid">
@@ -722,38 +844,50 @@ def get_dashboard_html():
         </div>
 
         <div class="esp-box">
-          <div class="esp-badge">ESP32 Feather / DevKit (GPIO 27, 26, 25, 0)</div>
+          <div class="esp-badge">Point d'Accès : AlterniA-Box-Mali (192.168.4.1)</div>
           
           <div class="led-cluster">
             <div class="led-item">
               <div id="led-green-bulb" class="led-bulb"></div>
               <span class="led-tag">PIN 27</span>
-              <span>VERT (Serveur OK)</span>
-            </div>
-
-            <div class="led-item">
-              <div id="led-white-bulb" class="led-bulb"></div>
-              <span class="led-tag">PIN 26</span>
-              <span>BLANC (Classe+Micro)</span>
+              <span style="color:#4ade80;">VERT (Serveur)</span>
             </div>
 
             <div class="led-item">
               <div id="led-blue-bulb" class="led-bulb"></div>
               <span class="led-tag">PIN 33</span>
-              <span>BLEU (IA Calcul)</span>
+              <span style="color:#38bdf8;">BLEU (10ème)</span>
+            </div>
+
+            <div class="led-item">
+              <div id="led-red-bulb" class="led-bulb"></div>
+              <span class="led-tag">PIN 21</span>
+              <span style="color:#f87171;">ROUGE (11ème)</span>
+            </div>
+
+            <div class="led-item">
+              <div id="led-yellow-bulb" class="led-bulb"></div>
+              <span class="led-tag">PIN 19</span>
+              <span style="color:#facc15;">JAUNE (12ème)</span>
+            </div>
+
+            <div class="led-item">
+              <div id="led-white-bulb" class="led-bulb"></div>
+              <span class="led-tag">PIN 4</span>
+              <span style="color:#ffffff;">BLANC (TTS)</span>
             </div>
           </div>
 
           <div style="font-size: 0.85rem; color: var(--text-muted); text-align: center;">
-            État Actuel : <strong id="lbl-state" style="color: #60a5fa;">DISCONNECTED</strong> | 
-            Classe : <strong id="lbl-class" style="color: #f8fafc;">10ème</strong> | 
-            Micro : <strong id="lbl-mic" style="color: #34d399;">Branché</strong>
+            État : <strong id="lbl-state" style="color: #60a5fa;">DISCONNECTED</strong> | 
+            Classe : <strong id="lbl-class" style="color: #f8fafc;">Aucune</strong> | 
+            LED : <strong id="lbl-led" style="color: #34d399;">OFF</strong>
           </div>
         </div>
 
         <div style="margin-top: 1.2rem;">
           <label style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 0.5rem;">
-            Simulation Matérielle Physique (Bouton BOOT GPIO 0) :
+            Bouton Physique BOOT (GPIO 0 / Push-to-Talk) :
           </label>
           <button id="btn-boot" class="primary" style="width: 100%;">
             🔘 Simuler Appui sur Bouton BOOT (Parler au micro)
@@ -765,48 +899,42 @@ def get_dashboard_html():
       <div class="card">
         <div class="card-title">
           <span>🎮</span>
-          <span>Scénarios & Pilotage Serveur</span>
+          <span>Scénarios & Pilotage Temps Réel</span>
         </div>
 
         <div style="display: flex; flex-direction: column; gap: 1rem;">
           <div>
-            <label style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 0.4rem;">
-              1. Tester Connexion Serveur (Actionne LED Verte) :
+            <label style="font-size: 0.82rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 0.4rem;">
+              1. Connexion Serveur Runpod (LED Verte allumée fixe) :
             </label>
             <div class="btn-group">
-              <button class="success" onclick="sendState('CONNECTED', 'GREEN')">🟢 Forcer État Connecté (LED Verte)</button>
-              <button onclick="sendState('DISCONNECTED', 'OFF')">🔴 Déconnecter (LED Éteinte)</button>
+              <button class="success" onclick="sendState('CONNECTED', 'GREEN')">🟢 Connecté (LED Verte)</button>
+              <button onclick="sendState('DISCONNECTED', 'OFF')">🔴 Déconnecter (OFF)</button>
             </div>
           </div>
 
           <div>
-            <label style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 0.4rem;">
-              2. Sélectionner Classe (Actionne LED Blanche si micro actif) :
+            <label style="font-size: 0.82rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 0.4rem;">
+              2. Sélection de Classe (depuis device.alterniamali.com) :
             </label>
             <div class="btn-group">
-              <button onclick="selectClass('10eme')">🎓 10ème Année</button>
-              <button onclick="selectClass('11eme')">🎓 11ème Année</button>
-              <button onclick="selectClass('TSE')">🎓 Terminale TSE</button>
+              <button class="primary" onclick="selectClass('10eme')">🟦 10ème (Bleu)</button>
+              <button class="danger" onclick="selectClass('11eme')">🟥 11ème (Rouge)</button>
+              <button class="warning" onclick="selectClass('12eme')">🟨 12ème (Jaune)</button>
             </div>
           </div>
 
           <div>
-            <label style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 0.4rem;">
-              3. État du Microphone :
+            <label style="font-size: 0.82rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 0.4rem;">
+              3. Synthèse Vocale TTS (Parole IA) :
             </label>
             <div class="btn-group">
-              <button onclick="toggleMicro(true)">🎤 Brancher Micro (Passe en Blanc)</button>
-              <button onclick="toggleMicro(false)">❌ Débrancher Micro (Revient en Vert)</button>
-            </div>
-          </div>
-
-          <div>
-            <label style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 0.4rem;">
-              4. Cycle d'Apprentissage IA :
-            </label>
-            <div class="btn-group">
-              <button onclick="sendState('THINKING', 'BLUE')">🔵 IA Réfléchit (Bleu)</button>
-              <button onclick="sendState('SPEAKING', 'PULSE')">🟣 IA Parle (Pulse)</button>
+              <button style="background:#ffffff; color:#0f172a; font-weight:700;" onclick="toggleTTS(true)">
+                ⚪ Démarrer Parole TTS (Blanc Clignotant)
+              </button>
+              <button onclick="toggleTTS(false)">
+                ✨ Arrêter Parole TTS (Retour Classe)
+              </button>
             </div>
           </div>
         </div>
@@ -829,13 +957,16 @@ def get_dashboard_html():
   <script>
     const logsEl = document.getElementById('console-logs');
     const ledGreen = document.getElementById('led-green-bulb');
-    const ledWhite = document.getElementById('led-white-bulb');
     const ledBlue = document.getElementById('led-blue-bulb');
+    const ledRed = document.getElementById('led-red-bulb');
+    const ledYellow = document.getElementById('led-yellow-bulb');
+    const ledWhite = document.getElementById('led-white-bulb');
+
     const connBadge = document.getElementById('conn-badge');
     const connText = document.getElementById('conn-text');
     const lblState = document.getElementById('lbl-state');
     const lblClass = document.getElementById('lbl-class');
-    const lblMic = document.getElementById('lbl-mic');
+    const lblLed = document.getElementById('lbl-led');
 
     function log(msg, colorClass = '') {
       const time = new Date().toLocaleTimeString();
@@ -846,10 +977,41 @@ def get_dashboard_html():
       logsEl.scrollTop = logsEl.scrollHeight;
     }
 
-    function updateLEDs(color) {
-      ledGreen.className = 'led-bulb' + (color === 'GREEN' ? ' active-green' : '');
-      ledWhite.className = 'led-bulb' + (color === 'WHITE' ? ' active-white' : '');
-      ledBlue.className = 'led-bulb' + (color === 'BLUE' || color === 'PULSE' ? ' active-blue' : '');
+    function updateLEDs(color, isSpeaking) {
+      // Réinitialiser toutes les LEDs
+      ledGreen.className = 'led-bulb';
+      ledBlue.className = 'led-bulb';
+      ledRed.className = 'led-bulb';
+      ledYellow.className = 'led-bulb';
+      ledWhite.className = 'led-bulb';
+
+      if (isSpeaking || color === 'WHITE_BLINK' || color === 'BLINK_WHITE' || color === 'WHITE') {
+        ledWhite.className = 'led-bulb blinking-white';
+        lblLed.textContent = 'BLANC (Clignotant TTS)';
+        lblLed.style.color = '#ffffff';
+        return;
+      }
+
+      if (color === 'GREEN') {
+        ledGreen.className = 'led-bulb active-green';
+        lblLed.textContent = 'VERT (Connecté)';
+        lblLed.style.color = '#4ade80';
+      } else if (color === 'BLUE') {
+        ledBlue.className = 'led-bulb active-blue';
+        lblLed.textContent = 'BLEU (10ème)';
+        lblLed.style.color = '#38bdf8';
+      } else if (color === 'RED') {
+        ledRed.className = 'led-bulb active-red';
+        lblLed.textContent = 'ROUGE (11ème)';
+        lblLed.style.color = '#f87171';
+      } else if (color === 'YELLOW') {
+        ledYellow.className = 'led-bulb active-yellow';
+        lblLed.textContent = 'JAUNE (12ème)';
+        lblLed.style.color = '#facc15';
+      } else {
+        lblLed.textContent = 'OFF';
+        lblLed.style.color = '#94a3b8';
+      }
     }
 
     function applyState(data) {
@@ -860,9 +1022,8 @@ def get_dashboard_html():
       
       lblState.textContent = data.state || 'DISCONNECTED';
       lblClass.textContent = data.selected_class || 'Non définie';
-      lblMic.textContent = data.mic_plugged ? 'Branché / Prêt' : 'Débranché';
 
-      updateLEDs(data.led);
+      updateLEDs(data.led, !!data.is_speaking);
     }
 
     // Connexion WebSocket
@@ -880,9 +1041,9 @@ def get_dashboard_html():
           const payload = JSON.parse(evt.data);
           if (payload.event === 'initial_state' || payload.event === 'state_changed') {
             applyState(payload.data);
-            log(`🔄 Synchronisation état: ${payload.data.state} | LED: ${payload.data.led}`, payload.data.led === 'WHITE' ? 'white' : 'green');
+            log(`🔄 État : ${payload.data.state} | Classe: ${payload.data.selected_class || '-'} | LED: ${payload.data.led}`);
           } else if (payload.event === 'esp32_connected') {
-            log("🟢 ESP32 physique s'est connecté au serveur ! LED Verte activée.", "green");
+            log("🟢 ESP32 physique connecté au serveur ! LED Verte activée.", "green");
             applyState(payload.data);
           } else if (payload.event === 'button_pressed') {
             log(`🔘 ${payload.message}`, "yellow");
@@ -909,17 +1070,17 @@ def get_dashboard_html():
     }
 
     async function selectClass(cls) {
-      log(`Sélection de la classe ${cls}...`, "white");
+      log(`Sélection classe ${cls} (sur device.alterniamali.com)...`, "blue");
       await fetch(`/api/esp32/select-class?classe=${cls}&mic_connected=true`, { method: 'POST' });
     }
 
-    async function toggleMicro(plugged) {
-      log(`Modification état micro : ${plugged ? 'Branché' : 'Débranché'}...`);
-      await fetch(`/api/esp32/toggle-mic?plugged=${plugged}`, { method: 'POST' });
+    async function toggleTTS(speaking) {
+      log(`Synthèse vocale TTS : ${speaking ? 'DÉMARRÉE (Blanc clignote)' : 'ARRÊTÉE (Retour classe)'}...`, "white");
+      await fetch(`/api/esp32/tts-speaking?speaking=${speaking}`, { method: 'POST' });
     }
 
     document.getElementById('btn-boot').onclick = async () => {
-      log("Simulation appui bouton BOOT...", "yellow");
+      log("🔘 Simulation appui bouton BOOT...", "yellow");
       await fetch('/api/esp32/simulate-press?button=boot', { method: 'POST' });
     };
 

@@ -16,6 +16,8 @@ pymysql>=1.1.0
 numpy<2.0.0
 scipy<1.14.0
 torch>=2.4.0
+torchvision>=0.19.0
+pillow>=10.2.0
 transformers>=4.46.0,<4.49.0
 sentence-transformers>=3.3.0
 huggingface-hub>=0.24.0,<0.28.0

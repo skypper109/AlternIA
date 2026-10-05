@@ -9,6 +9,14 @@ from PIL import Image
 import torch
 import torch.nn.functional as F
 
+import sys
+
+if __name__ == "__main__" and not __package__:
+    repo_root = Path(__file__).resolve().parents[2]
+    if str(repo_root) not in sys.path:
+        sys.path.insert(0, str(repo_root))
+    __package__ = "culturelens_ai.src"
+
 from .config import (
     MODEL_WEIGHTS_PATH,
     INDEX_PATH,
@@ -128,7 +136,9 @@ class CultureLensRecognizer:
         prototypes = self.prototypes
 
         # Prétraitement et inférence
-        tensor = self.transform(pil_image).unsqueeze(0).to(self.device)
+        img_tensor = self.transform(pil_image)
+        assert isinstance(img_tensor, torch.Tensor)
+        tensor = img_tensor.unsqueeze(0).to(self.device)
 
         with torch.no_grad():
             query_emb = model(tensor)  # [1, 576] normalisé L2

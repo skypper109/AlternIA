@@ -6,12 +6,20 @@ import sys
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
-sys.path.insert(0, str(BASE_DIR))
+REPO_ROOT = BASE_DIR.parent
+
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+if str(BASE_DIR) not in sys.path:
+    sys.path.insert(0, str(BASE_DIR))
 
 try:
-    from .src.recognizer import CultureLensRecognizer
-except (ImportError, ValueError):
-    from src.recognizer import CultureLensRecognizer
+    from culturelens_ai.src.recognizer import CultureLensRecognizer
+except ImportError:
+    try:
+        from src.recognizer import CultureLensRecognizer
+    except ImportError:
+        from .src.recognizer import CultureLensRecognizer
 
 
 def format_bar(confidence: float, width: int = 30) -> str:

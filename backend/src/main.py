@@ -40,6 +40,10 @@ from backend.src.routes import (
 
 
 
+from backend.src.routes.esp32_routes import manager as esp32_manager
+from backend.src.middlewares.esp32_access_middleware import ESP32AccessControlMiddleware
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialise la base de données alta_db et précharge les moteurs au démarrage."""
@@ -81,6 +85,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Contrôle d'accès exclusif : device.alterniamali.com n'est accessible que connecté au Point d'Accès ESP32
+app.add_middleware(ESP32AccessControlMiddleware, esp32_manager=esp32_manager)
 
 
 @app.middleware("http")

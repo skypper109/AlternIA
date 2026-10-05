@@ -67,5 +67,6 @@ def preprocess_image_file(image_path: Path, device: str = "cpu") -> torch.Tensor
     """Charge et prépare une image quelconque pour l'inférence par le modèle."""
     image = Image.open(image_path).convert("RGB")
     transform = get_inference_transform()
-    tensor = transform(image).unsqueeze(0).to(device)
-    return tensor
+    tensor_img = transform(image)
+    assert isinstance(tensor_img, torch.Tensor)
+    return tensor_img.unsqueeze(0).to(device)

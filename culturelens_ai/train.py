@@ -5,14 +5,21 @@ import argparse
 import sys
 from pathlib import Path
 
-# Ajout du chemin racine pour imports
 BASE_DIR = Path(__file__).resolve().parent
-sys.path.insert(0, str(BASE_DIR))
+REPO_ROOT = BASE_DIR.parent
+
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+if str(BASE_DIR) not in sys.path:
+    sys.path.insert(0, str(BASE_DIR))
 
 try:
-    from .src.trainer import train_and_index_monuments
-except (ImportError, ValueError):
-    from src.trainer import train_and_index_monuments
+    from culturelens_ai.src.trainer import train_and_index_monuments
+except ImportError:
+    try:
+        from src.trainer import train_and_index_monuments
+    except ImportError:
+        from .src.trainer import train_and_index_monuments
 
 
 def main():

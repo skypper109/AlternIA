@@ -100,6 +100,8 @@ export class AlternIAApp {
           this.vortex.setState('IDLE', 'Prêt à répondre');
           if (this.modalVortex) this.modalVortex.setState('IDLE', 'Prêt à répondre');
         }
+        // Synchronisation temps réel avec l'ESP32 : LED Blanche clignotante pendant le TTS
+        fetch(`/api/esp32/tts-speaking?speaking=${isSpeaking ? 'true' : 'false'}`, { method: 'POST' }).catch(() => {});
       },
       onAnalyserReady: (analyser) => {
         this.vortex.setAudioAnalyser(analyser);
@@ -483,8 +485,11 @@ export class AlternIAApp {
       this.audio.speakText(`Tu as sélectionné la ${vocalLabels[classId]}.`);
     }
 
-    // Synchronisation immédiate avec l'ESP32 (Actionne la LED Blanche si micro prêt)
+    // Synchronisation immédiate sur le canal ESP32 : 10ème -> BLEU, 11ème -> ROUGE, 12ème -> JAUNE
+    // Canal 1 : Via l'API Cloud (WebSocket /ws/esp32)
     fetch(`/api/esp32/select-class?classe=${encodeURIComponent(classId)}&mic_connected=true`, { method: 'POST' }).catch(() => {});
+    // Canal 2 : Directement sur l'ESP32 en local (192.168.4.1) si connecté à son Wi-Fi SoftAP
+    fetch(`http://192.168.4.1/api/select-class?classe=${encodeURIComponent(classId)}`, { mode: 'no-cors' }).catch(() => {});
   }
 
 

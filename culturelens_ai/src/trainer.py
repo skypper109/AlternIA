@@ -7,6 +7,14 @@ from PIL import Image
 import torch
 import torch.nn.functional as F
 
+import sys
+
+if __name__ == "__main__" and not __package__:
+    repo_root = Path(__file__).resolve().parents[2]
+    if str(repo_root) not in sys.path:
+        sys.path.insert(0, str(repo_root))
+    __package__ = "culturelens_ai.src"
+
 from .config import (
     REFERENCE_DIR,
     MODEL_WEIGHTS_PATH,
@@ -94,7 +102,9 @@ def train_and_index_monuments(
                     print(f"⚠️ Erreur lors du chargement de {img_path}: {e}")
                     continue
 
-                raw_tensor = inf_transform(pil_img).unsqueeze(0).to(device)
+                transformed_img = inf_transform(pil_img)
+                assert isinstance(transformed_img, torch.Tensor)
+                raw_tensor = transformed_img.unsqueeze(0).to(device)
                 raw_emb = model(raw_tensor)  # [1, 576]
                 monument_embeddings.append(raw_emb)
                 all_embeddings_list.append(raw_emb)
@@ -172,3 +182,7 @@ def train_and_index_monuments(
         "total_samples": total_samples,
         "index_path": str(INDEX_PATH),
     }
+
+
+if __name__ == "__main__":
+    train_and_index_monuments()
