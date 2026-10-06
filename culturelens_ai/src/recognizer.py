@@ -191,20 +191,24 @@ class CultureLensRecognizer:
 
         # Facteur géographique optionnel
         geo_bonus = 0.0
+        d_km = None
         if user_coords and "coords" in meta_best:
             try:
                 mon_lat, mon_lon = meta_best["coords"]
                 u_lat, u_lon = user_coords
                 # Distance euclidienne approximative (1 degré ~ 111 km)
                 d_km = ((mon_lat - u_lat)**2 + (mon_lon - u_lon)**2)**0.5 * 111.0
-                if d_km < 5.0:
-                    geo_bonus = 0.05
-                elif d_km < 25.0:
-                    geo_bonus = 0.02
+                if d_km < 3.0:
+                    geo_bonus = 0.08
+                elif d_km < 10.0:
+                    geo_bonus = 0.04
+                elif d_km > 30.0:
+                    # L'utilisateur est géographiquement trop éloigné de ce monument
+                    geo_bonus = -0.15
             except Exception:
                 pass
 
-        # Calibrage robuste et continu de la confiance (aucun seuil négatif brutal)
+        # Calibrage robuste et continu de la confiance
         cos_sim = float(best_match["cosine_similarity"])
         margin = max(0.0, float(cos_sim - top_matches[1]["cosine_similarity"])) if len(top_matches) > 1 else 0.15
         softmax_conf = float(best_match["confidence"])
@@ -212,9 +216,13 @@ class CultureLensRecognizer:
         # Confiance globale : 70% similarité cosinus directe + 20% probabilité relative softmax + 10% marge
         calibrated_conf = min(0.999, max(0.0, 0.70 * cos_sim + 0.20 * softmax_conf + 0.10 * min(1.0, margin * 4) + geo_bonus))
 
-        # Seuil minimal de matching strict : au moins 45% (0.45)
-        min_threshold = confidence_threshold
-        is_identified = (calibrated_conf >= min_threshold) and (cos_sim >= 0.45)
+        # Seuil strict pour éviter les faux positifs (selfies, visages, objets hors patrimoine) :
+        # - Cosine similarity minimale : 0.65 (ou 0.58 si prouvé à moins de 3 km par le GPS)
+        # - Si distance > 30 km ou inconnue : seuil élevé de 0.68
+        if d_km is not None and d_km <= 3.0:
+            is_identified = (cos_sim >= 0.58) and (calibrated_conf >= 0.60)
+        else:
+            is_identified = (cos_sim >= 0.68) and (calibrated_conf >= 0.65)
 
         inference_time_ms = round((time.perf_counter() - start_time) * 1000, 2)
 

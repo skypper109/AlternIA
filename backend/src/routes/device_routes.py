@@ -148,9 +148,14 @@ async def rag_analyze_exercise(
     image: Optional[UploadFile] = File(None),
 ):
     """
-    Analyse un exercice ou problème scolaire (texte ou photo via OCR) et génère des indices socratiques progressifs
-    alignés sur le programme officiel du Mali (10ème, 11ème, 12ème Terminale).
+    Analyse approfondie d'un exercice ou problème scolaire scanné :
+    1. Extraction de texte par OCR haute fidélité (Apple Vision / fallback).
+    2. Détection de lisibilité : rejet explicite si l'image est floue ou vide.
+    3. Détection de conformité au programme : rejet immédiat des reçus de transaction, tickets financiers et documents non académiques.
+    4. Détection dynamique de la vraie matière scolaire (Maths, Physique-Chimie, SVT, Français, Philo, Histoire-Géo).
+    5. Analyse détaillée des procédures et décomposition socratique de résolution pas-à-pas alignée sur le programme du Mali.
     """
+    import re
     from backend.src.services.ocr_service import perform_ocr_on_image
     from alternia.pedagogical.curriculum_keywords import detect_malian_curriculum_subject
 
@@ -159,58 +164,221 @@ async def rag_analyze_exercise(
     
     extracted_text = (text or "").strip()
 
-    # Traitement OCR si une image est transmise
+    # 1. Traitement OCR si une image est transmise
     if image and image.filename:
         try:
             image_bytes = await image.read()
             if image_bytes:
                 ocr_result = perform_ocr_on_image(image_bytes, filename=image.filename)
-                if ocr_result:
-                    extracted_text = ocr_result.strip() if not extracted_text else f"{extracted_text} " + ocr_result.strip()
+                if ocr_result and ocr_result.strip():
+                    extracted_text = ocr_result.strip() if not extracted_text else f"{extracted_text}\n" + ocr_result.strip()
         except Exception as ocr_err:
             print(f"[OCR Error] {ocr_err}")
 
-    # Détection automatique de la matière si non fournie
-    detected_sub = detect_malian_curriculum_subject(extracted_text) if extracted_text else None
-    effective_subject = subject or detected_sub or "Général"
-    subj = effective_subject.capitalize()
+    # 2. Vérification de lisibilité
+    clean_text = extracted_text.strip()
+    if not clean_text or len(clean_text) < 18:
+        return {
+            "status": "unreadable",
+            "is_valid": False,
+            "subject": "Illisible",
+            "class": student_class,
+            "topic": "Image non exploitable",
+            "extracted_text": clean_text,
+            "message": "Le document ou la photo scannée est illisible ou ne contient aucun texte d'exercice exploitable. Assurez-vous de bien éclairer la feuille et de photographier l'énoncé de près.",
+            "hints": [],
+        }
 
-    # Aperçu de l'énoncé pour personnaliser les indices
-    snippet = (extracted_text[:120] + "...") if len(extracted_text) > 120 else (extracted_text or f"Exercice de {subj}")
+    norm_text = clean_text.lower()
 
-    # Décomposition Socratique Pédagogique enrichie par le texte extrait
+    # 3. Détection des documents hors programme scolaire (ex: reçus de paiement, tickets, cartes, factures)
+    financial_receipt_terms = [
+        "transaction", "montant", "frais", "fcfa", "xof", "cfa", "solde",
+        "ref bill", "reçu de", "recu de", "ticket de caisse", "retrait", "dépôt", "depot",
+        "orange money", "wave", "moov money", "sama money", "facture",
+        "carte sim", "numéro de téléphone", "numero de telephone", "carte d'identité",
+        "permis de conduire", "passeport", "bancaire", "virement", "guichet"
+    ]
+    academic_exercise_indicators = [
+        "exercice", "problème", "probleme", "devoir", "question", "calculer",
+        "démontrer", "demontrer", "montrer que", "justifier", "déterminer", "determiner",
+        "résoudre", "resoudre", "équation", "equation", "fonction", "théorème", "theoreme",
+        "formule", "suite", "intégrale", "integrale", "dérivée", "derivee", "vecteur",
+        "vitesse", "accélération", "acceleration", "force", "tension", "courant",
+        "chimie", "atome", "molécule", "molecule", "acide", "base", "ph", "solution",
+        "cellule", "adn", "génétique", "genetique", "chromosome", "svt", "biologie",
+        "dissertation", "commentaire", "texte", "strophe", "auteur", "philosophie",
+        "histoire", "géographie", "geographie", "siècle", "siecle", "empire", "mali"
+    ]
+
+    non_acad_matches = sum(1 for term in financial_receipt_terms if term in norm_text)
+    acad_matches = sum(1 for term in academic_exercise_indicators if term in norm_text)
+    detected_raw_sub = detect_malian_curriculum_subject(clean_text)
+
+    # Si le document contient des marqueurs financiers/reçus sans contexte d'exercice
+    if non_acad_matches >= 2 and acad_matches == 0 and not detected_raw_sub:
+        return {
+            "status": "not_curriculum",
+            "is_valid": False,
+            "subject": "Document non académique",
+            "class": student_class,
+            "topic": "Reçu ou document financier",
+            "extracted_text": clean_text,
+            "message": "Ce document ne correspond pas au programme scolaire malien (reçu de paiement, ticket financier ou document non académique détecté). Veuillez scanner une page de manuel ou un exercice de cours (Mathématiques, Physique-Chimie, SVT, Français, etc.).",
+            "hints": [],
+        }
+
+    # Si le texte extrait ne comporte aucun vocabulaire scolaire ni matière identifiable
+    if acad_matches == 0 and not detected_raw_sub and len(clean_text) > 40:
+        return {
+            "status": "not_curriculum",
+            "is_valid": False,
+            "subject": "Non reconnu",
+            "class": student_class,
+            "topic": "Hors programme scolaire",
+            "extracted_text": clean_text,
+            "message": "Le texte détecté ne semble pas être un énoncé d'exercice ou de cours conforme au programme du lycée. Assurez-vous de cadrer directement l'exercice à résoudre.",
+            "hints": [],
+        }
+
+    # 4. Identification dynamique de la vraie matière scolaire
+    subject_display_names = {
+        "biologie": "SVT / Biologie",
+        "chimie": "Physique-Chimie",
+        "physique": "Physique-Chimie",
+        "mathematiques": "Mathématiques",
+        "philosophie": "Philosophie",
+        "histoire-geographie": "Histoire-Géographie",
+        "francais": "Français",
+        "anglais": "Anglais",
+        "economie": "Économie",
+    }
+    
+    true_subject = None
+    if detected_raw_sub in subject_display_names:
+        true_subject = subject_display_names[detected_raw_sub]
+    elif detected_raw_sub:
+        true_subject = detected_raw_sub.capitalize()
+    elif subject and subject.strip().lower() not in {"général", "general", "non défini"}:
+        true_subject = subject.strip()
+    else:
+        # Détection heuristique
+        if any(w in norm_text for w in ["f(x)", "intégrale", "dérivée", "équation", "suite", "triangle", "cos", "sin", "matrice", "probabilité"]):
+            true_subject = "Mathématiques"
+        elif any(w in norm_text for w in ["newton", "force", "masse", "vitesse", "acide", "base", "ph", "solution", "circuit", "tension", "ampère"]):
+            true_subject = "Physique-Chimie"
+        elif any(w in norm_text for w in ["cellule", "chromosome", "allèle", "adn", "plante", "chlorophylle", "sol", "roche"]):
+            true_subject = "SVT / Biologie"
+        elif any(w in norm_text for w in ["conscience", "inconscient", "liberté", "morale", "justice", "vérité"]):
+            true_subject = "Philosophie"
+        else:
+            true_subject = "Mathématiques"
+
+    # 5. Détection du thème ou chapitre spécifique de l'exercice
+    detected_topic = "Résolution méthodique"
+    if "suite" in norm_text:
+        detected_topic = "Suites numériques & Récurrence"
+    elif "f(x)" in norm_text or "dériv" in norm_text or "limite" in norm_text:
+        detected_topic = "Étude de fonctions & Dérivation"
+    elif "complex" in norm_text or "imaginaire" in norm_text:
+        detected_topic = "Nombres complexes & Géométrie"
+    elif "probab" in norm_text:
+        detected_topic = "Probabilités & Dénombrement"
+    elif "newton" in norm_text or "force" in norm_text or "accélér" in norm_text:
+        detected_topic = "Mécanique & Lois de Newton"
+    elif "acide" in norm_text or "base" in norm_text or "ph" in norm_text:
+        detected_topic = "Réactions acido-basiques & Dosage"
+    elif "circuit" in norm_text or "rlc" in norm_text or "condensateur" in norm_text:
+        detected_topic = "Électrocinétique & Circuits"
+    elif "généti" in norm_text or "mendel" in norm_text or "chromosom" in norm_text:
+        detected_topic = "Génétique mendélienne & Hérédité"
+    elif "cellul" in norm_text or "mitose" in norm_text:
+        detected_topic = "Biologie cellulaire & Division"
+    elif "conscien" in norm_text or "libert" in norm_text:
+        detected_topic = "La Conscience et la Liberté"
+
+    # 6. Extraction des éléments clés (nombres, grandeurs, questions de l'exercice)
+    found_numbers = re.findall(r"\b\d+(?:[.,]\d+)?\b", clean_text)
+    numbers_snippet = ", ".join(found_numbers[:4]) if found_numbers else "Données littérales"
+
+    first_sentence = clean_text.split("\n")[0][:100]
+
+    # Construction des 4 étapes détaillées spécifiques à l'énoncé
     hints = [
         {
             "step": 1,
             "type": "observation",
-            "text": f"Observons attentivement l'énoncé identifié en {subj} : '{snippet}'. Repère les grandeurs données, les unités physiques ou théorèmes mentionnés.",
-            "question": "Quelles sont les données clés explicites et ce que la consigne te demande exactement de calculer ou d'expliquer ?",
+            "title": f"Étape 1 • Observation & Données ({true_subject})",
+            "text": (
+                f"Analysons minutieusement l'énoncé scanné : « {first_sentence}… ».\n"
+                f"• Données et grandeurs identifiées : {numbers_snippet}.\n"
+                f"• Thématique dominante : {detected_topic}."
+            ),
+            "content": (
+                f"Analysons minutieusement l'énoncé scanné : « {first_sentence}… ».\n"
+                f"• Données et grandeurs identifiées : {numbers_snippet}.\n"
+                f"• Thématique dominante : {detected_topic}."
+            ),
+            "question": "Quelles sont les données connues et quelle est la grandeur ou conclusion exacte demandée par la consigne ?",
         },
         {
             "step": 2,
             "type": "conceptual",
-            "text": f"Rappelle-toi des définitions et théorèmes fondamentaux du programme malien de {student_class} en {subj}.",
-            "question": "Quelle formule maîtresse, loi ou propriété du cours correspond précisément à ce type d'exercice ?",
+            "title": f"Étape 2 • Théorèmes & Formules ({true_subject})",
+            "text": (
+                f"Mobilisons les fondamentaux du programme officiel malien de {student_class} en {true_subject}.\n"
+                f"Pour traiter le thème '{detected_topic}', rappelle-toi des définitions clés, relations maîtresses et conditions d'application requises."
+            ),
+            "content": (
+                f"Mobilisons les fondamentaux du programme officiel malien de {student_class} en {true_subject}.\n"
+                f"Pour traiter le thème '{detected_topic}', rappelle-toi des définitions clés, relations maîtresses et conditions d'application requises."
+            ),
+            "question": "Quelle formule maîtresse ou propriété de cours relie directement les données fournies à l'inconnue ?",
         },
         {
             "step": 3,
             "type": "procedural",
-            "text": "Applique la démarche méthodique : isole l'inconnue littéralement avant de faire l'application numérique avec les unités appropriées.",
-            "question": "Quelle relation littérale intermédiaire obtiens-tu ?",
+            "title": f"Étape 3 • Procédure de résolution méthodique",
+            "text": (
+                f"Procédure pas-à-pas pour cet exercice :\n"
+                f"1. Pose l'équation ou la relation littérale sans remplacer prématurément par les valeurs numériques.\n"
+                f"2. Isole méthodiquement la grandeur recherchée.\n"
+                f"3. Vérifie l'homogénéité dimensionnelle et effectue l'application numérique avec les unités du système international."
+            ),
+            "content": (
+                f"Procédure pas-à-pas pour cet exercice :\n"
+                f"1. Pose l'équation ou la relation littérale sans remplacer prématurément par les valeurs numériques.\n"
+                f"2. Isole méthodiquement la grandeur recherchée.\n"
+                f"3. Vérifie l'homogénéité dimensionnelle et effectue l'application numérique avec les unités du système international."
+            ),
+            "question": "Quelle relation littérale intermédiaire obtiens-tu avant l'application numérique ?",
         },
         {
             "step": 4,
             "type": "solution",
-            "text": "Examine la cohérence de ton ordre de grandeur et de ton unité. Encadre ton résultat final avec sa justification rigoureuse.",
-            "question": "Ta conclusion répond-elle intégralement à la question posée dans l'exercice ?",
+            "title": f"Étape 4 • Résolution finale & Vérification",
+            "text": (
+                f"Synthèse et validation du résultat :\n"
+                f"• Analyse critique : vérifie si l'ordre de grandeur est cohérent avec le cadre physique ou mathématique.\n"
+                f"• Rédaction : encadre ton résultat final avec son unité exacte et une phrase explicative rigoureuse."
+            ),
+            "content": (
+                f"Synthèse et validation du résultat :\n"
+                f"• Analyse critique : vérifie si l'ordre de grandeur est cohérent avec le cadre physique ou mathématique.\n"
+                f"• Rédaction : encadre ton résultat final avec son unité exacte et une phrase explicative rigoureuse."
+            ),
+            "question": "Ton résultat final répond-il complètement à toutes les questions posées dans l'énoncé ?",
         },
     ]
 
     return {
         "status": "success",
-        "subject": subj,
+        "is_valid": True,
+        "subject": true_subject,
         "class": student_class,
-        "extracted_text": extracted_text,
+        "topic": detected_topic,
+        "extracted_text": clean_text,
+        "message": f"Exercice analysé avec succès en {true_subject} ({detected_topic}).",
         "hints": hints,
     }
 
