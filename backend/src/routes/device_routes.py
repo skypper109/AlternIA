@@ -177,7 +177,7 @@ async def rag_analyze_exercise(
 
     # 2. Vérification de lisibilité
     clean_text = extracted_text.strip()
-    if not clean_text or len(clean_text) < 18:
+    if not clean_text or len(clean_text) < 4:
         return {
             "status": "unreadable",
             "is_valid": False,
@@ -214,6 +214,12 @@ async def rag_analyze_exercise(
     non_acad_matches = sum(1 for term in financial_receipt_terms if term in norm_text)
     acad_matches = sum(1 for term in academic_exercise_indicators if term in norm_text)
     detected_raw_sub = detect_malian_curriculum_subject(clean_text)
+
+    # Détection si c'est une équation ou formule mathématique / scientifique
+    is_math_formula = bool(re.search(r"(=|<|>|\+|\-|\*|/|\^|\bx\b|\by\b|\bz\b|f\(x\)|lim|sqrt|cos|sin|tan)", clean_text, re.IGNORECASE))
+    if is_math_formula and not detected_raw_sub:
+        detected_raw_sub = "mathematiques"
+        acad_matches += 1
 
     # Si le document contient des marqueurs financiers/reçus sans contexte d'exercice
     if non_acad_matches >= 2 and acad_matches == 0 and not detected_raw_sub:

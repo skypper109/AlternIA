@@ -189,7 +189,7 @@ class CultureLensRecognizer:
         best_id = best_match["monument_id"]
         meta_best = self.labels_meta.get(best_id, BAMAKO_MONUMENTS.get(best_id, {}))
 
-        # Facteur géographique optionnel
+        # Facteur géographique optionnel (confirmation sur site uniquement, JAMAIS de pénalité)
         geo_bonus = 0.0
         d_km = None
         if user_coords and "coords" in meta_best:
@@ -199,12 +199,10 @@ class CultureLensRecognizer:
                 # Distance euclidienne approximative (1 degré ~ 111 km)
                 d_km = ((mon_lat - u_lat)**2 + (mon_lon - u_lon)**2)**0.5 * 111.0
                 if d_km < 3.0:
-                    geo_bonus = 0.08
+                    geo_bonus = 0.05
                 elif d_km < 10.0:
-                    geo_bonus = 0.04
-                elif d_km > 30.0:
-                    # L'utilisateur est géographiquement trop éloigné de ce monument
-                    geo_bonus = -0.15
+                    geo_bonus = 0.02
+                # AUCUN MALUS si l'utilisateur est éloigné : on peut scanner une carte postale ou un livre
             except Exception:
                 pass
 
@@ -216,13 +214,13 @@ class CultureLensRecognizer:
         # Confiance globale : 70% similarité cosinus directe + 20% probabilité relative softmax + 10% marge
         calibrated_conf = min(0.999, max(0.0, 0.70 * cos_sim + 0.20 * softmax_conf + 0.10 * min(1.0, margin * 4) + geo_bonus))
 
-        # Seuil strict pour éviter les faux positifs (selfies, visages, objets hors patrimoine) :
-        # - Cosine similarity minimale : 0.65 (ou 0.58 si prouvé à moins de 3 km par le GPS)
-        # - Si distance > 30 km ou inconnue : seuil élevé de 0.68
+        # Seuil d'identification strict contre les faux positifs (visages, bruits, objets quelconques) :
+        # Tout objet hors monument obtient une similarité < 0.35
+        # Un monument valide obtient cos_sim >= 0.62 et calibrated_conf >= 0.45
         if d_km is not None and d_km <= 3.0:
-            is_identified = (cos_sim >= 0.58) and (calibrated_conf >= 0.60)
+            is_identified = (cos_sim >= 0.55) and (calibrated_conf >= 0.45)
         else:
-            is_identified = (cos_sim >= 0.68) and (calibrated_conf >= 0.65)
+            is_identified = (cos_sim >= 0.62) and (calibrated_conf >= 0.45)
 
         inference_time_ms = round((time.perf_counter() - start_time) * 1000, 2)
 

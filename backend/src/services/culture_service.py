@@ -348,8 +348,8 @@ class CultureService:
                 confidence = 0.988
                 print(f"\033[36m   💡 [CultureLens Hint]\033[0m Hint ID appliqué directement : {matched_monument.nom}")
 
-        # Cas 2 : Recherche par mots-clés ou nom de fichier
-        if not matched_monument and (keywords or image_name):
+        # Cas 2 : Recherche par mots-clés ou nom de fichier (uniquement si AUCUNE image transmise)
+        if not matched_monument and not image_base64 and (keywords or image_name):
             search_terms = []
             if keywords:
                 search_terms.extend([k.lower().strip() for k in keywords])
@@ -357,13 +357,16 @@ class CultureService:
                 cleaned_name = image_name.lower().replace("_", " ").replace("-", " ")
                 search_terms.extend(cleaned_name.split())
 
+            stopwords = {"photo", "image", "camera", "picker", "scaled", "jpeg", "jpg", "png", "webp", "bamako", "mali"}
+            filtered_terms = [t for t in search_terms if len(t) >= 3 and t not in stopwords]
+
             best_score = 0
             best_candidate = None
             for m in all_monuments:
                 m_score = 0
                 m_text = f"{m.nom} {m.sous_titre} {m.ville} {m.mots_cles_json}".lower()
-                for term in search_terms:
-                    if len(term) >= 3 and term in m_text:
+                for term in filtered_terms:
+                    if term in m_text:
                         m_score += 1
 
                 if m_score > best_score:
@@ -377,30 +380,20 @@ class CultureService:
                     confidence = kw_conf
                     print(f"\033[36m   🔎 [Mots-Clés]\033[0m Correspondance lexicale trouvée : {matched_monument.nom} ({kw_conf*100:.1f}%)")
 
-        # Cas 3 : Croisement géospatial (Proximité GPS si autorisée)
+        # Cas 3 : Calcul de la distance géospatiale (strictement pour métadonnées et validation)
+        # RÈGLE ABSOLUE : Le GPS ne doit JAMAIS se substituer à la vision ni forcer un monument si l'image ne correspond pas.
+        # La reconnaissance visuelle neuronale est souveraine.
         estimated_distance_km: Optional[float] = None
-        if latitude is not None and longitude is not None:
-            closest_m: Optional[CultureMonument] = None
-            min_dist = float("inf")
-            for m in all_monuments:
-                dist = _calculate_haversine_distance_km(latitude, longitude, m.latitude, m.longitude)
-                if dist < min_dist:
-                    min_dist = dist
-                    closest_m = m
-
-            if min_dist < 5.0 and closest_m:  # Moins de 5 km d'un monument connu
-                # Renforce la confiance géospatiale
-                if not matched_monument:
-                    matched_monument = closest_m
-                    confidence = 0.92
-                    print(f"\033[36m   📍 [GPS Proximité]\033[0m À {min_dist:.2f} km de {closest_m.nom}")
-                elif matched_monument.id == closest_m.id:
-                    confidence = min(0.996, confidence + 0.03)
-
-            if matched_monument:
-                estimated_distance_km = _calculate_haversine_distance_km(
-                    latitude, longitude, matched_monument.latitude, matched_monument.longitude
-                )
+        if latitude is not None and longitude is not None and matched_monument:
+            estimated_distance_km = round(_calculate_haversine_distance_km(
+                latitude, longitude, matched_monument.latitude, matched_monument.longitude
+            ), 2)
+            # Si l'utilisateur est physiquement devant le monument reconnu (< 3 km), bonus de confirmation sur site
+            if estimated_distance_km < 3.0:
+                confidence = min(0.996, confidence + 0.03)
+                print(f"\033[36m   📍 [GPS Sur Site]\033[0m L'utilisateur est physiquement devant {matched_monument.nom} ({estimated_distance_km} km)")
+            else:
+                print(f"\033[36m   📍 [GPS Distance]\033[0m À {estimated_distance_km} km de {matched_monument.nom} (scan d'une photo / guide)")
 
         dt_total = time.perf_counter() - t_start
 
