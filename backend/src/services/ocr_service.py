@@ -129,7 +129,7 @@ def perform_ocr_on_image(image_bytes: bytes, filename: str = "document.jpg") -> 
 
         # 2. Fallback Tesseract si disponible
         try:
-            import pytesseract
+            import pytesseract  # type: ignore
             from PIL import Image
             img = Image.open(tmp_path)
             text = pytesseract.image_to_string(img, lang="fra+eng")
