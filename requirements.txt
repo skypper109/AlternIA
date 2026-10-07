@@ -33,6 +33,7 @@ simli-ai>=2.0.0
 # Ingestion & Traitement Documents
 pymupdf>=1.24.0
 pypdf>=5.0.0
+pytesseract>=0.3.10
 
 # Base Vectorielle
 qdrant-client>=1.11.0

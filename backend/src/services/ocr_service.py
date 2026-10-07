@@ -127,17 +127,51 @@ def perform_ocr_on_image(image_bytes: bytes, filename: str = "document.jpg") -> 
             except Exception as e:
                 logger.warning(f"Note Apple Vision OCR : {e}")
 
-        # 2. Fallback Tesseract si disponible
+        # 2. Support direct pour fichiers PDF (via PyMuPDF / fitz déjà installé)
+        if filename.lower().endswith(".pdf") or image_bytes.startswith(b"%PDF"):
+            try:
+                import fitz  # PyMuPDF
+                doc = fitz.open(stream=image_bytes, filetype="pdf")
+                pdf_texts = [page.get_text() for page in doc]
+                extracted_pdf = "\n".join(pdf_texts).strip()
+                if extracted_pdf:
+                    logger.info(f"✅ OCR/Extraction PDF réussie ({len(extracted_pdf)} car.)")
+                    return extracted_pdf
+            except Exception as pdf_err:
+                logger.warning(f"Note extraction PDF : {pdf_err}")
+
+        # 3. Fallback Tesseract multi-langues avec dégradation gracieuse
         try:
             import pytesseract  # type: ignore
             from PIL import Image
             img = Image.open(tmp_path)
-            text = pytesseract.image_to_string(img, lang="fra+eng")
-            if text.strip():
-                return text.strip()
+            
+            # Essayer d'abord fra+eng, puis fra, puis eng, puis défaut système
+            for lang_opt in ["fra+eng", "fra", "eng", None]:
+                try:
+                    kwargs = {"lang": lang_opt} if lang_opt else {}
+                    text = pytesseract.image_to_string(img, **kwargs)
+                    if text and text.strip():
+                        logger.info(f"✅ OCR Tesseract réussi (lang={lang_opt}, {len(text.strip())} car.)")
+                        return text.strip()
+                except Exception:
+                    continue
+        except Exception as tess_err:
+            logger.warning(f"Note Tesseract OCR : {tess_err}")
+
+        # 4. Fallback EasyOCR si installé
+        try:
+            import easyocr  # type: ignore
+            reader = easyocr.Reader(['fr', 'en'], gpu=True)
+            results = reader.readtext(tmp_path, detail=0)
+            text_easy = " ".join(results).strip()
+            if text_easy:
+                logger.info(f"✅ OCR EasyOCR réussi ({len(text_easy)} car.)")
+                return text_easy
         except Exception:
             pass
 
+        logger.warning("⚠️ Aucun texte extrait : vérifiez que tesseract-ocr (apt) et pytesseract (pip) sont installés sur le serveur Linux.")
         return ""
     finally:
         if os.path.exists(tmp_path):
