@@ -27,11 +27,20 @@ body {
   background-color: var(--bg-deep);
   color: #1E293B;
   font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  height: 100vh;
-  width: 100vw;
-  overflow: hidden;
+  min-height: 100vh;
+  min-height: 100dvh;
+  width: 100%;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
+}
+
+@media (min-width: 1024px) {
+  html,
+  body {
+    height: 100vh;
+    overflow: hidden;
+  }
 }
 
 /* ── Ambiance Lumineuse Délicate (Premium Gradient) ──────────── */
@@ -96,18 +105,33 @@ body {
   background: rgba(49, 73, 153, 0.3);
 }
 
-/* ── 1. Topbar Épurée ─────────────────────────────────────── */
+/* ── 1. Topbar Épurée & Responsive ────────────────────────── */
 .kiosk-topbar {
   position: relative;
-  z-index: 10;
+  z-index: 20;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 28px;
-  background: rgba(253, 251, 247, 0.85);
+  padding: 12px 24px;
+  background: rgba(253, 251, 247, 0.92);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+  gap: 12px;
+}
+
+.kiosk-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.kiosk-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   flex-shrink: 0;
 }
 
@@ -115,12 +139,12 @@ body {
 .class-selector-group {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   background: #FFFFFF;
   border: 1px solid var(--color-border);
-  padding: 5px 8px;
+  padding: 4px 6px;
   border-radius: 9999px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
 }
 
 .class-tab-btn {
@@ -128,26 +152,28 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 8px 24px;
+  padding: 6px 18px;
   border-radius: 9999px;
   border: 1px solid transparent;
   background: transparent;
   color: #64748B;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  text-align: center;
+  white-space: nowrap;
 }
 
 .class-tab-btn:hover {
   color: #1E293B;
   background: rgba(49, 73, 153, 0.04);
-  transform: translateY(-2px);
+  transform: translateY(-1px);
 }
 
 .class-tab-btn.class-tab--active {
   background: linear-gradient(135deg, #314999 0%, #0284C7 100%);
   color: #FFFFFF;
   border-color: rgba(255, 255, 255, 0.2);
-  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.4);
+  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.35);
   transform: scale(1.02);
 }
 
@@ -164,8 +190,8 @@ body {
 }
 
 .kiosk-icon-btn {
-  width: 40px;
-  height: 40px;
+  width: 38px;
+  height: 38px;
   border-radius: 12px;
   background: rgba(0, 0, 0, 0.03);
   border: 1px solid var(--color-border);
@@ -174,11 +200,13 @@ body {
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s;
+  flex-shrink: 0;
 }
 
 .kiosk-icon-btn:hover {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.8);
   transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 /* ── 2. Corps Principal Kiosk (Voice-First) ────────────────── */
@@ -194,13 +222,203 @@ body {
   min-height: 0;
 }
 
-@media (max-width: 900px) {
+/* Canvas & Vidéo Avatar */
+.avatar-canvas {
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Mobile Topbar & Layout (< 768px) */
+@media (max-width: 767px) {
+  .kiosk-topbar {
+    padding: 8px 12px;
+    padding-top: max(8px, env(safe-area-inset-top));
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .kiosk-brand {
+    order: 1;
+  }
+
+  .kiosk-controls {
+    order: 2;
+    gap: 5px;
+  }
+
+  .kiosk-icon-btn {
+    width: 34px;
+    height: 34px;
+  }
+
+  .kiosk-icon-btn svg {
+    width: 17px;
+    height: 17px;
+  }
+
+  .class-selector-group {
+    order: 3;
+    width: 100%;
+    margin-top: 2px;
+    padding: 3px;
+    gap: 3px;
+    border-radius: 14px;
+  }
+
+  .class-tab-btn {
+    flex: 1;
+    padding: 5px 2px;
+    border-radius: 11px;
+    min-width: 0;
+  }
+
+  .class-tab-badge {
+    font-size: 12px;
+  }
+
+  .class-tab-sub {
+    font-size: 8.5px;
+    letter-spacing: -0.2px;
+  }
+
   .kiosk-body {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto 1fr;
-    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 10px 12px;
     height: auto;
-    overflow-y: auto;
+    min-height: calc(100dvh - 120px);
+    overflow-y: visible;
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
+
+  .avatar-speaker-column {
+    padding: 16px 14px !important;
+    border-radius: 24px !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+  }
+
+  .avatar-canvas-wrapper,
+  .avatar-canvas {
+    width: 130px !important;
+    height: 130px !important;
+  }
+
+  .status-live-pill {
+    padding: 3px 10px !important;
+    font-size: 11px !important;
+    bottom: -6px !important;
+  }
+
+  #alta-avatar-name {
+    font-size: 16px !important;
+  }
+
+  .kiosk-mic-btn {
+    width: 64px !important;
+    height: 64px !important;
+  }
+
+  .kiosk-mic-btn svg {
+    width: 26px !important;
+    height: 26px !important;
+  }
+
+  #mic-instruction-label {
+    margin-top: 6px !important;
+    font-size: 10.5px !important;
+  }
+
+  .speech-display-column {
+    height: auto !important;
+    min-height: 360px !important;
+    flex: 1;
+  }
+
+  .speech-bubble-card {
+    padding: 16px 14px !important;
+    border-radius: 24px !important;
+    min-height: 240px !important;
+  }
+
+  .speech-card-header {
+    padding-bottom: 10px !important;
+    margin-bottom: 12px !important;
+  }
+
+  .speech-content-area {
+    font-size: 0.98rem !important;
+    line-height: 1.6 !important;
+    padding-right: 4px !important;
+  }
+
+  .kiosk-input-bar {
+    padding: 5px 8px !important;
+    border-radius: 14px !important;
+    margin-top: 4px !important;
+  }
+
+  .kiosk-input {
+    font-size: 16px !important; /* Empêche le zoom auto d'iOS Safari */
+    padding: 8px 8px !important;
+  }
+
+  .kiosk-send-btn {
+    width: 40px !important;
+    height: 40px !important;
+    border-radius: 12px !important;
+  }
+  
+  .kiosk-send-btn svg {
+    width: 18px !important;
+    height: 18px !important;
+  }
+}
+
+/* Tablet Portrait & Small Screens (768px - 1023px) */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .kiosk-topbar {
+    padding: 10px 18px;
+    gap: 8px;
+  }
+
+  .class-tab-btn {
+    padding: 6px 12px;
+  }
+
+  .class-tab-badge {
+    font-size: 12.5px;
+  }
+
+  .kiosk-body {
+    grid-template-columns: 260px 1fr;
+    gap: 16px;
+    padding: 16px 20px;
+    height: calc(100dvh - 80px);
+  }
+
+  .avatar-speaker-column {
+    padding: 24px 16px;
+    border-radius: 28px;
+  }
+
+  .avatar-canvas-wrapper,
+  .avatar-canvas {
+    width: 160px !important;
+    height: 160px !important;
+  }
+
+  .kiosk-mic-btn {
+    width: 72px !important;
+    height: 72px !important;
+  }
+
+  .speech-bubble-card {
+    padding: 22px 24px;
+    border-radius: 28px;
   }
 }
 

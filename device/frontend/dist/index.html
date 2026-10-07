@@ -49,11 +49,11 @@
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
 
   <!-- Styles personnalisés épurés Kiosk -->
-  <script type="module" crossorigin src="./assets/index-DsVvdA7B.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-CWMuXM0Y.css">
+  <script type="module" crossorigin src="./assets/index-kmd9MZwX.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-BVVIlUww.css">
 </head>
 
-<body class="bg-[#FDFBF7] text-slate-800 font-display min-h-screen flex flex-col justify-between overflow-hidden select-none">
+<body class="bg-[#FDFBF7] text-slate-800 font-display min-h-screen flex flex-col select-none">
 
   <!-- Arrière-plan lumineux d'ambiance -->
   <div class="ambient-glow-layer">
@@ -65,9 +65,9 @@
        1. EN-TÊTE : LOGO + SÉLECTION RAPIDE DE CLASSE (10e / 11e / Terminale)
        ========================================================================= -->
   <header class="kiosk-topbar">
-    <div class="flex items-center gap-3">
-      <img src="assets/Alternia.svg" alt="AlternIA" class="h-9 w-auto object-contain rounded-lg shadow-sm">
-      <span class="text-lg font-bold text-[#314999] tracking-tight">AlternIA</span>
+    <div class="kiosk-brand flex items-center gap-2.5 sm:gap-3">
+      <img src="assets/Alternia.svg" alt="AlternIA" class="h-8 sm:h-9 w-auto object-contain rounded-lg shadow-sm">
+      <span class="text-base sm:text-lg font-bold text-[#314999] tracking-tight">AlternIA</span>
     </div>
 
     <!-- Sélecteur de Classe Minimaliste Direct (10ème, 11ème, Terminale) -->
@@ -87,7 +87,7 @@
     </div>
 
     <!-- Contrôles Épurés : Avatar / Son / Reset -->
-    <div class="flex items-center gap-2">
+    <div class="kiosk-controls flex items-center gap-1.5 sm:gap-2">
       <button id="btn-show-avatar" class="kiosk-icon-btn text-indigo-500" title="Écouter la présentation de l'Enseignant">
         <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
       </button>
@@ -119,7 +119,7 @@
       
       <div class="avatar-canvas-wrapper cursor-pointer" id="alta-vortex-hub" title="Toucher pour écouter la présentation du professeur">
         <!-- Vidéo MP4 Haute Définition (LivePortrait / SadTalker) -->
-        <video id="alta-avatar-video" class="hidden avatar-canvas rounded-full shadow-[0_0_30px_rgba(2,132,199,0.35)] object-cover w-[220px] h-[220px] ring-2 ring-cyan-500/40" playsinline></video>
+        <video id="alta-avatar-video" class="hidden avatar-canvas rounded-full shadow-[0_0_30px_rgba(2,132,199,0.35)] object-cover ring-2 ring-cyan-500/40" playsinline></video>
         <!-- Canvas pour l'Avatar 2.5D Haute Définition avec Visèmes et cercles FFT -->
         <canvas id="main-animated-logo-canvas" width="220" height="220" class="avatar-canvas"></canvas>
         <div class="status-live-pill" id="status-pill">
@@ -168,7 +168,7 @@
             <span class="text-xs font-bold uppercase tracking-wider text-[#314999]" id="teacher-header-label">Explication Pédagogique</span>
           </div>
 
-          <span class="text-[11px] text-slate-400 font-mono" id="rag-source-badge">
+          <span class="text-[11px] text-slate-400 font-mono truncate max-w-[150px] sm:max-w-[260px] md:max-w-none inline-block" id="rag-source-badge" title="Source du programme officiel">
             Programme Officiel du Mali
           </span>
         </div>
@@ -252,15 +252,15 @@
     </div>
 
     <!-- Corps Principal en 2 Colonnes : Gauche = Avatar (Vrai Carré Plein Espace) | Droite = Transcription -->
-    <div class="flex-1 w-full grid grid-cols-1 lg:grid-cols-12 gap-5 my-3 min-h-0 overflow-hidden items-stretch">
+    <div class="flex-1 w-full grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-5 my-2 sm:my-3 min-h-0 overflow-y-auto lg:overflow-hidden items-stretch">
       
       <!-- =========================================================================
            COLONNE GAUCHE : AVATAR VIDÉO / CANVAS (VRAI CARRÉ PLEIN CADRE) & MICROPHONE (~42%)
            ========================================================================= -->
-      <div class="lg:col-span-5 flex flex-col justify-between bg-white border border-slate-200/90 rounded-3xl p-4 md:p-5 shadow-sm min-h-0 overflow-hidden">
+      <div class="lg:col-span-5 flex flex-col justify-between bg-white border border-slate-200/90 rounded-2xl sm:rounded-3xl p-3 sm:p-5 shadow-sm min-h-0 overflow-hidden">
         
         <!-- Boîte Avatar : Vrai Carré Immersif Occupant Tout Son Espace -->
-        <div class="relative w-full flex-1 min-h-[300px] rounded-2xl md:rounded-3xl overflow-hidden bg-slate-950 border border-slate-200/90 shadow-inner group" id="modal-avatar-wrapper">
+        <div class="relative w-full flex-1 min-h-[170px] sm:min-h-[240px] lg:min-h-[300px] rounded-xl sm:rounded-3xl overflow-hidden bg-slate-950 border border-slate-200/90 shadow-inner group" id="modal-avatar-wrapper">
           <video id="modal-avatar-video" class="absolute inset-0 w-full h-full object-cover object-top z-20 opacity-0 transition-opacity duration-500" autoplay playsinline muted></video>
           <audio id="simli-audio" autoplay hidden muted></audio>
           <canvas id="modal-avatar-canvas" width="720" height="720" class="absolute inset-0 w-full h-full object-cover z-10"></canvas>
