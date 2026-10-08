@@ -131,8 +131,8 @@ def perform_ocr_on_image(image_bytes: bytes, filename: str = "document.jpg") -> 
         if filename.lower().endswith(".pdf") or image_bytes.startswith(b"%PDF"):
             try:
                 import fitz  # PyMuPDF
-                doc = fitz.open(stream=image_bytes, filetype="pdf")
-                pdf_texts = [page.get_text() for page in doc]
+                with fitz.open(stream=image_bytes, filetype="pdf") as doc:
+                    pdf_texts = [str(page.get_text()) for page in doc]
                 extracted_pdf = "\n".join(pdf_texts).strip()
                 if extracted_pdf:
                     logger.info(f"✅ OCR/Extraction PDF réussie ({len(extracted_pdf)} car.)")
