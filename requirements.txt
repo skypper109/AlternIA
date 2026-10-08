@@ -34,6 +34,7 @@ simli-ai>=2.0.0
 pymupdf>=1.24.0
 pypdf>=5.0.0
 pytesseract>=0.3.10
+easyocr>=1.7.0
 
 # Base Vectorielle
 qdrant-client>=1.11.0
