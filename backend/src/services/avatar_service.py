@@ -633,7 +633,20 @@ async def generate_avatar_video(
             is_gpu_accelerated = service.is_available()
 
         if not generated_video:
-            raise HTTPException(status_code=500, detail="Échec de la génération vidéo de l'avatar.")
+            logger.warning("[AvatarService] Génération vidéo Simli non disponible, bascule automatique sur fallback audio.")
+            audio_filename = f"audio_fallback_{int(asyncio.get_event_loop().time())}.mp3"
+            local_target_audio = LOCAL_VIDEOS_DIR / audio_filename
+            shutil.copy2(str(temp_audio_path), str(local_target_audio))
+            return {
+                "status": "fallback_audio",
+                "video_url": None,
+                "audio_url": f"/api/avatars/videos/{audio_filename}",
+                "phrase": text_to_speak,
+                "voice": chosen_voice,
+                "nom": nom_prof,
+                "matiere": matiere_nom,
+                "message": "Vidéo Simli temporairement indisponible, rendu vocal instantané.",
+            }
 
         video_path = Path(generated_video)
         video_filename = video_path.name

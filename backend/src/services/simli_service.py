@@ -38,8 +38,9 @@ def _patch_pyav_for_experimental_codecs():
             _pyav_strict_patched = True
             return
 
-        if hasattr(av.container, "OutputContainer") and hasattr(av.container.OutputContainer, "add_stream"):
-            _orig_add_stream = av.container.OutputContainer.add_stream
+        container_mod = getattr(av, "container", None)
+        if container_mod and hasattr(container_mod, "OutputContainer") and hasattr(container_mod.OutputContainer, "add_stream"):
+            _orig_add_stream = container_mod.OutputContainer.add_stream
 
             def _safe_add_stream(self_cont, *args, **kwargs):
                 if len(args) >= 3:
@@ -55,7 +56,7 @@ def _patch_pyav_for_experimental_codecs():
 
                 return _orig_add_stream(self_cont, *args, **kwargs)
 
-            av.container.OutputContainer.add_stream = _safe_add_stream
+            container_mod.OutputContainer.add_stream = _safe_add_stream
 
         if hasattr(av, "open"):
             _orig_av_open = av.open
@@ -123,7 +124,10 @@ class SimliBackendService:
         face_id: Optional[str] = None,
         max_duration: int = 60
     ) -> Optional[str]:
-        """Génère un fichier vidéo MP4 synchronisé avec les lèvres de l'avatar Simli."""
+        """Génère un fichier vidéo MP4 synchronisé avec les lèvres de l'avatar Simli (avec cache MD5 local)."""
+        import hashlib
+        import shutil
+
         pcm_bytes = self.convert_audio_to_pcm16(audio_path)
         if not pcm_bytes:
             return None
@@ -132,6 +136,21 @@ class SimliBackendService:
         target_output = Path(output_path)
         target_output.parent.mkdir(parents=True, exist_ok=True)
 
+        # ── 1. Cache Local Instantané (si la phrase a déjà été générée) ───────────
+        cached_file: Optional[Path] = None
+        try:
+            audio_hash = hashlib.md5(pcm_bytes).hexdigest()
+            cache_dir = Path(__file__).resolve().parent / ".simli_cache"
+            cache_dir.mkdir(parents=True, exist_ok=True)
+            cached_file = cache_dir / f"simli_{target_face_id[:8]}_{audio_hash}.mp4"
+            if cached_file.exists() and cached_file.stat().st_size > 1000:
+                shutil.copy2(cached_file, target_output)
+                logger.info(f"⚡ [SimliBackendService] Vidéo récupérée instantanément du cache : {target_output.name}")
+                return str(target_output)
+        except Exception as cache_err:
+            logger.debug(f"Note vérification cache Simli : {cache_err}")
+
+        # ── 2. Génération en direct via l'API Simli ────────────────────────────────
         try:
             _patch_pyav_for_experimental_codecs()
 
@@ -145,26 +164,38 @@ class SimliBackendService:
                 maxSessionLength=max_duration,
                 maxIdleTime=10,
             )
-            async with SimliClient(
-                api_key=self.api_key,
-                config=simli_config,
-            ) as connection:
-                await connection.send(pcm_bytes)
-                # On force 'aac' pour l'audio au lieu de 'vorbis' afin d'éviter les codecs expérimentaux dans MP4
-                renderer = FileRenderer(
-                    client=connection,
-                    filename=str(target_output),
-                    videoCodec="h264",
-                    audioCodec="aac",
-                )
-                await renderer.render()
+
+            async def _render_simli():
+                async with SimliClient(
+                    api_key=self.api_key,
+                    config=simli_config,
+                ) as connection:
+                    await connection.send(pcm_bytes)
+                    renderer = FileRenderer(
+                        client=connection,
+                        filename=str(target_output),
+                        videoCodec="h264",
+                        audioCodec="aac",
+                    )
+                    await renderer.render()
+
+            # Timeout de sécurité de 35s pour ne pas bloquer le serveur
+            await asyncio.wait_for(_render_simli(), timeout=35.0)
 
             if target_output.exists() and target_output.stat().st_size > 1000:
                 # Transcodage immédiat en MP4 H.264/AAC avec faststart pour iOS & Android
                 self.transcode_to_ios_compatible_mp4(str(target_output), str(target_output))
+                # Sauvegarde dans le cache local
+                if cached_file is not None:
+                    try:
+                        shutil.copy2(target_output, cached_file)
+                    except Exception:
+                        pass
                 logger.info(f"✅ [SimliBackendService] Vidéo Simli générée et optimisée avec succès : {target_output.name}")
                 return str(target_output)
 
+        except asyncio.TimeoutError:
+            logger.warning("⏱️ [SimliBackendService] Délai dépassé lors du rendu vidéo Simli (timeout 35s).")
         except ImportError as err:
             logger.warning(f"Package 'simli-ai' ou dépendance manquante (av, etc.) : {err}")
         except Exception as e:
