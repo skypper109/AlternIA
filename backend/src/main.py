@@ -39,6 +39,8 @@ from backend.src.routes import (
     duel_router,
     podcast_router,
     sync_router,
+    flashcard_router,
+    grin_router,
 )
 
 
@@ -122,6 +124,8 @@ app.include_router(culture_router)
 app.include_router(duel_router)
 app.include_router(podcast_router)
 app.include_router(sync_router)
+app.include_router(flashcard_router)
+app.include_router(grin_router)
 
 
 

@@ -18,6 +18,8 @@ from backend.src.routes.culture_routes import router as culture_router
 from backend.src.routes.duel_routes import router as duel_router
 from backend.src.routes.podcast_routes import router as podcast_router
 from backend.src.routes.sync_routes import router as sync_router
+from backend.src.routes.flashcard_routes import router as flashcard_router
+from backend.src.routes.grin_routes import router as grin_router
 
 __all__ = [
     "chat_router",
@@ -37,4 +39,6 @@ __all__ = [
     "duel_router",
     "podcast_router",
     "sync_router",
+    "flashcard_router",
+    "grin_router",
 ]
