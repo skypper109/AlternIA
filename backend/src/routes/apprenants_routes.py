@@ -92,6 +92,8 @@ def api_gamification_stats(eleve_nom: str = "Diallo", classe: str = "TSS", db: S
         "streak_label": f"{streak_days}j",
         "xp": total_xp,
         "xp_label": f"{total_xp:,}".replace(",", " "),
+        "coins": 240,
+        "coins_label": "240",
         "seances": total_seances,
         "seances_label": f"{total_seances}",
         "subjects_progress": subjects_progress,
