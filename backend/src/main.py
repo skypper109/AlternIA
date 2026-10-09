@@ -37,6 +37,7 @@ from backend.src.routes import (
     esp32_router,
     culture_router,
     duel_router,
+    podcast_router,
 )
 
 
@@ -118,6 +119,7 @@ app.include_router(revision_router)
 app.include_router(esp32_router)
 app.include_router(culture_router)
 app.include_router(duel_router)
+app.include_router(podcast_router)
 
 
 
