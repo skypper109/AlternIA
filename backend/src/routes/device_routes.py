@@ -31,8 +31,7 @@ def health():
         "application": "AlternIA",
         "version": "1.0.0",
         "rag_ready": state.rag_ready,
-        "rag_chunks_count": state.chunks_count,
-        "llm_model": "Qwen 2.5 3B Instruct (GGUF Local)",
+        "llm_model": f"Qwen 2.5 ({state.model_name}) (GGUF Local)" if getattr(state, "model_name", None) else "Qwen 2.5 1.5B Instruct (GGUF Local)",
         "default_class": settings.default_class,
     }
 

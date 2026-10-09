@@ -46,6 +46,7 @@ class DuelCreateRoomRequest(BaseModel):
     creator_name: str
     class_level: str = "12eme"
     subject: str = "Mathématiques"
+    count: int = 5
     student_id: Optional[str] = None
 
 
@@ -66,6 +67,7 @@ class DuelMatchmakeRequest(BaseModel):
     player_name: str
     class_level: str = "12eme"
     subject: str = "Mathématiques"
+    count: int = 5
     player_id: Optional[str] = None
 
 
@@ -153,6 +155,29 @@ MALIAN_CURRICULUM_BANK: Dict[str, Dict[str, List[Dict[str, Any]]]] = {
                 "tip": "N'oublie jamais le double produit '2ab' !",
             },
         ],
+        "def": [
+            {
+                "question": "Pour calculer le PGCD de deux entiers naturels non nuls, quelle méthode classique utilise des divisions euclidiennes successives ?",
+                "options": ["L'algorithme d'Euclide", "Le crible d'Ératosthène", "La méthode des moindres carrés", "Le binôme de Newton"],
+                "correct_index": 0,
+                "explanation": "L'algorithme d'Euclide repose sur la division euclidienne répétée jusqu'à obtenir un reste nul.",
+                "tip": "Le dernier reste non nul de l'algorithme d'Euclide est le PGCD.",
+            },
+            {
+                "question": "Quelle est la valeur de (3/4) + (2/3) sous forme de fraction irréductible ?",
+                "options": ["17/12", "5/7", "5/12", "1"],
+                "correct_index": 0,
+                "explanation": "On met au même dénominateur 12 : 9/12 + 8/12 = 17/12.",
+                "tip": "Trouve toujours le PPCM des dénominateurs avant d'additionner des fractions.",
+            },
+            {
+                "question": "Dans un repère, que représente le point d'intersection des médianes d'un triangle ?",
+                "options": ["Le centre de gravité", "L'orthocentre", "Le centre du cercle circonscrit", "Le centre du cercle inscrit"],
+                "correct_index": 0,
+                "explanation": "Les trois médianes d'un triangle sont concourantes en un point appelé centre de gravité (G).",
+                "tip": "AG = 2/3 AA' où A' est le milieu de [BC].",
+            },
+        ],
     },
     "Physique-Chimie": {
         "12eme": [
@@ -170,13 +195,6 @@ MALIAN_CURRICULUM_BANK: Dict[str, Dict[str, List[Dict[str, Any]]]] = {
                 "explanation": "Un acide de Brönsted est toute espèce susceptible de libérer un proton H+.",
                 "tip": "Acide = Cède (Donneur de H+), Base = Capte (Receveur de H+).",
             },
-            {
-                "question": "Quelle est la période propre T0 d'un pendule élastique composé d'une masse m et d'un ressort de raideur k ?",
-                "options": ["T0 = 2π √(m/k)", "T0 = 2π √(k/m)", "T0 = 2π √(l/g)", "T0 = 1 / (2π) √(m/k)"],
-                "correct_index": 0,
-                "explanation": "La formule de la période propre du pendule élastique non amorti est T0 = 2π √(m/k).",
-                "tip": "Mnémo : 'm' en haut comme Masse, 'k' en bas comme raideur du ressort.",
-            },
         ],
         "11eme": [
             {
@@ -192,6 +210,31 @@ MALIAN_CURRICULUM_BANK: Dict[str, Dict[str, List[Dict[str, Any]]]] = {
                 "correct_index": 0,
                 "explanation": "L'énergie et le travail mécanique s'expriment en Joules (J). 1 J = 1 N · m.",
                 "tip": "Le Watt est l'unité de puissance (Joule par seconde).",
+            },
+        ],
+        "10eme": [
+            {
+                "question": "Quel gaz entretient la combustion lors du test de la bûchette incandescente ?",
+                "options": ["Le dioxygène (O₂)", "Le diazote (N₂)", "Le dihydrogène (H₂)", "Le dioxyde de carbone (CO₂)"],
+                "correct_index": 0,
+                "explanation": "Le dioxygène rallume une bûchette incandescente, prouvant qu'il est le comburant par excellence.",
+                "tip": "Test au CO₂ = trouble l'eau de chaux ; test à l'O₂ = rallume la flamme.",
+            },
+        ],
+        "def": [
+            {
+                "question": "Quelle formule relie le poids P d'un corps à sa masse m et à l'intensité de pesanteur g au Mali ?",
+                "options": ["P = m · g", "P = m / g", "P = m + g", "P = 1/2 m · g²"],
+                "correct_index": 0,
+                "explanation": "Le poids d'un corps s'exprime par P = m · g où P est en Newtons, m en kg et g ≈ 9,8 N/kg.",
+                "tip": "Attention : la masse m ne change jamais, le poids P varie selon l'astre.",
+            },
+            {
+                "question": "Quelle est la formule chimique de l'eau pure ?",
+                "options": ["H₂O", "CO₂", "NaCl", "O₂"],
+                "correct_index": 0,
+                "explanation": "La molécule d'eau est composée de 2 atomes d'hydrogène et 1 atome d'oxygène : H₂O.",
+                "tip": "Notion fondamentale de chimie au DEF malien.",
             },
         ],
     },
@@ -212,6 +255,40 @@ MALIAN_CURRICULUM_BANK: Dict[str, Dict[str, List[Dict[str, Any]]]] = {
                 "tip": "Bêta = Insuline (baisse du sucre), Alpha = Glucagon (hausse du sucre).",
             },
         ],
+        "11eme": [
+            {
+                "question": "Dans quel organite cellulaire se réalise la respiration cellulaire produisant l'ATP ?",
+                "options": ["La mitochondrie", "Le chloroplaste", "Le réticulum", "Le lysosome"],
+                "correct_index": 0,
+                "explanation": "La mitochondrie est la centrale énergétique de la cellule eucaryote.",
+                "tip": "Chloroplaste = photosynthèse végétale, Mitochondrie = respiration aérobie.",
+            },
+        ],
+        "10eme": [
+            {
+                "question": "Quelle est l'unité de base structurale et fonctionnelle de tous les êtres vivants ?",
+                "options": ["La cellule", "Le tissu", "L'atome", "L'organe"],
+                "correct_index": 0,
+                "explanation": "Selon la théorie cellulaire, la cellule est la plus petite unité vivante autonome.",
+                "tip": "Tout être vivant est composé d'une ou plusieurs cellules.",
+            },
+        ],
+        "def": [
+            {
+                "question": "Quelles cellules sanguines sont responsables de la défense immunitaire de l'organisme ?",
+                "options": ["Les globules blancs (leucocytes)", "Les globules rouges (hématies)", "Les plaquettes", "Le plasma"],
+                "correct_index": 0,
+                "explanation": "Les leucocytes (globules blancs) détectent, combattent et éliminent les agents pathogènes.",
+                "tip": "Hématies = transport d'O₂, Leucocytes = immunité et défense.",
+            },
+            {
+                "question": "Comment s'appelle l'agent pathogène responsable du paludisme transmis par l'anophèle femelle ?",
+                "options": ["Le Plasmodium falciparum", "Le bacille de Koch", "Le virus VIH", "L'amibe"],
+                "correct_index": 0,
+                "explanation": "Le paludisme est causé par un parasite protozoaire du genre Plasmodium.",
+                "tip": "Question très fréquente aux épreuves de SVT du DEF au Mali.",
+            },
+        ],
     },
     "Histoire-Géo": {
         "12eme": [
@@ -230,6 +307,85 @@ MALIAN_CURRICULUM_BANK: Dict[str, Dict[str, List[Dict[str, Any]]]] = {
                 "tip": "Patrimoine immatériel mondial inscrit à l'UNESCO.",
             },
         ],
+        "11eme": [
+            {
+                "question": "Qui était le chef suprême du royaume bambara de Ségou qui a fondé la dynastie des Coulibaly ?",
+                "options": ["Biton Coulibaly (Mamadou)", "Ngolo Diarra", "Da Monzon", "Bakari Dian"],
+                "correct_index": 0,
+                "explanation": "Biton Coulibaly a unifié les 'Tondjons' pour fonder l'État puissant de Ségou au 18e siècle.",
+                "tip": "Grande figure de l'histoire malienne et des royaumes précoloniaux.",
+            },
+        ],
+        "10eme": [
+            {
+                "question": "Quel fleuve d'Afrique de l'Ouest long de 4 200 km forme la grande boucle du Niger au Mali ?",
+                "options": ["Le fleuve Niger (Djoliba)", "Le fleuve Sénégal (Bafing)", "La Volta", "Le Nil"],
+                "correct_index": 0,
+                "explanation": "Le Niger traverse le Mali du Sud-Ouest au Nord-Est avant de redescendre vers le Nigeria.",
+                "tip": "Le Djoliba irrigue l'Office du Niger, grenier agricole du Mali.",
+            },
+        ],
+        "def": [
+            {
+                "question": "Quel empereur a fondé l'Empire du Mali après sa victoire légendaire à la bataille de Kirina en 1235 ?",
+                "options": ["Soundiata Keïta", "Kankou Moussa", "Soumaoro Kanté", "Askia Mohammed"],
+                "correct_index": 0,
+                "explanation": "Soundiata Keïta a vaincu le roi Sosso Soumaoro Kanté à Kirina en 1235 et a unifié le Mandé.",
+                "tip": "Thème central du programme d'Histoire en 9ème Année (DEF).",
+            },
+            {
+                "question": "Quelle est la capitale économique et administrative de la République du Mali ?",
+                "options": ["Bamako", "Sikasso", "Ségou", "Mopti"],
+                "correct_index": 0,
+                "explanation": "Bamako, située sur les rives du fleuve Niger, est la capitale et plus grande métropole du Mali.",
+                "tip": "Bamako signifie 'marigot du crocodile' en bambara.",
+            },
+        ],
+    },
+    "Français": {
+        "def": [
+            {
+                "question": "Dans la phrase : 'Les élèves écoutent attentivement le professeur', quelle est la fonction du mot 'attentivement' ?",
+                "options": ["Complément circonstanciel de manière", "Complément d'objet direct", "Attribut du sujet", "Épithète"],
+                "correct_index": 0,
+                "explanation": "L'adverbe 'attentivement' indique la manière dont l'action est accomplie : c'est un CC de manière.",
+                "tip": "Les adverbes en -ment expriment très souvent la manière.",
+            },
+            {
+                "question": "Quel accord fait-on pour le participe passé employé avec l'auxiliaire 'avoir' ?",
+                "options": ["Il s'accorde avec le COD seulement si celui-ci est placé avant le verbe", "Il s'accorde toujours avec le sujet", "Il ne s'accorde jamais", "Il s'accorde avec le COI"],
+                "correct_index": 0,
+                "explanation": "Règle d'or de grammaire au DEF : accord avec le COD antéposé uniquement.",
+                "tip": "Exemple : Les leçons que j'ai apprises (COD 'que' placé avant).",
+            },
+        ],
+        "12eme": [
+            {
+                "question": "Quelle figure de style consiste à remplacer un mot par une expression qui le définit (ex: 'La Ville des Trois Caïmans' pour Bamako) ?",
+                "options": ["La périphrase", "La métonymie", "L'oxymore", "L'anaphore"],
+                "correct_index": 0,
+                "explanation": "La périphrase remplace un terme unique par une locution descriptive équivalente.",
+                "tip": "Classique de l'épreuve de littérature et commentaire au Bac malien.",
+            },
+        ],
+    },
+    "Éducation Civique & Morale": {
+        "def": [
+            {
+                "question": "Quelle est la devise nationale officielle de la République du Mali inscrite dans la Constitution ?",
+                "options": ["Un Peuple - Un But - Une Foi", "Travail - Justice - Solidarité", "Liberté - Égalité - Fraternité", "Paix - Progrès - Vérité"],
+                "correct_index": 0,
+                "explanation": "La devise de la République du Mali est : 'Un Peuple - Un But - Une Foi'.",
+                "tip": "Inscrite sur tous les sceaux et armoiries officiels du Mali.",
+            },
+            {
+                "question": "Quelles sont les trois couleurs du drapeau national de la République du Mali, de gauche à droite ?",
+                "options": ["Vert - Or (Jaune) - Rouge", "Rouge - Jaune - Vert", "Bleu - Blanc - Rouge", "Vert - Blanc - Vert"],
+                "correct_index": 0,
+                "explanation": "Le drapeau malien est un tricolore à bandes verticales : Vert (espoir, agriculture), Or (richesses minières), Rouge (sang versé pour la liberté).",
+                "tip": "Vert - Jaune - Rouge : symbole panafricain de souveraineté.",
+            },
+        ],
     },
     "Philosophie": {
         "12eme": [
@@ -246,6 +402,71 @@ MALIAN_CURRICULUM_BANK: Dict[str, Dict[str, List[Dict[str, Any]]]] = {
                 "correct_index": 0,
                 "explanation": "Socrate démontre que la conscience de sa propre ignorance est le véritable point de départ de la sagesse.",
                 "tip": "La maïeutique est l'art de faire accoucher les esprits.",
+            },
+        ],
+    },
+    "Sociologie Générale": {
+        "tss": [
+            {
+                "question": "Quel est le principe méthodologique fondateur d'Émile Durkheim dans 'Les Règles de la méthode sociologique' ?",
+                "options": ["Traiter les faits sociaux comme des choses", "Privilégier uniquement l'introspection individuelle", "Expliquer le social par la biologie", "Refuser toute enquête statistique"],
+                "correct_index": 0,
+                "explanation": "Durkheim établit que les faits sociaux doivent être analysés objectivement comme des réalités extérieures s'imposant aux individus.",
+                "tip": "Notion essentielle au Baccalauréat malien en série TSS.",
+            },
+            {
+                "question": "Comment s'appelle le processus par lequel l'individu intériorise les normes et valeurs de sa société tout au long de sa vie ?",
+                "options": ["La socialisation", "L'assimilation forcée", "L'anomie", "L'individualisation"],
+                "correct_index": 0,
+                "explanation": "La socialisation est le mécanisme central de transmission culturelle et de construction de l'identité sociale.",
+                "tip": "Distinguer socialisation primaire (enfance/famille) et secondaire (école/travail).",
+            },
+        ],
+    },
+    "Droit & Institutions": {
+        "tss": [
+            {
+                "question": "Quel philosophe a théorisé la séparation des pouvoirs (exécutif, législatif, judiciaire) pour prévenir la tyrannie ?",
+                "options": ["Montesquieu", "Jean-Jacques Rousseau", "Thomas Hobbes", "Machiavel"],
+                "correct_index": 0,
+                "explanation": "Dans 'De l'esprit des lois' (1748), Montesquieu affirme que 'pour qu'on ne puisse abuser du pouvoir, il faut que le pouvoir arrête le pouvoir'.",
+                "tip": "Pilier du droit constitutionnel et des institutions démocratiques.",
+            },
+            {
+                "question": "Quelle est la norme juridique suprême au sommet de la hiérarchie des normes (pyramide de Kelsen) dans un État de droit ?",
+                "options": ["La Constitution", "Le décret présidentiel", "La loi ordinaire", "La coutume locale"],
+                "correct_index": 0,
+                "explanation": "La Constitution est la loi fondamentale de l'État : toute loi ou règlement doit impérativement lui être conforme.",
+                "tip": "La Cour Constitutionnelle veille au respect de cette conformité.",
+            },
+        ],
+    },
+    "Science Politique": {
+        "tss": [
+            {
+                "question": "Selon la définition célèbre de Max Weber, que possède l'État sur un territoire déterminé ?",
+                "options": ["Le monopole de la violence physique légitime", "Le contrôle total des entreprises privées", "L'obligation d'un parti unique", "La propriété de toutes les terres"],
+                "correct_index": 0,
+                "explanation": "L'État est la seule autorité reconnue comme ayant le droit légitime d'user de la contrainte et de la force publique.",
+                "tip": "Définition classique incontournable en science politique.",
+            },
+            {
+                "question": "Quelle confédération géopolitique et de souveraineté a été formée en 2023 par le Mali, le Burkina Faso et le Niger ?",
+                "options": ["L'Alliance des États du Sahel (AES)", "La CEDEAO", "L'Union du Fleuve Mano", "L'Organisation de l'Unité Saharienne"],
+                "correct_index": 0,
+                "explanation": "L'AES mutualise la sécurité, la diplomatie et l'intégration économique pour la souveraineté collective des peuples sahéliens.",
+                "tip": "Sujet d'actualité géopolitique majeure au programme malien.",
+            },
+        ],
+    },
+    "Économie": {
+        "tss": [
+            {
+                "question": "Qu'est-ce que le Produit Intérieur Brut (PIB) ?",
+                "options": ["La valeur monétaire totale des biens et services finaux produits dans un pays en un an", "La somme des exportations uniquement", "Le total des recettes fiscales de l'État", "Le montant des aides financières extérieures"],
+                "correct_index": 0,
+                "explanation": "Le PIB mesure la richesse économique créée sur le territoire national durant une année civile.",
+                "tip": "Indicateur macroéconomique de référence pour mesurer la croissance.",
             },
         ],
     },
@@ -395,21 +616,32 @@ async def generate_ai_duel_questions(subject: str, class_level: str, count: int 
             "et épreuves du Mali. Ta réponse doit être STRICTEMENT du JSON sans aucun texte hors JSON."
         )
 
-        # Appel LLM client de l'orchestrateur
-        raw_response = orch.llm_client.generate(
-            prompt=prompt,
-            system_prompt=system_prompt,
-            temperature=0.6,
-            max_tokens=1500,
-        )
+        # Appel LLM client asynchrone non-bloquant avec garde-fou temporel
+        import asyncio
+        try:
+            raw_response = await asyncio.wait_for(
+                asyncio.to_thread(
+                    orch.llm_client.generate,
+                    prompt=prompt,
+                    system_prompt=system_prompt,
+                    temperature=0.3,
+                    max_tokens=min(count * 120 + 80, 650),
+                ),
+                timeout=35.0,
+            )
+        except asyncio.TimeoutError:
+            print(f"⏱️ [DuelRoutes] Délai IA dépassé (35s) pour {subject} ({class_level}). Utilisation banque certifiée.")
+            return get_curriculum_fallback_questions(subject, class_level, count)
 
         # Extraction JSON robuste
         if raw_response and ("{" in raw_response):
-            json_match = re.search(r"\{.*\}", raw_response, re.DOTALL)
+            cleaned_text = re.sub(r"//.*", "", raw_response)
+            cleaned_text = re.sub(r",\s*([\]}])", r"\1", cleaned_text)
+            json_match = re.search(r"\{[\s\S]*\}", cleaned_text)
             if json_match:
-                data = json.loads(json_match.group(0))
+                data = json.loads(json_match.group(0), strict=False)
                 raw_qs = data.get("questions", [])
-                if isinstance(raw_qs, list) and len(raw_qs) >= 3:
+                if isinstance(raw_qs, list) and len(raw_qs) >= min(count, 3):
                     parsed_questions = []
                     for idx, q in enumerate(raw_qs[:count]):
                         opts = q.get("options", [])
@@ -427,7 +659,7 @@ async def generate_ai_duel_questions(subject: str, class_level: str, count: int 
                                     "tip": str(q.get("tip", "Astuce AlterniA pour le Bac.")).strip(),
                                     "source": "ia_alternia_direct",
                                 })
-                    if len(parsed_questions) >= 3:
+                    if len(parsed_questions) >= min(count, 3):
                         return parsed_questions
     except Exception as e:
         print(f"⚠️ [DuelRoutes] Exception génération IA : {e}. Utilisation banque certifiée.")
@@ -464,7 +696,7 @@ async def api_create_duel_room(req: DuelCreateRoomRequest):
     questions = await generate_ai_duel_questions(
         subject=req.subject,
         class_level=req.class_level,
-        count=5,
+        count=req.count,
     )
 
     room = DuelRoom(
@@ -482,6 +714,7 @@ async def api_create_duel_room(req: DuelCreateRoomRequest):
         "room_code": code,
         "message": f"Salle de duel créée avec succès. Partage le code de validation {code} à ton ami.",
         "room": room.to_dict(),
+        "questions": questions,
     }
 
 
@@ -580,7 +813,7 @@ async def api_matchmake_mali(req: DuelMatchmakeRequest):
         questions = await generate_ai_duel_questions(
             subject=req.subject,
             class_level=req.class_level,
-            count=5,
+            count=req.count,
         )
         room = DuelRoom(
             code=code,
@@ -603,6 +836,7 @@ async def api_matchmake_mali(req: DuelMatchmakeRequest):
             "opponent_school": "Camarade connecté au Mali",
             "message": f"Adversaire trouvé instantanément : {waiting_player['player_name']} !",
             "room": room.to_dict(),
+            "questions": questions,
         }
 
     # Matchmaking instantané avec un camarade certifié du Mali
@@ -611,7 +845,7 @@ async def api_matchmake_mali(req: DuelMatchmakeRequest):
     questions = await generate_ai_duel_questions(
         subject=req.subject,
         class_level=req.class_level,
-        count=5,
+        count=req.count,
     )
 
     room = DuelRoom(
@@ -635,6 +869,7 @@ async def api_matchmake_mali(req: DuelMatchmakeRequest):
         "opponent_city": rival["city"],
         "message": f"Adversaire trouvé instantanément : {rival['name']} ({rival['school']}) !",
         "room": room.to_dict(),
+        "questions": questions,
     }
 
 
@@ -656,3 +891,20 @@ def api_claim_duel_reward(req: DuelClaimRewardRequest):
         "coins_awarded": coins,
         "message": "Félicitations ! Tes points XP et pièces AlterniA ont été crédités à ton profil.",
     }
+
+
+@router.get("/leaderboard")
+def api_get_duel_leaderboard():
+    """
+    Retourne le classement national officiel des lycéens maliens directement depuis alta_db.
+    Inclut Sory (Antigravity) en Terminale Sciences Expérimentales (TSExp) et les meilleurs élèves.
+    """
+    from backend.src.db.database import get_db
+    from backend.src.services.apprenant_service import get_national_leaderboard
+
+    db = next(get_db())
+    try:
+        return get_national_leaderboard(db)
+    finally:
+        db.close()
+

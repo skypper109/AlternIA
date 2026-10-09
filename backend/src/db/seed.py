@@ -112,7 +112,20 @@ def seed_initial_data(db: Session, force: bool = False):
         )
         db.add_all([boitier_principal, boitier_secondaire])
 
-        # 4. Apprenants (10e, 11e Sciences, 12e Terminale TSE)
+        # 4. Apprenants (10e, 11e Sciences, 12e Terminale TSE & TSExp)
+        apprenant_antigravity = Apprenant(
+            id="appr-antigravity-diallo",
+            nom="Diallo",
+            prenom="Sory (Antigravity)",
+            matricule="ML2026-TSEXP-001",
+            classe="12eme",
+            serie="TSExp",
+            niveau_maitrise=96.5,
+            temps_total_sec=42000,
+            questions_posees=195,
+            etablissement_id=etablissement.id,
+            boitier_id=boitier_principal.id,
+        )
         apprenant_1 = Apprenant(
             id="appr-amadou-diallo",
             nom="Diallo",
@@ -152,7 +165,7 @@ def seed_initial_data(db: Session, force: bool = False):
             etablissement_id=etablissement.id,
             boitier_id=boitier_principal.id,
         )
-        db.add_all([apprenant_1, apprenant_2, apprenant_3])
+        db.add_all([apprenant_antigravity, apprenant_1, apprenant_2, apprenant_3])
 
         # 5. Avatars pédagogiques avec Vivienne
         avatar_vivienne = AvatarPedagogique(

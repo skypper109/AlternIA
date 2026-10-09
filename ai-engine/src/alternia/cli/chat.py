@@ -29,10 +29,10 @@ from alternia.pedagogical.curriculum_keywords import detect_malian_curriculum_su
 
 def create_orchestrator(enable_rag: bool = True):
     """Initialise et met en cache l'orchestrateur pédagogique avec RAG réel et LLM local."""
-    # Sélection automatique du meilleur modèle (3B en priorité pour une qualité pédagogique maximale, ou 1.5B)
-    model_3b = PROJECT_ROOT / "ai-engine" / "models" / "llm" / "qwen2.5-3b-instruct-q4_k_m.gguf"
+    # Sélection du modèle léger 1.5B en local pour rapidité et fluidité
     model_1_5b = PROJECT_ROOT / "ai-engine" / "models" / "llm" / "qwen2.5-1.5b-instruct-q4_k_m.gguf"
-    model_path = model_3b if model_3b.exists() else model_1_5b
+    model_3b = PROJECT_ROOT / "ai-engine" / "models" / "llm" / "qwen2.5-3b-instruct-q4_k_m.gguf"
+    model_path = model_1_5b if model_1_5b.exists() else model_3b
 
     print(f"⏳ Chargement du modèle LLM local ({model_path.name})...")
     llm_client = LocalLLMClient(

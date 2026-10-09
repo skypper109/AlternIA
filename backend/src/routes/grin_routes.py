@@ -147,3 +147,33 @@ async def api_list_grin_peers() -> List[Dict[str, Any]]:
 async def api_list_grin_resources() -> List[Dict[str, Any]]:
     """Catalogue de ressources éducatives disponibles pour le partage P2P."""
     return _SHARED_RESOURCES
+
+
+class GrinResourceShareRequest(BaseModel):
+    title: str
+    subject: str
+    type: str = "cours"
+    size_mb: str = "1.5 Mo"
+    shared_by: str = "Élève"
+    description: Optional[str] = None
+    target_peer_id: Optional[str] = None
+
+
+@router.post("/resources/share")
+async def api_share_grin_resource(req: GrinResourceShareRequest) -> Dict[str, Any]:
+    """Publie ou partage une ressource éducative en P2P dans le Grin."""
+    res_id = f"res_{int(time.time()*1000)}"
+    new_res = {
+        "id": res_id,
+        "title": req.title,
+        "subject": req.subject,
+        "type": req.type,
+        "sizeMb": req.size_mb,
+        "sharedBy": req.shared_by,
+        "description": req.description or f"Partage P2P de {req.title}",
+        "targetPeerId": req.target_peer_id,
+        "sharedAt": datetime.utcnow().isoformat(),
+    }
+    _SHARED_RESOURCES.insert(0, new_res)
+    return {"status": "success", "title": req.title, "resource": new_res}
+

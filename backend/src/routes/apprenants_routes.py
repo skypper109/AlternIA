@@ -24,6 +24,13 @@ def api_liste_apprenants(db: Session = Depends(get_db)):
     return list_apprenants(db)
 
 
+@router.get("/leaderboard")
+def api_classement_national(db: Session = Depends(get_db)):
+    """Classement national des élèves du Mali (Terminale TSExp, TSE, etc.)."""
+    from backend.src.services.apprenant_service import get_national_leaderboard
+    return get_national_leaderboard(db)
+
+
 @router.post("")
 def api_creer_apprenant(req: ApprenantCreateRequest, db: Session = Depends(get_db)):
     """Enregistre un nouvel apprenant."""

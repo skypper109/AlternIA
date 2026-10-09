@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+import threading
 import time
 from typing import Any, Iterator, cast
 
@@ -36,11 +37,11 @@ class LocalLLMClient(LLMClient):
         if not path.exists():
             models_dir = path.parent
             candidates = [
-                "qwen2.5-14b-instruct-q4_k_m.gguf",
-                "qwen2.5-7b-instruct-q5_k_m.gguf",
-                "qwen2.5-7b-instruct-q4_k_m.gguf",
                 "qwen2.5-1.5b-instruct-q4_k_m.gguf",
                 "qwen2.5-3b-instruct-q4_k_m.gguf",
+                "qwen2.5-7b-instruct-q4_k_m.gguf",
+                "qwen2.5-7b-instruct-q5_k_m.gguf",
+                "qwen2.5-14b-instruct-q4_k_m.gguf",
             ]
             found = False
             for candidate in candidates:
@@ -64,6 +65,7 @@ class LocalLLMClient(LLMClient):
         self.repeat_penalty = repeat_penalty
         self.frequency_penalty = frequency_penalty
         self.presence_penalty = presence_penalty
+        self._lock = threading.Lock()
         # max_tokens : 320 tokens = permet une réponse complète et dense (2 à 4 phrases ou listes de principes)
         # sans jamais couper au milieu d'un mot ou d'une phrase.
         self._max_tokens: int | None = max_tokens if (max_tokens is not None and max_tokens > 0) else 320
@@ -232,16 +234,17 @@ class LocalLLMClient(LLMClient):
             "EXTRAITS DU COURS",
         ]
 
-        raw_response = self.llm.create_chat_completion(
-            messages=cast(Any, messages),
-            temperature=effective_temp,
-            top_p=self.top_p,
-            repeat_penalty=self.repeat_penalty,
-            frequency_penalty=self.frequency_penalty,
-            presence_penalty=self.presence_penalty,
-            max_tokens=effective_max_tokens,
-            stop=stop_sequences,
-        )
+        with self._lock:
+            raw_response = self.llm.create_chat_completion(
+                messages=cast(Any, messages),
+                temperature=effective_temp,
+                top_p=self.top_p,
+                repeat_penalty=self.repeat_penalty,
+                frequency_penalty=self.frequency_penalty,
+                presence_penalty=self.presence_penalty,
+                max_tokens=effective_max_tokens,
+                stop=stop_sequences,
+            )
         response: dict[str, Any] = cast(dict[str, Any], raw_response)
 
         elapsed = time.perf_counter() - start_time

@@ -30,6 +30,7 @@ class AppState:
     conversation_manager: Optional[ConversationManager] = None
     rag_ready: bool = False
     chunks_count: int = 0
+    model_name: str = "qwen2.5-1.5b-instruct-q4_k_m.gguf"
 
 
 state = AppState()
@@ -40,9 +41,13 @@ def get_orchestrator() -> AlterniaOrchestrator:
     if state.orchestrator is not None:
         return state.orchestrator
 
-    model_3b = PROJECT_ROOT / "ai-engine" / "models" / "llm" / "qwen2.5-3b-instruct-q4_k_m.gguf"
+    # Priorité absolue au modèle 1.5B en local pour être léger, rapide et fluide sur la machine
     model_1_5b = PROJECT_ROOT / "ai-engine" / "models" / "llm" / "qwen2.5-1.5b-instruct-q4_k_m.gguf"
-    model_path = model_3b if model_3b.exists() else model_1_5b
+    model_3b = PROJECT_ROOT / "ai-engine" / "models" / "llm" / "qwen2.5-3b-instruct-q4_k_m.gguf"
+    model_path = model_1_5b if model_1_5b.exists() else model_3b
+
+    state.model_name = model_path.name
+    print(f"\033[32m[OrchestratorService] Chargement du modèle LLM local : {state.model_name}\033[0m")
 
     llm_client = LocalLLMClient(
         model_path=str(model_path),
@@ -87,15 +92,19 @@ def get_orchestrator() -> AlterniaOrchestrator:
 
 
 def normalize_student_class(class_id: str) -> str:
-    """Mappe les identifiants de classe malienne vers les valeurs supportées ('10eme', '11eme', '12eme', 'culture')."""
+    """Mappe les identifiants de classe malienne vers les valeurs supportées ('def', '10eme', '11eme', '12eme', 'culture')."""
     cid = class_id.strip().lower()
     if cid in {"culture", "culturelens", "patrimoine"}:
         return "culture"
-    if cid in {"10eme", "10e", "10", "10eme-cg", "10eme-ct"}:
+    if cid in {"def", "9eme", "9e", "9", "fondamental", "troisieme", "3eme", "9eme-annee"}:
+        return "def"
+    if cid in {"10eme", "10e", "10", "10eme-cg", "10eme-ct", "seconde"}:
         return "10eme"
-    if cid in {"11eme", "11e", "11", "11eme-sc", "11eme-ll", "11eme-se", "11eme-sti"}:
+    if cid in {"11eme", "11e", "11", "11eme-sc", "11eme-ll", "11eme-se", "11eme-sti", "premiere"}:
         return "11eme"
-    if cid in {"12eme", "12e", "12", "tse", "tsexp", "tss", "tll", "tseco", "terminale"}:
+    if cid in {"tss", "terminale_sciences_sociales", "terminale_sciences_sociale", "sciences_sociales"}:
+        return "tss"
+    if cid in {"12eme", "12e", "12", "tse", "tsexp", "tll", "tseco", "terminale", "bac"}:
         return "12eme"
     return "12eme"
 
