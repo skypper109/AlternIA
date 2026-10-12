@@ -46,10 +46,15 @@ def create_orchestrator(enable_rag: bool = True):
     if enable_rag:
         print("⏳ Chargement du moteur d'embedding et de la base de connaissances...")
         embedding_service = EmbeddingService()
-        vector_store = LocalVectorStore()
+        from alternia.rag.vector_store import get_vector_store
+        vector_store = get_vector_store()
         loaded = vector_store.load()
+        if not loaded:
+            vector_store = LocalVectorStore()
+            loaded = vector_store.load()
+
         if loaded:
-            print(f"✅ Base RAG chargée : {vector_store.count} extraits pédagogiques prêts.")
+            print(f"✅ Base RAG chargée ({type(vector_store).__name__}) : {vector_store.count} extraits pédagogiques prêts.")
         else:
             print("⚠️ Aucun index vectoriel trouvé. Mode sans RAG actif.")
 

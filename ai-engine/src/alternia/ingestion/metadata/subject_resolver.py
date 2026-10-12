@@ -25,6 +25,8 @@ class SubjectResolver:
             "mathématiques générales",
             "sciences mathématiques",
             "sciences mathematiques",
+            "mathematics",
+            "mahts",
             "math",
             "maths",
         ],
@@ -32,12 +34,25 @@ class SubjectResolver:
         Subject.PHYSIQUE: [
             "physique",
             "sciences physiques",
+            "sciences-physiques",
             "physique-chimie",
             "physique chimie",
+            "physics chemistry",
+            "physics-chemistry",
+            "phy-chi",
+            "phy chi",
         ],
 
         Subject.CHIMIE: [
             "chimie",
+        ],
+
+        Subject.BIOLOGIE: [
+            "biologie",
+            "sciences naturelles",
+            "sciences-naturelles",
+            "sc-nat",
+            "bio",
         ],
 
         Subject.FRANCAIS: [
@@ -45,20 +60,54 @@ class SubjectResolver:
             "francais",
             "langue française",
             "langue francaise",
+            "dictée",
+            "dictee",
+            "dict-quest",
+            "dict quest",
+            "rédaction",
+            "redaction",
+            "grammaire",
         ],
 
         Subject.ANGLAIS: [
             "anglais",
             "english",
+            "dictation",
         ],
 
         Subject.HISTOIRE: [
             "histoire",
+            "histoire-géographie",
+            "histoire-geographie",
+            "histoire-geo",
+            "hist-geo",
+            "history-geography",
         ],
 
         Subject.GEOGRAPHIE: [
             "géographie",
             "geographie",
+        ],
+
+        Subject.ECM: [
+            "éducation civique et morale",
+            "education civique et morale",
+            "éducation civique",
+            "education civique",
+            "ecm",
+            "civique",
+            "morale",
+        ],
+
+        Subject.AGRICULTURE: [
+            "agriculture",
+            "agronomie",
+            "agri",
+        ],
+
+        Subject.DESSIN: [
+            "arts plastiques",
+            "dessin",
         ],
 
         Subject.SCIENCES: [

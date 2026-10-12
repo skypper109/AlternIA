@@ -20,6 +20,7 @@ from alternia.rag.semantic_retriever import (
 
 from alternia.rag.vector_store import (
     LocalVectorStore,
+    VectorStore,
 )
 
 
@@ -51,7 +52,7 @@ class KnowledgeIndexer:
     def __init__(
         self,
         embedding_service: EmbeddingService | None = None,
-        vector_store: LocalVectorStore | None = None,
+        vector_store: VectorStore | None = None,
     ):
 
         self.embedding_service = (
@@ -59,9 +60,12 @@ class KnowledgeIndexer:
             or EmbeddingService()
         )
 
+        from alternia.rag.vector_store import get_vector_store
+
         self.vector_store = (
             vector_store
-            or LocalVectorStore()
+            if vector_store is not None
+            else get_vector_store()
         )
 
         self.retriever = SemanticRetriever(

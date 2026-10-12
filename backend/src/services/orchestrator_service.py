@@ -20,12 +20,12 @@ from alternia.pedagogical.engine import PedagogicalEngine
 from alternia.rag.embeddings import EmbeddingService
 from alternia.rag.semantic_retriever import SemanticRetriever
 from alternia.rag.service import RAGService
-from alternia.rag.vector_store import LocalVectorStore
+from alternia.rag.vector_store import LocalVectorStore, VectorStore
 
 
 class AppState:
     orchestrator: Optional[AlterniaOrchestrator] = None
-    vector_store: Optional[LocalVectorStore] = None
+    vector_store: Optional[VectorStore] = None
     learner_manager: Optional[LearnerManager] = None
     conversation_manager: Optional[ConversationManager] = None
     rag_ready: bool = False
@@ -56,8 +56,12 @@ def get_orchestrator() -> AlterniaOrchestrator:
     )
 
     embedding_service = EmbeddingService()
-    vector_store = LocalVectorStore()
+    from alternia.rag.vector_store import get_vector_store
+    vector_store = get_vector_store()
     loaded = vector_store.load()
+    if not loaded:
+        vector_store = LocalVectorStore()
+        loaded = vector_store.load()
 
     state.vector_store = vector_store
     state.chunks_count = vector_store.count if loaded else 0
@@ -96,15 +100,13 @@ def normalize_student_class(class_id: str) -> str:
     cid = class_id.strip().lower()
     if cid in {"culture", "culturelens", "patrimoine"}:
         return "culture"
-    if cid in {"def", "9eme", "9e", "9", "fondamental", "troisieme", "3eme", "9eme-annee"}:
+    if cid in {"def", "9eme", "9e", "9", "fondamental", "troisieme", "3eme", "9eme-annee", "6eme", "6e", "7eme", "7e", "8eme", "8e"}:
         return "def"
     if cid in {"10eme", "10e", "10", "10eme-cg", "10eme-ct", "seconde"}:
         return "10eme"
     if cid in {"11eme", "11e", "11", "11eme-sc", "11eme-ll", "11eme-se", "11eme-sti", "premiere"}:
         return "11eme"
-    if cid in {"tss", "terminale_sciences_sociales", "terminale_sciences_sociale", "sciences_sociales"}:
-        return "tss"
-    if cid in {"12eme", "12e", "12", "tse", "tsexp", "tll", "tseco", "terminale", "bac"}:
+    if cid in {"12eme", "12e", "12", "tse", "tsexp", "tss", "tll", "tseco", "terminale", "bac", "terminale_sciences_sociales", "terminale_sciences_sociale", "sciences_sociales"}:
         return "12eme"
     return "12eme"
 

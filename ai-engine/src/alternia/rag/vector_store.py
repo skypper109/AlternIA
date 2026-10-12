@@ -1,12 +1,18 @@
+from __future__ import annotations
+
 import json
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING, Union
 
 import numpy as np
 
 from alternia.config.settings import PROJECT_ROOT
 from alternia.core.models import KnowledgeChunk
+
+if TYPE_CHECKING:
+    from alternia.rag.qdrant_vector_store import QdrantVectorStore
 
 
 DEFAULT_INDEX_PATH = (
@@ -25,9 +31,13 @@ class VectorRecord:
 
 
 CLASS_HIERARCHY = {
-    "10eme": ["10eme"],
-    "11eme": ["10eme", "11eme"],
-    "12eme": ["10eme", "11eme", "12eme"],
+    "6eme": ["6eme"],
+    "7eme": ["6eme", "7eme"],
+    "8eme": ["6eme", "7eme", "8eme"],
+    "9eme": ["6eme", "7eme", "8eme", "9eme"],
+    "10eme": ["6eme", "7eme", "8eme", "9eme", "10eme"],
+    "11eme": ["6eme", "7eme", "8eme", "9eme", "10eme", "11eme"],
+    "12eme": ["6eme", "7eme", "8eme", "9eme", "10eme", "11eme", "12eme"],
 }
 
 
@@ -54,9 +64,13 @@ def is_chunk_allowed(
     """
     Règle pédagogique stricte d'AlternIA :
     1. Un élève a UNIQUEMENT accès aux cours de sa classe et des classes inférieures (prérequis).
-       -> 10ème : seulement 10ème (jamais 11ème ni 12ème).
-       -> 11ème : 11ème (de sa filière) + 10ème (jamais 12ème).
-       -> 12ème : 12ème (de sa série) + 11ème (filière compatible) + 10ème.
+       -> 6ème : seulement 6ème.
+       -> 7ème : 7ème + 6ème.
+       -> 8ème : 8ème + 7ème + 6ème.
+       -> 9ème (DEF) : 9ème + 8ème + 7ème + 6ème.
+       -> 10ème : 10ème + fondamental.
+       -> 11ème : 11ème (de sa filière) + 10ème + fondamental.
+       -> 12ème : 12ème (de sa série) + 11ème (compatible) + 10ème + fondamental.
     2. Filtrage strict par série/filière si spécifiée.
     """
     if student_class is None:
@@ -75,8 +89,8 @@ def is_chunk_allowed(
     s_ser = str(student_series).strip().lower()
     c_ser = str(chunk_series).strip().lower() if chunk_series else "generale"
 
-    # Chunks de 10ème (Tronc Commun) : toujours accessibles comme prérequis universel
-    if c_cls == "10eme":
+    # Chunks de fondamental (6e à 9e) et 10ème (Tronc Commun) : toujours accessibles comme prérequis universels
+    if c_cls in {"6eme", "7eme", "8eme", "9eme", "10eme"}:
         return True
 
     # Chunks généraux / tronc commun de la classe
@@ -95,8 +109,8 @@ def is_chunk_allowed(
 
 
 SUBJECT_SYNONYMS = {
-    "biologie": {"biologie", "svt", "sciences"},
-    "svt": {"biologie", "svt", "sciences"},
+    "biologie": {"biologie", "svt", "sciences", "sciences-naturelles"},
+    "svt": {"biologie", "svt", "sciences", "sciences-naturelles"},
     "physique": {"physique", "chimie", "physique-chimie", "sciences"},
     "chimie": {"physique", "chimie", "physique-chimie", "sciences"},
     "physique-chimie": {"physique", "chimie", "physique-chimie", "sciences"},
@@ -107,12 +121,16 @@ SUBJECT_SYNONYMS = {
     "litterature": {"francais", "lettres", "litterature", "linguistique"},
     "histoire": {"histoire", "geographie", "histoire-geo", "ecm"},
     "geographie": {"histoire", "geographie", "histoire-geo"},
-    "histoire-geo": {"histoire", "geographie", "histoire-geo"},
+    "histoire-geo": {"histoire", "geographie", "histoire-geo", "ecm"},
+    "ecm": {"ecm", "histoire", "geographie", "droit"},
+    "agriculture": {"agriculture", "sciences", "biologie", "svt"},
+    "dessin": {"dessin", "arts"},
     "economie": {"economie", "comptabilite"},
     "comptabilite": {"economie", "comptabilite"},
     "philosophie": {"philosophie", "lettres"},
     "anglais": {"anglais", "langues"},
     "droit": {"droit", "ecm", "economie"},
+    "sciences": {"sciences", "physique", "chimie", "biologie", "svt", "mathematiques", "agriculture"},
 }
 
 
@@ -430,3 +448,18 @@ class LocalVectorStore:
         return len(
             self.records
         )
+
+
+VectorStore = Union[LocalVectorStore, "QdrantVectorStore"]
+
+
+def get_vector_store(provider: str = "qdrant", **kwargs) -> VectorStore:
+    """
+    Fabrique pour instancier le vector store approprié (Qdrant par défaut).
+    """
+    from alternia.rag.qdrant_vector_store import QdrantVectorStore
+
+    provider_clean = (provider or "qdrant").strip().lower()
+    if provider_clean in {"qdrant", "qdrant_store", "qdrant_client"}:
+        return QdrantVectorStore(**kwargs)
+    return LocalVectorStore(**kwargs)
