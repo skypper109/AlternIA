@@ -32,12 +32,20 @@ class DeviceController:
     """
 
     CLASS_LABELS = {
+        "6eme": "6ème Année (Fondamental 1er Cycle)",
+        "7eme": "7ème Année (Fondamental 2ème Cycle)",
+        "8eme": "8ème Année (Fondamental 2ème Cycle)",
+        "9eme": "9ème Année (Examen DEF)",
         "10eme": "10ème Année (Tronc Commun)",
         "11eme": "11ème Année (Générale)",
         "12eme": "12ème Année (Terminale)",
     }
 
     SERIES_DEFAULTS = {
+        "6eme": "fondamental",
+        "7eme": "fondamental",
+        "8eme": "fondamental",
+        "9eme": "def",
         "10eme": "generale",
         "11eme": "11s",
         "12eme": "tse",
@@ -48,7 +56,8 @@ class DeviceController:
         orchestrator: AlterniaOrchestrator,
         tts: TTSEngine,
         stt: Optional[STTEngine] = None,
-        initial_class: str = "10eme",
+        initial_class: str = "6eme",
+        initial_school: str = "",
         on_state_change: Optional[Callable[[str, str, str], None]] = None,
     ):
         self.orchestrator = orchestrator
@@ -57,7 +66,8 @@ class DeviceController:
         self.on_state_change = on_state_change
 
         self.current_class = initial_class
-        self.current_series = self.SERIES_DEFAULTS.get(initial_class, "generale")
+        self.current_series = self.SERIES_DEFAULTS.get(initial_class, "fondamental")
+        self.current_school = initial_school
         self.session_id = f"device_session_{int(time.time())}"
         self.student_id = f"eleve_box_{self.current_class}"
 
@@ -84,14 +94,77 @@ class DeviceController:
             self.on_state_change(state, self.current_class, detail)
 
     # =========================================================================
-    # GESTION DES BOUTONS DE CLASSE (BOUTONS 1, 2, 3)
+    # GESTION DES CLASSES (FONDAMENTAL & LYCÉE)
     # =========================================================================
+
+    def select_class(self, class_id: str) -> None:
+        """Sélectionne dynamiquement une classe (6eme, 7eme, 8eme, 9eme, 10eme, 11eme, 12eme)."""
+        method_map = {
+            "6eme": self.select_class_6,
+            "7eme": self.select_class_7,
+            "8eme": self.select_class_8,
+            "9eme": self.select_class_9,
+            "10eme": self.select_class_10,
+            "11eme": self.select_class_11,
+            "12eme": self.select_class_12,
+        }
+        if class_id in method_map:
+            method_map[class_id]()
+        else:
+            self.current_class = class_id
+            self.current_series = self.SERIES_DEFAULTS.get(class_id, "fondamental")
+            self.student_id = f"eleve_box_{class_id}"
+            self._notify_state("ready", f"Programme {class_id} activé")
+
+    def set_school(self, school_name: str) -> None:
+        """Configure le nom de l'établissement scolaire."""
+        self.current_school = school_name.strip()
+        logger.info(f"🏫 Établissement configuré : {self.current_school}")
+        self._notify_state("ready", f"École : {self.current_school}")
+        if self.current_school:
+            self.tts.speak_sentence_async(f"Établissement enregistré : {self.current_school}.")
+
+    def select_class_6(self) -> None:
+        """Sélectionne la 6ème Année Fondamentale."""
+        self.current_class = "6eme"
+        self.current_series = "fondamental"
+        self.student_id = "eleve_box_6eme"
+        logger.info("👉 Programme configuré sur : 6ème Année Fondamentale")
+        self._notify_state("ready", "Programme 6ème Fondamentale activé")
+        self.tts.speak_sentence_async("Mode 6ème Fondamentale activé. Pose ta question avec le bouton micro.")
+
+    def select_class_7(self) -> None:
+        """Sélectionne la 7ème Année Fondamentale."""
+        self.current_class = "7eme"
+        self.current_series = "fondamental"
+        self.student_id = "eleve_box_7eme"
+        logger.info("👉 Programme configuré sur : 7ème Année Fondamentale")
+        self._notify_state("ready", "Programme 7ème Fondamentale activé")
+        self.tts.speak_sentence_async("Mode 7ème Fondamentale activé. Pose ta question avec le bouton micro.")
+
+    def select_class_8(self) -> None:
+        """Sélectionne la 8ème Année Fondamentale."""
+        self.current_class = "8eme"
+        self.current_series = "fondamental"
+        self.student_id = "eleve_box_8eme"
+        logger.info("👉 Programme configuré sur : 8ème Année Fondamentale")
+        self._notify_state("ready", "Programme 8ème Fondamentale activé")
+        self.tts.speak_sentence_async("Mode 8ème Fondamentale activé. Pose ta question avec le bouton micro.")
+
+    def select_class_9(self) -> None:
+        """Sélectionne la 9ème Année (Examen DEF)."""
+        self.current_class = "9eme"
+        self.current_series = "def"
+        self.student_id = "eleve_box_9eme"
+        logger.info("👉 Programme configuré sur : 9ème Année (DEF)")
+        self._notify_state("ready", "Programme 9ème (DEF) activé")
+        self.tts.speak_sentence_async("Mode 9ème Année examen DEF activé. Pose ta question avec le bouton micro.")
 
     def select_class_10(self) -> None:
         """Action Bouton 1 : Sélectionne la 10ème Année."""
         self.current_class = "10eme"
         self.current_series = "generale"
-        self.student_id = f"eleve_box_10eme"
+        self.student_id = "eleve_box_10eme"
         logger.info("👉 [Bouton 1 cliqué] Programme configuré sur : 10ème Année (Tronc Commun)")
         self._notify_state("ready", "Programme 10ème activé")
         self.tts.speak_sentence_async("Mode 10ème activé. Tu peux poser ta question en appuyant sur le bouton micro.")
@@ -100,7 +173,7 @@ class DeviceController:
         """Action Bouton 2 : Sélectionne la 11ème Année."""
         self.current_class = "11eme"
         self.current_series = "11s"
-        self.student_id = f"eleve_box_11eme"
+        self.student_id = "eleve_box_11eme"
         logger.info("👉 [Bouton 2 cliqué] Programme configuré sur : 11ème Année (Générale)")
         self._notify_state("ready", "Programme 11ème activé")
         self.tts.speak_sentence_async("Mode 11ème activé. Tu peux poser ta question en appuyant sur le bouton micro.")
@@ -109,7 +182,7 @@ class DeviceController:
         """Action Bouton 3 : Sélectionne la 12ème Année (Terminale)."""
         self.current_class = "12eme"
         self.current_series = "tse"
-        self.student_id = f"eleve_box_12eme"
+        self.student_id = "eleve_box_12eme"
         logger.info("👉 [Bouton 3 cliqué] Programme configuré sur : 12ème Année (Terminale)")
         self._notify_state("ready", "Programme 12ème activé")
         self.tts.speak_sentence_async("Mode Terminale 12ème activé. Tu peux poser ta question en appuyant sur le bouton micro.")

@@ -1,0 +1,24 @@
+[Unit]
+Description=AlternIA Box - Client Materiel Raspberry Pi 3
+After=network.target sound.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/alternia-rpi
+Environment=PYTHONUNBUFFERED=1
+Environment=ALTERNIA_SERVER_URL=http://127.0.0.1:8000
+Environment=ALTERNIA_DEFAULT_CYCLE=fondamental
+Environment=ALTERNIA_DEFAULT_CLASS=6eme
+
+# Lancement dans l'environnement virtuel Python
+ExecStart=/home/pi/alternia-rpi/venv/bin/python3 /home/pi/alternia-rpi/rpi_client.py
+
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

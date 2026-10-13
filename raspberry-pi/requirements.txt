@@ -1,0 +1,15 @@
+# Dépendances Python pour AlternIA Box sur Raspberry Pi 3 (ARM Cortex-A53 / 1GB RAM)
+# Légères, optimisées et testées pour Raspberry Pi OS (Bullseye / Bookworm)
+
+# Requêtes HTTP et communication API vers le serveur AlternIA
+requests>=2.31.0
+urllib3>=2.0.0
+
+# Gestion des variables d'environnement
+python-dotenv>=1.0.0
+
+# Pilote GPIO pour Raspberry Pi (uniquement actif sur architecture Linux ARM / Pi)
+RPi.GPIO>=0.7.1; sys_platform == "linux"
+
+# Traitement audio bas niveau (optionnel si arecord / aplay sont utilisés)
+PyAudio>=0.2.14

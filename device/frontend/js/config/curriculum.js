@@ -12,12 +12,176 @@ if (apiFromQuery && typeof localStorage !== 'undefined') {
 const savedApi = typeof localStorage !== 'undefined' ? localStorage.getItem('ALTERNIA_API_URL') : null;
 export const API_BASE_URL = apiFromQuery || savedApi || (typeof window !== 'undefined' && window.location.origin.startsWith('http') ? window.location.origin : 'http://127.0.0.1:8000');
 
+export const DEFAULT_MALIAN_SCHOOLS = [
+  "Lycée Askia Mohamed (Bamako)",
+  "Lycée Ba Aminata Diallo (Bamako)",
+  "Lycée Technique de Bamako",
+  "Prytanée Militaire de Kati",
+  "Complexe Scolaire Mamadou Lamine Traoré (Bamako)",
+  "Collège Horizon (Bamako)",
+  "Lycée Progrès (Bamako)",
+  "Lycée Massa Makan Diabaté (Bamako)",
+  "Lycée Castors (Bamako)",
+  "Lycée Ibrahima Ly (Banankabougou)",
+  "Lycée Notre Dame du Niger (Bamako)",
+  "École Fondamentale Mamadou Konaté (Bamako)",
+  "École Fondamentale Base A (Bamako)",
+  "École Fondamentale Camp Digue (Kati)",
+  "École Fondamentale République (Ségou)",
+  "École Fondamentale Babemba (Sikasso)",
+  "École Fondamentale Robert Cissé (Mopti)",
+  "Groupe Scolaire Jean Richard (Bamako)",
+  "Lycée Abdoul Karim Camara Cabral (Ségou)",
+  "Lycée Monseigneur de Montclos (Sikasso)",
+  "Lycée Hamadoun Dicko (Sévaré / Mopti)",
+  "Lycée Yambo Ouologuem (Bandiagara)",
+  "Lycée Dougoukolo Konaré (Kayes)",
+  "Lycée Mahamane Alassane Haïdara (Tombouctou)",
+  "Lycée Yana Maïga (Gao)"
+];
+
 export const CURRICULUM_DATA = {
   classes: [
+    {
+      id: "6eme",
+      name: "6ème Année",
+      badge: "Fondamental (1er Cycle)",
+      cycle: "fondamental",
+      accent: "cyan",
+      description: "Fin du 1er cycle fondamental : consolidation calcul, grammaire et éveil scientifique",
+      series: ["Tronc Fondamental"],
+      subjects: [
+        { id: "mathematiques", name: "Mathématiques", iconType: "math" },
+        { id: "francais", name: "Français & Rédaction", iconType: "literature" },
+        { id: "sciences", name: "Sciences d'Observation", iconType: "biology" },
+        { id: "histoire_geo", name: "Histoire-Géo", iconType: "history" },
+        { id: "civisme", name: "Éducation Civique & Morale", iconType: "civics" }
+      ],
+      topics: {
+        mathematiques: [
+          { title: "Opérations sur les décimaux & Fractions simples", tag: "Base Calcul", type: "cyan" },
+          { title: "Périmètres, Aires & Volumes usuels", tag: "Géométrie", type: "orange" },
+          { title: "Règle de trois & Pourcentages", tag: "Problème Type", type: "emerald" }
+        ],
+        francais: [
+          { title: "Conjugaison : Présent, Imparfait, Passé Composé", tag: "Grammaire", type: "purple" },
+          { title: "Accords sujet-verbe et participe passé", tag: "Orthographe", type: "orange" },
+          { title: "Structure du récit et de la rédaction", tag: "Expression", type: "cyan" }
+        ],
+        sciences: [
+          { title: "Le corps humain : Digestion & Respiration", tag: "Biologie", type: "emerald" },
+          { title: "La germination et la vie des plantes", tag: "Botanique", type: "cyan" }
+        ]
+      },
+      featuredChallenges: [
+        { title: "Calcul d'Aires et Périmètres", subject: "Mathématiques", badge: "Défi Fondamental", color: "from-sky-600/30 to-blue-500/20", border: "border-sky-500/40", query: "Comment calculer le périmètre et l'aire d'un rectangle et d'un disque ?" },
+        { title: "Accords du Participe Passé", subject: "Français", badge: "Règle d'or", color: "from-purple-600/30 to-pink-500/20", border: "border-purple-500/40", query: "Explique la règle d'accord du participe passé avec l'auxiliaire être et avoir." }
+      ]
+    },
+    {
+      id: "7eme",
+      name: "7ème Année",
+      badge: "Fondamental (2ème Cycle)",
+      cycle: "fondamental",
+      accent: "amber",
+      description: "Entrée au 2ème cycle fondamental : algèbre d'initiation et sciences naturelles",
+      series: ["Générale Fondamentale"],
+      subjects: [
+        { id: "mathematiques", name: "Mathématiques", iconType: "math" },
+        { id: "francais", name: "Français", iconType: "literature" },
+        { id: "sciences", name: "Sciences Naturelles", iconType: "biology" },
+        { id: "histoire_geo", name: "Histoire-Géo", iconType: "history" },
+        { id: "anglais", name: "Anglais", iconType: "languages" }
+      ],
+      topics: {
+        mathematiques: [
+          { title: "Nombres relatifs : Addition & Soustraction", tag: "Algèbre", type: "orange" },
+          { title: "Angles alternes-internes et parallélisme", tag: "Géométrie", type: "cyan" },
+          { title: "Divisibilité : PGCD & PPCM", tag: "Arithmétique", type: "purple" }
+        ],
+        francais: [
+          { title: "Les propositions subordonnées relatives", tag: "Grammaire", type: "purple" },
+          { title: "Vocabulaire : Synonymes, Antonymes, Familles de mots", tag: "Lexique", type: "cyan" }
+        ]
+      },
+      featuredChallenges: [
+        { title: "Nombres Relatifs", subject: "Maths 7e", badge: "Quiz Minute", color: "from-amber-600/30 to-yellow-500/20", border: "border-amber-500/40", query: "Explique comment additionner et soustraire deux nombres relatifs positifs et négatifs." }
+      ]
+    },
+    {
+      id: "8eme",
+      name: "8ème Année",
+      badge: "Fondamental (2ème Cycle)",
+      cycle: "fondamental",
+      accent: "purple",
+      description: "2ème cycle fondamental : introduction Physique-Chimie et théorèmes géométriques",
+      series: ["Générale Fondamentale"],
+      subjects: [
+        { id: "mathematiques", name: "Mathématiques", iconType: "math" },
+        { id: "physique_chimie", name: "Physique-Chimie", iconType: "physics" },
+        { id: "biologie", name: "Biologie / SVT", iconType: "biology" },
+        { id: "francais", name: "Français", iconType: "literature" },
+        { id: "histoire_geo", name: "Histoire-Géo", iconType: "history" },
+        { id: "anglais", name: "Anglais", iconType: "languages" }
+      ],
+      topics: {
+        mathematiques: [
+          { title: "Théorème de Pythagore & Réciproque", tag: "Théorème Clé", type: "orange" },
+          { title: "Calcul littéral : Développement & Factorisation", tag: "Algèbre", type: "cyan" },
+          { title: "Statistiques : Médiane & Moyenne", tag: "Données", type: "emerald" }
+        ],
+        physique_chimie: [
+          { title: "Circuit électrique : Série et Dérivation", tag: "Physique", type: "cyan" },
+          { title: "Masse volumique et changements d'états de l'eau", tag: "Chimie", type: "orange" }
+        ]
+      },
+      featuredChallenges: [
+        { title: "Théorème de Pythagore", subject: "Maths 8e", badge: "Théorème Star", color: "from-purple-600/30 to-indigo-500/20", border: "border-purple-500/40", query: "Énonce le théorème de Pythagore et donne un exemple pour calculer l'hypoténuse." }
+      ]
+    },
+    {
+      id: "9eme",
+      name: "9ème Année (DEF)",
+      badge: "Examen National DEF",
+      cycle: "fondamental",
+      accent: "rose",
+      description: "Classe d'examen national du DEF : préparation intensive aux épreuves officielles",
+      series: ["Examen National DEF"],
+      subjects: [
+        { id: "mathematiques", name: "Mathématiques DEF", iconType: "math" },
+        { id: "physique_chimie", name: "Physique-Chimie DEF", iconType: "physics" },
+        { id: "biologie", name: "Biologie / SVT DEF", iconType: "biology" },
+        { id: "francais", name: "Français / Rédaction DEF", iconType: "literature" },
+        { id: "histoire_geo", name: "Histoire-Géo DEF", iconType: "history" },
+        { id: "anglais", name: "Anglais DEF", iconType: "languages" }
+      ],
+      topics: {
+        mathematiques: [
+          { title: "Systèmes d'équations à 2 inconnues", tag: "Sujet DEF", type: "orange" },
+          { title: "Théorème de Thalès dans le triangle", tag: "Géométrie DEF", type: "cyan" },
+          { title: "Trigonométrie dans le triangle rectangle", tag: "Formule DEF", type: "purple" },
+          { title: "Fonctions affines et linéaires", tag: "Analyse DEF", type: "emerald" }
+        ],
+        physique_chimie: [
+          { title: "Poids et Masse (P = m.g)", tag: "Physique DEF", type: "orange" },
+          { title: "Loi d'Ohm et Puissance électrique (P = U.I)", tag: "Électricité", type: "cyan" },
+          { title: "Les solutions acides, basiques et le pH", tag: "Chimie DEF", type: "emerald" }
+        ],
+        biologie: [
+          { title: "La reproduction humaine & MST/SIDA", tag: "Biologie DEF", type: "rose" },
+          { title: "Le système nerveux et les réflexes", tag: "SVT DEF", type: "purple" }
+        ]
+      },
+      featuredChallenges: [
+        { title: "Systèmes d'Équations DEF", subject: "Maths DEF", badge: "Épreuve Type", color: "from-rose-600/30 to-red-500/20", border: "border-rose-500/40", query: "Comment résoudre un système de deux équations à deux inconnues par substitution et par combinaison ?" },
+        { title: "Poids et Masse P = m × g", subject: "Physique DEF", badge: "Formule DEF", color: "from-amber-600/30 to-orange-500/20", border: "border-orange-500/40", query: "Quelle est la différence entre le poids et la masse d'un corps ? Donne la formule P = m.g avec les unités." }
+      ]
+    },
     {
       id: "10eme",
       name: "10ème Année",
       badge: "Tronc Commun",
+      cycle: "lycee",
       accent: "emerald",
       description: "Fondations scientifiques et littéraires du Lycée Malien",
       series: ["10ème Commune", "10ème Technique"],

@@ -49,8 +49,8 @@
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
 
   <!-- Styles personnalisés épurés Kiosk -->
-  <script type="module" crossorigin src="./assets/index-kmd9MZwX.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-BVVIlUww.css">
+  <script type="module" crossorigin src="./assets/index-BgpZm87e.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-BdhYYK1O.css">
 </head>
 
 <body class="bg-[#FDFBF7] text-slate-800 font-display min-h-screen flex flex-col select-none">
@@ -62,32 +62,71 @@
   </div>
 
   <!-- =========================================================================
-       1. EN-TÊTE : LOGO + SÉLECTION RAPIDE DE CLASSE (10e / 11e / Terminale)
+       1. EN-TÊTE : LOGO + SÉLECTION CYCLE & CLASSE (Fondamental / Lycée) + ÉCOLE
        ========================================================================= -->
   <header class="kiosk-topbar">
-    <div class="kiosk-brand flex items-center gap-2.5 sm:gap-3">
+    <div class="kiosk-brand flex items-center gap-2 sm:gap-3 shrink-0">
       <img src="assets/Alternia.svg" alt="AlternIA" class="h-8 sm:h-9 w-auto object-contain rounded-lg shadow-sm">
-      <span class="text-base sm:text-lg font-bold text-[#314999] tracking-tight">AlternIA</span>
+      <span class="text-base sm:text-lg font-bold text-[#314999] tracking-tight hidden sm:inline">AlternIA</span>
     </div>
 
-    <!-- Sélecteur de Classe Minimaliste Direct (10ème, 11ème, Terminale) -->
-    <div class="class-selector-group" id="class-selector-tabs">
-      <button class="class-tab-btn class-tab--active" data-class="10eme" id="tab-class-10eme">
-        <span class="class-tab-badge">10ème</span>
-        <span class="class-tab-sub">Tronc Commun</span>
-      </button>
-      <button class="class-tab-btn" data-class="11eme" id="tab-class-11eme">
-        <span class="class-tab-badge">11ème</span>
-        <span class="class-tab-sub">Sciences / Lettres</span>
-      </button>
-      <button class="class-tab-btn" data-class="12eme" id="tab-class-12eme">
-        <span class="class-tab-badge">Terminale</span>
-        <span class="class-tab-sub">Baccalauréat</span>
-      </button>
+    <!-- Sélecteur de Cycle & Classe (Fondamental / Lycée) -->
+    <div class="cycle-and-class-container flex items-center gap-2 sm:gap-3 overflow-x-auto py-1">
+      <!-- Toggle de Cycle : Fondamental / Lycée -->
+      <div class="cycle-pill-group" id="cycle-toggle-group">
+        <button class="cycle-pill-btn cycle-pill--active" data-cycle="fondamental" id="cycle-btn-fondamental">Fondamental</button>
+        <button class="cycle-pill-btn" data-cycle="lycee" id="cycle-btn-lycee">Lycée</button>
+      </div>
+
+      <!-- Onglets Classes Fondamentales (6e, 7e, 8e, 9e DEF) -->
+      <div class="class-selector-group" id="class-selector-fondamental">
+        <button class="class-tab-btn class-tab--active" data-class="6eme" id="tab-class-6eme">
+          <span class="class-tab-badge">6ème</span>
+          <span class="class-tab-sub">1er Cycle</span>
+        </button>
+        <button class="class-tab-btn" data-class="7eme" id="tab-class-7eme">
+          <span class="class-tab-badge">7ème</span>
+          <span class="class-tab-sub">2ème Cycle</span>
+        </button>
+        <button class="class-tab-btn" data-class="8eme" id="tab-class-8eme">
+          <span class="class-tab-badge">8ème</span>
+          <span class="class-tab-sub">2ème Cycle</span>
+        </button>
+        <button class="class-tab-btn" data-class="9eme" id="tab-class-9eme">
+          <span class="class-tab-badge">9ème (DEF)</span>
+          <span class="class-tab-sub">Examen DEF</span>
+        </button>
+      </div>
+
+      <!-- Onglets Classes Lycée (10e, 11e, Terminale) -->
+      <div class="class-selector-group hidden" id="class-selector-lycee">
+        <button class="class-tab-btn" data-class="10eme" id="tab-class-10eme">
+          <span class="class-tab-badge">10ème</span>
+          <span class="class-tab-sub">Tronc Commun</span>
+        </button>
+        <button class="class-tab-btn" data-class="11eme" id="tab-class-11eme">
+          <span class="class-tab-badge">11ème</span>
+          <span class="class-tab-sub">Sc. / Lettres</span>
+        </button>
+        <button class="class-tab-btn" data-class="12eme" id="tab-class-12eme">
+          <span class="class-tab-badge">Terminale</span>
+          <span class="class-tab-sub">Baccalauréat</span>
+        </button>
+      </div>
     </div>
 
-    <!-- Contrôles Épurés : Avatar / Son / Reset -->
-    <div class="kiosk-controls flex items-center gap-1.5 sm:gap-2">
+    <!-- Contrôles Épurés : Sélecteur d'École + Avatar + Son + Reset -->
+    <div class="kiosk-controls flex items-center gap-1.5 sm:gap-2 shrink-0">
+      <!-- Bouton Sélecteur d'École -->
+      <button id="btn-select-school" class="school-selector-btn" title="Sélectionner mon école ou lycée">
+        <svg class="w-4 h-4 text-amber-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
+          <path d="M6 12v5c3 3 9 3 12 0v-5"></path>
+        </svg>
+        <span id="topbar-school-name" class="truncate max-w-[90px] sm:max-w-[140px] md:max-w-[180px] text-xs font-semibold text-slate-700">Mon école</span>
+        <svg class="w-3 h-3 text-slate-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </button>
+
       <button id="btn-show-avatar" class="kiosk-icon-btn text-indigo-500" title="Écouter la présentation de l'Enseignant">
         <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
       </button>
@@ -310,8 +349,59 @@
         </div>
       </div>
 
-    </div>
+  </div>
 
+  <!-- Modal de sélection d'école / établissement -->
+  <div id="school-modal" class="formula-modal-overlay hidden">
+    <div class="formula-modal-content max-w-lg w-full bg-white rounded-2xl shadow-2xl p-5 border border-slate-200">
+      <div class="flex items-center justify-between border-b border-slate-200 pb-3 mb-4">
+        <div class="flex items-center gap-2.5 text-[#314999]">
+          <div class="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-600">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
+              <path d="M6 12v5c3 3 9 3 12 0v-5"></path>
+            </svg>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-slate-900">Mon Établissement Scolaire</h3>
+            <p class="text-[11px] text-slate-500">Sélectionnez ou saisissez le nom de votre école</p>
+          </div>
+        </div>
+        <button id="btn-close-school-modal" class="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer">✕</button>
+      </div>
+
+      <!-- Recherche d'école -->
+      <div class="relative mb-3">
+        <input 
+          type="text" 
+          id="school-search-input" 
+          class="w-full pl-9 pr-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-[#314999] focus:ring-2 focus:ring-[#314999]/15" 
+          placeholder="Rechercher une école ou un lycée au Mali..."
+        >
+        <svg class="w-4 h-4 text-slate-400 absolute left-3 top-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+      </div>
+
+      <!-- Liste scrollable des écoles -->
+      <div id="school-list-container" class="max-h-56 overflow-y-auto space-y-1 pr-1 mb-4 text-sm">
+        <!-- Rempli dynamiquement par app.js -->
+      </div>
+
+      <!-- Saisie personnalisée si non trouvée -->
+      <div class="pt-3 border-t border-slate-100 flex items-center gap-2">
+        <input 
+          type="text" 
+          id="custom-school-input" 
+          class="flex-1 px-3 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-[#314999]" 
+          placeholder="Ou tapez un autre établissement..."
+        >
+        <button id="btn-save-custom-school" class="px-4 py-2 bg-[#314999] hover:bg-[#253975] text-white text-xs sm:text-sm font-bold rounded-xl shadow-sm transition-all cursor-pointer shrink-0">
+          Enregistrer
+        </button>
+      </div>
+    </div>
   </div>
 
   <!-- Logique applicative modulaire -->

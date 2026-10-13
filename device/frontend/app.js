@@ -8,10 +8,13 @@ import { SpeechService } from './js/services/speech.js';
 import { VortexUI } from './js/ui/vortex.js';
 import { KaTeXRenderer } from './js/ui/katex-renderer.js';
 import { DidService } from './js/services/did.js';
+import { DEFAULT_MALIAN_SCHOOLS } from './js/config/curriculum.js';
 
 export class AlternIAApp {
   constructor() {
-    this.currentClass = '10eme';
+    this.currentCycle = (typeof localStorage !== 'undefined' && localStorage.getItem('ALTERNIA_DEVICE_CYCLE')) || 'fondamental';
+    this.currentClass = (typeof localStorage !== 'undefined' && localStorage.getItem('ALTERNIA_DEVICE_CLASS')) || (this.currentCycle === 'fondamental' ? '6eme' : '10eme');
+    this.currentSchool = (typeof localStorage !== 'undefined' && localStorage.getItem('ALTERNIA_DEVICE_SCHOOL')) || '';
     this.currentSubject = null; // Auto-détection de matière par le RAG
     this.sessionId = 'kiosk_session_' + Date.now();
     this.activeAvatar = null;
@@ -20,6 +23,7 @@ export class AlternIAApp {
     this.initModules();
     this.bindEvents();
     this.loadActiveAvatar();
+    this.applyInitialState();
   }
 
   initDOM() {
@@ -30,12 +34,29 @@ export class AlternIAApp {
     this.btnMute = document.getElementById('btn-toggle-mute');
     this.btnShowAvatar = document.getElementById('btn-show-avatar');
 
+    // Cycle & Classes DOM
+    this.cycleToggleGroup = document.getElementById('cycle-toggle-group');
+    this.cycleBtnFondamental = document.getElementById('cycle-btn-fondamental');
+    this.cycleBtnLycee = document.getElementById('cycle-btn-lycee');
+    this.selectorFondamental = document.getElementById('class-selector-fondamental');
+    this.selectorLycee = document.getElementById('class-selector-lycee');
+    this.classTabs = document.querySelectorAll('.class-tab-btn');
+
+    // École DOM
+    this.btnSelectSchool = document.getElementById('btn-select-school');
+    this.topbarSchoolName = document.getElementById('topbar-school-name');
+    this.schoolModal = document.getElementById('school-modal');
+    this.btnCloseSchoolModal = document.getElementById('btn-close-school-modal');
+    this.schoolSearchInput = document.getElementById('school-search-input');
+    this.schoolListContainer = document.getElementById('school-list-container');
+    this.customSchoolInput = document.getElementById('custom-school-input');
+    this.btnSaveCustomSchool = document.getElementById('btn-save-custom-school');
+
     this.speechContentArea = document.getElementById('speech-content-area');
     this.studentQueryPreview = document.getElementById('student-query-preview');
     this.studentQueryText = document.getElementById('student-query-text');
     this.ragSourceBadge = document.getElementById('rag-source-badge');
     this.classSublabel = document.getElementById('alta-class-sublabel');
-    this.classTabs = document.querySelectorAll('.class-tab-btn');
     this.vortexHub = document.getElementById('alta-vortex-hub');
     this.avatarNameText = document.getElementById('alta-avatar-name');
     this.avatarNameBox = document.getElementById('alta-avatar-name-box');
@@ -341,13 +362,53 @@ export class AlternIAApp {
   }
 
   bindEvents() {
-    // Sélection de classe
-    this.classTabs.forEach(btn => {
+    // Toggle de cycle Fondamental / Lycée
+    if (this.cycleBtnFondamental) {
+      this.cycleBtnFondamental.onclick = () => this.selectCycle('fondamental');
+    }
+    if (this.cycleBtnLycee) {
+      this.cycleBtnLycee.onclick = () => this.selectCycle('lycee');
+    }
+
+    // Sélection de classe sur tous les onglets
+    document.querySelectorAll('.class-tab-btn').forEach(btn => {
       btn.onclick = () => {
         const c = btn.getAttribute('data-class');
         if (c) this.selectClass(c);
       };
     });
+
+    // Modal Sélection d'École
+    if (this.btnSelectSchool) {
+      this.btnSelectSchool.onclick = () => this.openSchoolModal();
+    }
+    if (this.btnCloseSchoolModal) {
+      this.btnCloseSchoolModal.onclick = () => this.closeSchoolModal();
+    }
+    if (this.schoolSearchInput) {
+      this.schoolSearchInput.oninput = () => this.renderSchoolList(this.schoolSearchInput.value);
+    }
+    if (this.btnSaveCustomSchool) {
+      this.btnSaveCustomSchool.onclick = () => {
+        const custom = this.customSchoolInput ? this.customSchoolInput.value.trim() : '';
+        if (custom) {
+          this.selectSchool(custom);
+          this.closeSchoolModal();
+        }
+      };
+    }
+    if (this.customSchoolInput) {
+      this.customSchoolInput.onkeydown = (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          const custom = this.customSchoolInput.value.trim();
+          if (custom) {
+            this.selectSchool(custom);
+            this.closeSchoolModal();
+          }
+        }
+      };
+    }
 
     // Envoi par bouton ou touche Entrée
     if (this.sendBtn) {
@@ -453,9 +514,114 @@ export class AlternIAApp {
     }
   }
 
+  applyInitialState() {
+    if (this.topbarSchoolName) {
+      this.topbarSchoolName.textContent = this.currentSchool || 'Mon école';
+    }
+    const isLyceeClass = ['10eme', '11eme', '12eme'].includes(this.currentClass);
+    const cycle = isLyceeClass ? 'lycee' : this.currentCycle;
+    this.selectCycle(cycle, false);
+    this.selectClass(this.currentClass);
+  }
+
+  selectCycle(cycle, autoSwitchClass = true) {
+    this.currentCycle = cycle;
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('ALTERNIA_DEVICE_CYCLE', cycle);
+    }
+
+    if (cycle === 'fondamental') {
+      if (this.cycleBtnFondamental) this.cycleBtnFondamental.classList.add('cycle-pill--active');
+      if (this.cycleBtnLycee) this.cycleBtnLycee.classList.remove('cycle-pill--active');
+      if (this.selectorFondamental) this.selectorFondamental.classList.remove('hidden');
+      if (this.selectorLycee) this.selectorLycee.classList.add('hidden');
+
+      if (autoSwitchClass && ['10eme', '11eme', '12eme'].includes(this.currentClass)) {
+        this.selectClass('6eme');
+      }
+    } else {
+      if (this.cycleBtnLycee) this.cycleBtnLycee.classList.add('cycle-pill--active');
+      if (this.cycleBtnFondamental) this.cycleBtnFondamental.classList.remove('cycle-pill--active');
+      if (this.selectorLycee) this.selectorLycee.classList.remove('hidden');
+      if (this.selectorFondamental) this.selectorFondamental.classList.add('hidden');
+
+      if (autoSwitchClass && ['6eme', '7eme', '8eme', '9eme'].includes(this.currentClass)) {
+        this.selectClass('10eme');
+      }
+    }
+  }
+
+  selectSchool(schoolName) {
+    this.currentSchool = schoolName;
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('ALTERNIA_DEVICE_SCHOOL', schoolName);
+    }
+    if (this.topbarSchoolName) {
+      this.topbarSchoolName.textContent = schoolName;
+    }
+    if (this.audio) {
+      this.audio.speakText(`Établissement enregistré : ${schoolName}`);
+    }
+  }
+
+  openSchoolModal() {
+    if (!this.schoolModal) return;
+    this.schoolModal.classList.remove('hidden');
+    if (this.schoolSearchInput) {
+      this.schoolSearchInput.value = '';
+      setTimeout(() => this.schoolSearchInput.focus(), 100);
+    }
+    this.renderSchoolList('');
+  }
+
+  closeSchoolModal() {
+    if (!this.schoolModal) return;
+    this.schoolModal.classList.add('hidden');
+  }
+
+  renderSchoolList(query = '') {
+    if (!this.schoolListContainer) return;
+    const q = (query || '').toLowerCase().trim();
+    const filtered = DEFAULT_MALIAN_SCHOOLS.filter(s => s.toLowerCase().includes(q));
+
+    if (filtered.length === 0) {
+      this.schoolListContainer.innerHTML = `
+        <div class="py-4 text-center text-xs text-slate-400">
+          Aucun établissement trouvé dans la liste suggérée.<br>
+          Tapez le nom de votre école ci-dessous pour l'enregistrer.
+        </div>
+      `;
+      return;
+    }
+
+    this.schoolListContainer.innerHTML = filtered.map(school => {
+      const isSelected = this.currentSchool === school;
+      return `
+        <button class="school-item-btn ${isSelected ? 'is-selected' : ''}" data-school="${school}">
+          <span class="truncate">${school}</span>
+          ${isSelected ? '<span class="text-xs text-[#314999] font-bold shrink-0 ml-2">✓ Actif</span>' : ''}
+        </button>
+      `;
+    }).join('');
+
+    this.schoolListContainer.querySelectorAll('.school-item-btn').forEach(btn => {
+      btn.onclick = () => {
+        const s = btn.getAttribute('data-school');
+        if (s) {
+          this.selectSchool(s);
+          this.closeSchoolModal();
+        }
+      };
+    });
+  }
+
   selectClass(classId) {
     this.currentClass = classId;
-    this.classTabs.forEach(btn => {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('ALTERNIA_DEVICE_CLASS', classId);
+    }
+
+    document.querySelectorAll('.class-tab-btn').forEach(btn => {
       if (btn.getAttribute('data-class') === classId) {
         btn.classList.add('class-tab--active');
       } else {
@@ -468,15 +634,23 @@ export class AlternIAApp {
     }
 
     const labels = {
-      '10eme': '10ème Année (Tronc Commun)',
+      '6eme': '6ème Année (Fondamental 1er Cycle)',
+      '7eme': '7ème Année (Fondamental 2ème Cycle)',
+      '8eme': '8ème Année (Fondamental 2ème Cycle)',
+      '9eme': '9ème Année (Examen National DEF)',
+      '10eme': '10ème Année (Tronc Commun Lycée)',
       '11eme': '11ème Année (Sciences & Lettres)',
       '12eme': 'Terminale (Baccalauréat Mali)'
     };
     if (this.classSublabel) {
-      this.classSublabel.textContent = labels[classId] || 'Programme Lycée Mali';
+      this.classSublabel.textContent = labels[classId] || 'Programme Officiel du Mali';
     }
 
     const vocalLabels = {
+      '6eme': 'sixième année fondamentale',
+      '7eme': 'septième année fondamentale',
+      '8eme': 'huitième année fondamentale',
+      '9eme': 'neuvième année, préparation au DEF',
       '10eme': 'dixième année',
       '11eme': 'onzième année',
       '12eme': 'classe de terminale'
@@ -485,10 +659,8 @@ export class AlternIAApp {
       this.audio.speakText(`Tu as sélectionné la ${vocalLabels[classId]}.`);
     }
 
-    // Synchronisation immédiate sur le canal ESP32 : 10ème -> BLEU, 11ème -> ROUGE, 12ème -> JAUNE
-    // Canal 1 : Via l'API Cloud (WebSocket /ws/esp32)
+    // Synchronisation sur le canal ESP32 (LED de couleur de classe)
     fetch(`/api/esp32/select-class?classe=${encodeURIComponent(classId)}&mic_connected=true`, { method: 'POST' }).catch(() => {});
-    // Canal 2 : Directement sur l'ESP32 en local (192.168.4.1) si connecté à son Wi-Fi SoftAP
     fetch(`http://192.168.4.1/api/select-class?classe=${encodeURIComponent(classId)}`, { mode: 'no-cors' }).catch(() => {});
   }
 

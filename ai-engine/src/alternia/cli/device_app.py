@@ -23,15 +23,14 @@ from alternia.stt.engine import STTEngine
 from alternia.tts.engine import TTSEngine
 
 
-def render_dashboard(state: str, current_class: str, detail: str = ""):
+def render_dashboard(state: str, current_class: str, school: str = "", detail: str = ""):
     """Affiche le tableau de bord interactif du dispositif."""
     os.system("clear" if os.name == "posix" else "cls")
     
-    class_badges = {
-        "10eme": "\033[1;42;37m  [1] 10ème (ACTIF)  \033[0m  [2] 11ème    [3] 12ème",
-        "11eme": "  [1] 10ème  \033[1;44;37m  [2] 11ème (ACTIF)  \033[0m  [3] 12ème",
-        "12eme": "  [1] 10ème    [2] 11ème  \033[1;45;37m  [3] 12ème (ACTIF)  \033[0m",
-    }
+    def badge(c_id: str, label: str) -> str:
+        if current_class == c_id:
+            return f"\033[1;42;37m {label} (ACTIF) \033[0m"
+        return f"\033[1;30;47m {label} \033[0m"
 
     state_symbols = {
         "ready": "🟢 \033[1;32mPRÊT (En attente d'une question sur le Bouton 4)\033[0m",
@@ -41,25 +40,28 @@ def render_dashboard(state: str, current_class: str, detail: str = ""):
         "error": "❌ \033[1;31mERREUR SYSTÈME\033[0m",
     }
 
-    print("=" * 72)
-    print("  🇲🇱  ALTERNIA BOX — DISPOSITIF ÉDUCATIF PHYSIQUE (4 BOUTONS)  🇲🇱")
-    print("=" * 72)
-    print(f"  Programme Actif : {class_badges.get(current_class, current_class)}")
-    print(f"  État Matériel   : {state_symbols.get(state, state)}")
+    school_display = school or "\033[0;33mNon configurée (Appuyez sur [e] pour choisir)\033[0m"
+
+    print("=" * 76)
+    print("  🇲🇱   ALTERNIA BOX — DISPOSITIF ÉDUCATIF PHYSIQUE VOCAL DU MALI   🇲🇱")
+    print("=" * 76)
+    print(f"  🏫 Établissement : \033[1;37m{school_display}\033[0m")
+    print(f"  📚 Fondamental   : {badge('6eme', '[6] 6ème')}  {badge('7eme', '[7] 7ème')}  {badge('8eme', '[8] 8ème')}  {badge('9eme', '[9] 9ème (DEF)')}")
+    print(f"  🎓 Lycée         : {badge('10eme', '[1] 10ème')}  {badge('11eme', '[2] 11ème')}  {badge('12eme', '[3] 12ème (Terminale)')}")
+    print(f"  ⚡ État Matériel : {state_symbols.get(state, state)}")
     if detail:
-        print(f"  Information     : \033[1;37m{detail}\033[0m")
-    print("-" * 72)
-    print("  🎛️  COMMANDES PHYSIQUES DU DISPOSITIF :")
-    print("    [1] -> BOUTON 1 : Basculer sur 10ème Année (Tronc Commun)")
-    print("    [2] -> BOUTON 2 : Basculer sur 11ème Année (Générale)")
-    print("    [3] -> BOUTON 3 : Basculer sur 12ème Année (Terminale)")
-    print("    [4] ou [ESPACE] -> BOUTON 4 (MICRO) :")
+        print(f"  ℹ️  Information   : \033[1;37m{detail}\033[0m")
+    print("-" * 76)
+    print("  🎛️  COMMANDES DU DISPOSITIF :")
+    print("    [6, 7, 8, 9] -> Fondamental (6ème, 7ème, 8ème, 9ème / Examen DEF)")
+    print("    [1, 2, 3]    -> Lycée (10ème Tronc Commun, 11ème, 12ème Terminale BAC)")
+    print("    [e]          -> Configurer son École / Établissement Scolaire")
+    print("    [4] ou [ESPACE] -> BOUTON MICRO :")
     print("           • 1er Clic  : Démarrer l'enregistrement vocal")
     print("           • 2ème Clic : Arrêter et lancer la réponse d'ALTA")
-    print("           • Re-clic   : Continuer et poser la question suivante")
     print("    [q] -> Éteindre le boîtier")
-    print("=" * 72)
-    print("\n👉 Appuyez sur une touche [1, 2, 3, 4, ESPACE, ou q] : ", end="", flush=True)
+    print("=" * 76)
+    print("\n👉 Appuyez sur [6, 7, 8, 9, 1, 2, 3, e, 4/ESPACE, ou q] : ", end="", flush=True)
 
 
 def main():
@@ -74,36 +76,35 @@ def main():
     # 3. Moteur de reconnaissance vocale STT (Faster-Whisper local)
     stt = STTEngine(model_size="base", language="fr")
 
-    # 4. Contrôleur du Dispositif 4 Boutons
-    current_state = {"state": "ready", "class": "10eme", "detail": "Boîtier prêt à l'emploi"}
+    # 4. Contrôleur du Dispositif
+    current_state = {"state": "ready", "class": "6eme", "school": "", "detail": "Boîtier prêt à l'emploi"}
 
     def on_state_update(st, cls, dt):
         current_state["state"] = st
         current_state["class"] = cls
         current_state["detail"] = dt
-        render_dashboard(st, cls, dt)
+        render_dashboard(st, cls, current_state["school"], dt)
 
     controller = DeviceController(
         orchestrator=orchestrator,
         tts=tts,
         stt=stt,
-        initial_class="10eme",
+        initial_class="6eme",
         on_state_change=on_state_update,
     )
 
     # Message de bienvenue
-    tts.speak_sentence_async("Boîtier AlternIA prêt. Choisis ta classe avec les boutons 1, 2 ou 3, puis pose ta question avec le bouton 4.")
-    render_dashboard("ready", "10eme", "Boîtier prêt. Clique sur le Bouton 4 pour parler !")
+    tts.speak_sentence_async("Boîtier AlternIA prêt. Choisis ta classe fondamentale ou lycée, puis pose ta question avec le micro.")
+    render_dashboard("ready", "6eme", "", "Boîtier prêt. Choisis ta classe ou clique sur le Bouton 4 !")
 
     # Boucle de capture clavier pour le mode simulation sur Mac / PC
-    # Sur Raspberry Pi, les vrais boutons GPIO fonctionnent en parallèle automatiquement via HardwareManager
     try:
         import tty, termios  # pyrefly: ignore
+        fd = sys.stdin.fileno()
         def getch():
-            fd = sys.stdin.fileno()
             old_settings = termios.tcgetattr(fd)
             try:
-                tty.setraw(sys.stdin.fileno())
+                tty.setraw(fd)
                 ch = sys.stdin.read(1)
             finally:
                 termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
@@ -123,6 +124,18 @@ def main():
                 tts.speak_sync("Au revoir et bon travail !")
                 break
 
+            elif char == "6":
+                controller.select_class_6()
+
+            elif char == "7":
+                controller.select_class_7()
+
+            elif char == "8":
+                controller.select_class_8()
+
+            elif char == "9":
+                controller.select_class_9()
+
             elif char == "1":
                 controller.select_class_10()
 
@@ -131,6 +144,15 @@ def main():
 
             elif char == "3":
                 controller.select_class_12()
+
+            elif char in {"e", "E"}:
+                print("\n\n🏫 Nom de votre école / établissement : ", end="", flush=True)
+                school_name = sys.stdin.readline().strip()
+                if school_name:
+                    current_state["school"] = school_name
+                    controller.set_school(school_name)
+                else:
+                    render_dashboard(current_state["state"], current_state["class"], current_state["school"])
 
             elif char in {"4", " ", "\r", "\n"}:  # Bouton 4 ou Espace
                 if not controller.is_listening:

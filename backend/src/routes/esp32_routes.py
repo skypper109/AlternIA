@@ -55,7 +55,11 @@ class ESP32Telemetry(BaseModel):
 
 def compute_class_led(selected_class: Optional[str]) -> str:
     """
-    Règle demandée :
+    Règle des couleurs LEDs matériel / ESP32 :
+    - 6ème -> CYAN
+    - 7ème -> ORANGE
+    - 8ème -> PURPLE
+    - 9ème (DEF) -> MAGENTA
     - 10ème -> BLEU
     - 11ème -> ROUGE
     - 12ème (Terminale) -> JAUNE
@@ -64,7 +68,15 @@ def compute_class_led(selected_class: Optional[str]) -> str:
     if not selected_class:
         return "GREEN"
     c = str(selected_class).lower()
-    if "10" in c:
+    if "6" in c:
+        return "CYAN"
+    elif "7" in c:
+        return "ORANGE"
+    elif "8" in c:
+        return "PURPLE"
+    elif "9" in c or "def" in c:
+        return "MAGENTA"
+    elif "10" in c:
         return "BLUE"
     elif "11" in c:
         return "RED"

@@ -209,6 +209,91 @@ body {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
+/* Sélecteur de Cycle (Fondamental / Lycée) */
+.cycle-pill-group {
+  display: flex;
+  align-items: center;
+  background: #F1F5F9;
+  border: 1px solid var(--color-border);
+  padding: 3px;
+  border-radius: 9999px;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.cycle-pill-btn {
+  padding: 5px 12px;
+  border-radius: 9999px;
+  border: none;
+  background: transparent;
+  color: #64748B;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.cycle-pill-btn:hover {
+  color: #1E293B;
+}
+
+.cycle-pill-btn.cycle-pill--active {
+  background: #FFFFFF;
+  color: #314999;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+/* Bouton Sélecteur d'École */
+.school-selector-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 12px;
+  background: #FFFFFF;
+  border: 1px solid var(--color-border);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.school-selector-btn:hover {
+  background: #F8FAFC;
+  border-color: #CBD5E1;
+  transform: translateY(-1px);
+}
+
+/* Éléments de la liste d'écoles dans la modale */
+.school-item-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: #F8FAFC;
+  color: #1E293B;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.school-item-btn:hover {
+  background: #EFF6FF;
+  border-color: #BFDBFE;
+  color: #1E40AF;
+}
+
+.school-item-btn.is-selected {
+  background: #EFF6FF;
+  border-color: #314999;
+  color: #314999;
+  font-weight: 700;
+}
+
 /* ── 2. Corps Principal Kiosk (Voice-First) ────────────────── */
 .kiosk-body {
   position: relative;
