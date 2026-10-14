@@ -20,7 +20,7 @@ SQLITE_FALLBACK_URL = f"sqlite:///{DATA_DIR}/alta_db.sqlite"
 # URL MySQL par défaut pour alta_db
 DEFAULT_MYSQL_URL = os.environ.get(
     "DATABASE_URL",
-    "mysql+pymysql://root:skypper19@localhost:3306/alta_db?charset=utf8mb4"
+    "mysql+pymysql://alternia:skypper19@localhost:3306/alta_db?charset=utf8mb4"
 )
 
 

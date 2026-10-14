@@ -137,7 +137,7 @@ EOF
 cat << 'EOF' > /etc/systemd/system/alternia-backend.service
 [Unit]
 Description=AlternIA Backend API (FastAPI 4-Workers)
-After=network.target network-online.target qdrant.service
+After=network.target network-online.target qdrant.service mysql.service mariadb.service
 Wants=network-online.target qdrant.service
 
 [Service]
@@ -146,7 +146,7 @@ User=ubuntu
 Group=ubuntu
 WorkingDirectory=/home/ubuntu/AlternIA
 Environment="PATH=/home/ubuntu/AlternIA/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-EnvironmentFile=/home/ubuntu/AlternIA/.env
+EnvironmentFile=-/home/ubuntu/AlternIA/.env
 Environment="PYTHONUNBUFFERED=1"
 Environment="PYTHONPATH=/home/ubuntu/AlternIA:/home/ubuntu/AlternIA/backend/src:/home/ubuntu/AlternIA/ai-engine/src"
 Environment="OMP_NUM_THREADS=4"
@@ -174,8 +174,8 @@ Wants=network-online.target
 Type=simple
 User=root
 WorkingDirectory=/home/ubuntu
-EnvironmentFile=/home/ubuntu/AlternIA/.env
-ExecStart=/usr/local/bin/cloudflared tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+EnvironmentFile=-/home/ubuntu/AlternIA/.env
+ExecStart=/usr/bin/cloudflared tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
 Restart=always
 RestartSec=5
 LimitNOFILE=65536
