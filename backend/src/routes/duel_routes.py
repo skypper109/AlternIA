@@ -40,6 +40,7 @@ class DuelGenerateRequest(BaseModel):
     class_level: str = "12eme"
     count: int = 5
     student_name: Optional[str] = "Élève"
+    period: str = "trimestre_1"
 
 
 class DuelCreateRoomRequest(BaseModel):
@@ -48,12 +49,17 @@ class DuelCreateRoomRequest(BaseModel):
     subject: str = "Mathématiques"
     count: int = 5
     student_id: Optional[str] = None
+    period: str = "trimestre_1"
 
 
 class DuelJoinRoomRequest(BaseModel):
     room_code: str
     player_name: str
     player_id: Optional[str] = None
+
+
+class DuelStartRoomRequest(BaseModel):
+    player_name: Optional[str] = None
 
 
 class DuelScoreUpdateRequest(BaseModel):
@@ -69,6 +75,7 @@ class DuelMatchmakeRequest(BaseModel):
     subject: str = "Mathématiques"
     count: int = 5
     player_id: Optional[str] = None
+    period: str = "trimestre_1"
 
 
 class DuelClaimRewardRequest(BaseModel):
@@ -497,6 +504,7 @@ class DuelRoom:
         class_level: str,
         subject: str,
         questions: List[Dict[str, Any]],
+        period: str = "trimestre_1",
     ):
         self.code = code
         self.creator_name = creator_name
@@ -505,8 +513,9 @@ class DuelRoom:
         self.guest_id: Optional[str] = None
         self.class_level = class_level
         self.subject = subject
+        self.period = period
         self.questions = questions
-        self.status = "WAITING_FOR_OPPONENT"  # WAITING_FOR_OPPONENT, IN_PROGRESS, FINISHED
+        self.status = "WAITING_FOR_OPPONENT"  # WAITING_FOR_OPPONENT, WAITING_FOR_START, IN_PROGRESS, FINISHED
         self.created_at = time.time()
         self.creator_score = 0
         self.guest_score = 0
@@ -521,6 +530,7 @@ class DuelRoom:
             "guest_name": self.guest_name,
             "class_level": self.class_level,
             "subject": self.subject,
+            "period": self.period,
             "creator_score": self.creator_score,
             "guest_score": self.guest_score,
             "creator_index": self.creator_index,
@@ -546,8 +556,44 @@ def generate_unique_room_code() -> str:
     return f"ML-{int(time.time()) % 10000:04d}"
 
 
-def get_curriculum_fallback_questions(subject: str, class_level: str, count: int = 5) -> List[Dict[str, Any]]:
-    """Génère des questions authentiques du programme malien."""
+PERIOD_INSTRUCTIONS: Dict[str, str] = {
+    "trimestre_1": (
+        "PÉRIODE SCOLAIRE ACTUELLE : 1er Trimestre (Début d'année scolaire : Octobre - Décembre).\n"
+        "CONTRAINTE STRICTE ET ABSOLUE DU PROGRAMME MALIEN (DEF / BAC) :\n"
+        "L'élève commence l'année scolaire. Tu dois IMPÉRATIVEMENT générer des questions UNIQUEMENT "
+        "sur les tout premiers chapitres et bases introductives enseignés au 1er trimestre.\n"
+        "IL EST FORMELLEMENT ET STRICTEMENT INTERDIT d'aborder des chapitres de fin d'année !\n"
+        "- En Mathématiques : Limites élémentaires, continuité de base, calcul algébrique, suites introductives. "
+        "INTERDIT : intégrales, primitives complexes, nombres complexes avancés, probabilités terminales, géométrie de fin d'année.\n"
+        "- En Chimie : Notions de base, solutions aqueuses, mole, pH introductif. "
+        "INTERDIT : équilibres chimiques finaux (Le Chatelier), constantes d'équilibre Kc complexes, cinétique avancée, chimie organique de fin d'année.\n"
+        "- En Physique : Cinématique de base, forces élémentaires. "
+        "INTERDIT : circuits RLC complexes, électromagnétisme terminal, physique nucléaire de fin d'année.\n"
+        "- En SVT / Biologie : Organisation cellulaire, bases génétiques initiales. "
+        "INTERDIT : génétique humaine avancée de fin d'année, écologie terminale."
+    ),
+    "trimestre_2": (
+        "PÉRIODE SCOLAIRE ACTUELLE : 2ème Trimestre (Milieu d'année scolaire : Janvier - Mars).\n"
+        "CONTRAINTE DU PROGRAMME MALIEN (DEF / BAC) :\n"
+        "Questions portant sur les chapitres du 1er et du 2ème trimestre (dérivation approfondie, fonctions logarithmes et exponentielles, "
+        "cinétique chimique, réactions acido-basiques, mécanique de Newton).\n"
+        "EXCLURE les derniers chapitres de toute fin d'année."
+    ),
+    "trimestre_3": (
+        "PÉRIODE SCOLAIRE ACTUELLE : 3ème Trimestre / Tout le programme (Fin d'année et Préparation aux examens du BAC & DEF).\n"
+        "CONTRAINTE DU PROGRAMME MALIEN (DEF / BAC) :\n"
+        "L'ensemble du programme officiel malien est éligible pour une révision complète et un entraînement intensif aux épreuves nationales."
+    ),
+}
+
+
+def get_curriculum_fallback_questions(
+    subject: str,
+    class_level: str,
+    count: int = 5,
+    period: str = "trimestre_1",
+) -> List[Dict[str, Any]]:
+    """Génère des questions authentiques du programme malien adaptées à la période."""
     norm_class = normalize_student_class(class_level)
     matched_subject = "Mathématiques"
     for s in MALIAN_CURRICULUM_BANK.keys():
@@ -558,19 +604,36 @@ def get_curriculum_fallback_questions(subject: str, class_level: str, count: int
     subject_data = MALIAN_CURRICULUM_BANK.get(matched_subject, MALIAN_CURRICULUM_BANK["Mathématiques"])
     level_data = subject_data.get(norm_class) or subject_data.get("12eme") or []
 
-    # Si pas assez de questions sur ce niveau, combiner
-    all_qs = list(level_data)
+    # Filtrage strict de la période scolaire pour la banque de secours
+    def is_suitable_for_period(q_dict: Dict[str, Any], per: str) -> bool:
+        if per == "trimestre_1":
+            text = (q_dict.get("question", "") + " " + q_dict.get("explanation", "")).lower()
+            end_of_year_terms = [
+                "primitive", "intégral", "complexe", "différentielle",
+                "chatelier", "kc", "ester", "organique", "probabilité",
+                "rlc", "nucléaire", "radioact",
+            ]
+            return not any(term in text for term in end_of_year_terms)
+        return True
+
+    filtered_qs = [q for q in level_data if is_suitable_for_period(q, period)]
+    if not filtered_qs:
+        filtered_qs = list(level_data)
+
+    all_qs = list(filtered_qs)
     if len(all_qs) < count:
         for lvl, qs in subject_data.items():
             if lvl != norm_class:
-                all_qs.extend(qs)
+                all_qs.extend([q for q in qs if is_suitable_for_period(q, period)])
+
+    if not all_qs:
+        all_qs = list(level_data)
 
     random.shuffle(all_qs)
     chosen = all_qs[:count]
 
     result = []
     for i, q in enumerate(chosen):
-        # Mélange des options pour plus de dynamisme
         opts = list(q["options"])
         correct_answer = opts[q["correct_index"]]
         random.shuffle(opts)
@@ -585,27 +648,53 @@ def get_curriculum_fallback_questions(subject: str, class_level: str, count: int
             "correct_index": new_correct_idx,
             "explanation": q["explanation"],
             "tip": q["tip"],
-            "source": "curriculum_mali_certifie",
+            "source": f"curriculum_mali_certifie_{period}",
         })
     return result
 
 
-async def generate_ai_duel_questions(subject: str, class_level: str, count: int = 5) -> List[Dict[str, Any]]:
+async def generate_ai_duel_questions(
+    subject: str,
+    class_level: str,
+    count: int = 5,
+    period: str = "trimestre_1",
+) -> List[Dict[str, Any]]:
     """
-    Appelle le modèle LLM d'AlternIA pour générer en temps réel de vraies questions QCM
-    du programme officiel malien.
+    Appelle le modèle LLM d'AlternIA avec RAG pour générer en temps réel de vraies questions QCM
+    du programme officiel malien calibrées sur la période scolaire choisie.
     """
     try:
         orch = get_orchestrator()
         norm_class = normalize_student_class(class_level)
 
+        period_key = period if period in PERIOD_INSTRUCTIONS else "trimestre_1"
+        period_instruction = PERIOD_INSTRUCTIONS[period_key]
+
+        # ── INTERROGATION DU MOTEUR RAG LOCAL POUR LE PROGRAMME MALIEN ──
+        rag_context = ""
+        if getattr(orch, "rag_service", None) is not None:
+            try:
+                rag_query = f"{subject} leçons cours notions {period_key}"
+                ctx = orch.rag_service.retrieve(
+                    question=rag_query,
+                    student_class=norm_class,
+                    subject=subject,
+                )
+                if ctx and hasattr(ctx, "sources") and ctx.sources:
+                    rag_snippets = [str(s)[:250] for s in ctx.sources[:2]]
+                    rag_context = "\nExtraits officiels du programme malien (RAG) :\n" + "\n---\n".join(rag_snippets)
+            except Exception as rag_err:
+                print(f"ℹ️ [DuelRoutes RAG] Contexte non chargé : {rag_err}")
+
         prompt = (
             f"Génère exactement {count} questions à choix multiples (QCM) pour un duel d'élèves "
             f"sur la matière '{subject}', adaptées au niveau officiel de la classe malienne '{norm_class}' "
-            f"(programme du Mali : Baccalauréat / DEF). "
-            f"Chaque question doit comporter un énoncé rigoureux, 4 options dont 1 seule bonne réponse, "
-            f"l'index de la bonne réponse (0, 1, 2 ou 3), une explication pédagogique détaillée, "
-            f"et une astuce mnémotechnique utile pour réussir les examens nationaux maliens.\n"
+            f"(programme du Mali : Baccalauréat / DEF).\n\n"
+            f"{period_instruction}\n"
+            f"{rag_context}\n\n"
+            f"Chaque question doit comporter un énoncé rigoureux respectant STRICTEMENT la période scolaire '{period_key}', "
+            f"4 options dont 1 seule bonne réponse, l'index de la bonne réponse (0, 1, 2 ou 3), "
+            f"une explication pédagogique détaillée, et une astuce mnémotechnique utile pour réussir les examens maliens.\n"
             f"Réponds UNIQUEMENT par un objet JSON valide avec la clé 'questions' :\n"
             f'{{"questions": [{{"question": "...", "options": ["A", "B", "C", "D"], "correct_index": 0, "explanation": "...", "tip": "..."}}]}}'
         )
@@ -613,7 +702,8 @@ async def generate_ai_duel_questions(subject: str, class_level: str, count: int 
         system_prompt = (
             "Tu es l'Intelligence Artificielle pédagogique d'AlternIA pour le système éducatif du Mali. "
             "Tu formules des questions de QCM scolaires réelles, authentiques et calibrées selon les manuels "
-            "et épreuves du Mali. Ta réponse doit être STRICTEMENT du JSON sans aucun texte hors JSON."
+            "et épreuves du Mali, en respectant impérativement la période scolaire demandée (ne jamais poser de questions "
+            "de fin d'année si l'élève est au 1er trimestre). Ta réponse doit être STRICTEMENT du JSON sans aucun texte hors JSON."
         )
 
         # Appel LLM client asynchrone non-bloquant avec garde-fou temporel
@@ -625,13 +715,13 @@ async def generate_ai_duel_questions(subject: str, class_level: str, count: int 
                     prompt=prompt,
                     system_prompt=system_prompt,
                     temperature=0.3,
-                    max_tokens=min(count * 120 + 80, 650),
+                    max_tokens=min(count * 125 + 90, 700),
                 ),
                 timeout=35.0,
             )
         except asyncio.TimeoutError:
-            print(f"⏱️ [DuelRoutes] Délai IA dépassé (35s) pour {subject} ({class_level}). Utilisation banque certifiée.")
-            return get_curriculum_fallback_questions(subject, class_level, count)
+            print(f"⏱️ [DuelRoutes] Délai IA dépassé (35s) pour {subject} ({class_level}, {period_key}). Utilisation banque certifiée.")
+            return get_curriculum_fallback_questions(subject, class_level, count, period_key)
 
         # Extraction JSON robuste
         if raw_response and ("{" in raw_response):
@@ -657,15 +747,15 @@ async def generate_ai_duel_questions(subject: str, class_level: str, count: int 
                                     "correct_index": corr_idx,
                                     "explanation": str(q.get("explanation", "Bonne réponse d'après le cours.")).strip(),
                                     "tip": str(q.get("tip", "Astuce AlterniA pour le Bac.")).strip(),
-                                    "source": "ia_alternia_direct",
+                                    "source": f"ia_alternia_{period_key}",
                                 })
                     if len(parsed_questions) >= min(count, 3):
                         return parsed_questions
     except Exception as e:
         print(f"⚠️ [DuelRoutes] Exception génération IA : {e}. Utilisation banque certifiée.")
 
-    # Secours direct basé sur le programme officiel certifié du Mali
-    return get_curriculum_fallback_questions(subject, class_level, count)
+    # Secours direct basé sur le programme officiel certifié du Mali avec filtrage par période
+    return get_curriculum_fallback_questions(subject, class_level, count, period)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -675,13 +765,14 @@ async def generate_ai_duel_questions(subject: str, class_level: str, count: int 
 @router.post("/generate", response_model=List[DuelQuestionDto])
 async def api_generate_duel_questions(req: DuelGenerateRequest):
     """
-    Génère des questions de duel scolaire réelles issues de l'IA AlternIA (connectée au programme malien).
+    Génère des questions de duel scolaire réelles issues de l'IA AlternIA (connectée au programme malien et à la période).
     ZÉRO MOCK : données générées par le LLM ou issues du programme certifié.
     """
     questions = await generate_ai_duel_questions(
         subject=req.subject,
         class_level=req.class_level,
         count=req.count,
+        period=req.period,
     )
     return [DuelQuestionDto(**q) for q in questions]
 
@@ -690,13 +781,14 @@ async def api_generate_duel_questions(req: DuelGenerateRequest):
 async def api_create_duel_room(req: DuelCreateRoomRequest):
     """
     Crée une salle de duel 1v1 avec un CODE DE VALIDATION unique (PIN) à partager.
-    Le duel s'active dès que l'ami rejoint avec ce code.
+    Le duel reste en attente de validation jusqu'à ce que l'hôte lance.
     """
     code = generate_unique_room_code()
     questions = await generate_ai_duel_questions(
         subject=req.subject,
         class_level=req.class_level,
         count=req.count,
+        period=req.period,
     )
 
     room = DuelRoom(
@@ -706,6 +798,7 @@ async def api_create_duel_room(req: DuelCreateRoomRequest):
         class_level=req.class_level,
         subject=req.subject,
         questions=questions,
+        period=req.period,
     )
     DUEL_ROOMS[code] = room
 
@@ -722,14 +815,36 @@ async def api_create_duel_room(req: DuelCreateRoomRequest):
 def api_join_duel_room(req: DuelJoinRoomRequest):
     """
     Rejoint une salle de duel existante en fournissant le CODE DE VALIDATION reçu de son ami.
-    Active le duel simultanément.
+    Place le salon en état WAITING_FOR_START pour que le joueur invité attende que l'hôte lance.
     """
     code = req.room_code.strip().upper()
     room = DUEL_ROOMS.get(code)
     if not room:
+        clean_target = code.replace("-", "").replace(" ", "")
+        for r_code, r_obj in DUEL_ROOMS.items():
+            if r_code.replace("-", "").replace(" ", "") == clean_target:
+                room = r_obj
+                code = r_code
+                break
+
+    # Support code d'entraînement immédiat si l'élève teste
+    if not room and (code in ["DEMO", "TEST", "TEST-1234", "ML-0000", "0000"]):
+        demo_qs = get_curriculum_fallback_questions("Mathématiques", "12eme", 5, "trimestre_1")
+        room = DuelRoom(
+            code=code,
+            creator_name="Amadou (Champion DEF)",
+            creator_id="demo_creator",
+            class_level="12eme",
+            subject="Mathématiques",
+            questions=demo_qs,
+            period="trimestre_1",
+        )
+        DUEL_ROOMS[code] = room
+
+    if not room:
         raise HTTPException(
             status_code=404,
-            detail=f"Code de validation '{code}' introuvable. Vérifie le code donné par ton ami.",
+            detail=f"Code de validation '{code}' introuvable. Demande à ton ami de créer le salon et de te donner son code.",
         )
 
     if room.status == "FINISHED":
@@ -738,16 +853,45 @@ def api_join_duel_room(req: DuelJoinRoomRequest):
             detail="Ce duel est déjà terminé.",
         )
 
-    # Assigner le second joueur et activer le duel
+    # Assigner le second joueur et placer le salon en attente de lancement par l'hôte
     room.guest_name = req.player_name
     room.guest_id = req.player_id or f"guest_{int(time.time()*1000)}"
+    room.status = "WAITING_FOR_START"
+
+    return {
+        "status": "success",
+        "room_code": code,
+        "message": f"Connecté au salon ! En attente que {room.creator_name} lance le duel.",
+        "opponent_name": room.creator_name,
+        "room": room.to_dict(),
+    }
+
+
+@router.post("/room/{room_code}/start")
+def api_start_duel_room(room_code: str, req: Optional[DuelStartRoomRequest] = None):
+    """
+    Déclenche le démarrage synchronisé du duel par l'hôte.
+    Fait passer le salon en IN_PROGRESS, ce qui débloque instantanément l'écran de l'invité en attente.
+    """
+    code = room_code.strip().upper()
+    room = DUEL_ROOMS.get(code)
+    if not room:
+        clean_target = code.replace("-", "").replace(" ", "")
+        for r_code, r_obj in DUEL_ROOMS.items():
+            if r_code.replace("-", "").replace(" ", "") == clean_target:
+                room = r_obj
+                code = r_code
+                break
+
+    if not room:
+        raise HTTPException(status_code=404, detail="Salle de duel introuvable.")
+
     room.status = "IN_PROGRESS"
 
     return {
         "status": "success",
         "room_code": code,
-        "message": f"Duel activé ! Tu affrontes {room.creator_name}.",
-        "opponent_name": room.creator_name,
+        "message": "Le duel est maintenant lancé en simultané !",
         "room": room.to_dict(),
     }
 
@@ -760,6 +904,12 @@ def api_get_duel_room(room_code: str):
     code = room_code.strip().upper()
     room = DUEL_ROOMS.get(code)
     if not room:
+        clean_target = code.replace("-", "").replace(" ", "")
+        for r_code, r_obj in DUEL_ROOMS.items():
+            if r_code.replace("-", "").replace(" ", "") == clean_target:
+                room = r_obj
+                break
+    if not room:
         raise HTTPException(status_code=404, detail="Salle de duel introuvable.")
     return room.to_dict()
 
@@ -771,6 +921,12 @@ def api_update_duel_score(room_code: str, req: DuelScoreUpdateRequest):
     """
     code = room_code.strip().upper()
     room = DUEL_ROOMS.get(code)
+    if not room:
+        clean_target = code.replace("-", "").replace(" ", "")
+        for r_code, r_obj in DUEL_ROOMS.items():
+            if r_code.replace("-", "").replace(" ", "") == clean_target:
+                room = r_obj
+                break
     if not room:
         raise HTTPException(status_code=404, detail="Salle de duel introuvable.")
 
@@ -791,6 +947,9 @@ def api_update_duel_score(room_code: str, req: DuelScoreUpdateRequest):
         "room_code": code,
         "creator_score": room.creator_score,
         "guest_score": room.guest_score,
+        "creator_index": room.creator_index,
+        "guest_index": room.guest_index,
+        "room_status": room.status,
         "is_finished": room.status == "FINISHED",
     }
 
@@ -814,6 +973,7 @@ async def api_matchmake_mali(req: DuelMatchmakeRequest):
             subject=req.subject,
             class_level=req.class_level,
             count=req.count,
+            period=req.period,
         )
         room = DuelRoom(
             code=code,
@@ -822,6 +982,7 @@ async def api_matchmake_mali(req: DuelMatchmakeRequest):
             class_level=req.class_level,
             subject=req.subject,
             questions=questions,
+            period=req.period,
         )
         room.guest_name = req.player_name
         room.guest_id = req.player_id
@@ -846,6 +1007,7 @@ async def api_matchmake_mali(req: DuelMatchmakeRequest):
         subject=req.subject,
         class_level=req.class_level,
         count=req.count,
+        period=req.period,
     )
 
     room = DuelRoom(
@@ -855,6 +1017,7 @@ async def api_matchmake_mali(req: DuelMatchmakeRequest):
         class_level=req.class_level,
         subject=req.subject,
         questions=questions,
+        period=req.period,
     )
     room.guest_name = f"{rival['name']} ({rival['school']})"
     room.status = "IN_PROGRESS"
@@ -876,12 +1039,33 @@ async def api_matchmake_mali(req: DuelMatchmakeRequest):
 @router.post("/claim-reward")
 def api_claim_duel_reward(req: DuelClaimRewardRequest):
     """
-    Attribue et enregistre les récompenses de fin de duel :
+    Attribue et enregistre les récompenses de fin de duel côté serveur avec idempotence :
     - Victoire : +250 XP et +50 Pièces AlterniA
     - Participation / Défaite : +50 XP et +10 Pièces AlterniA
     """
     xp = 250 if req.player_won else 50
     coins = 50 if req.player_won else 10
+
+    from backend.src.db.database import get_db
+    from backend.src.services.wallet_service import credit_coins
+
+    db = next(get_db())
+    try:
+        # Clé d'idempotence basée sur le joueur, sujet et tranche de 60s
+        idemp_key = f"duel_{req.player_name.lower()}_{req.subject.lower()}_{int(time.time() // 60)}"
+        credit_coins(
+            db=db,
+            student_id=req.player_name,
+            amount=coins,
+            origine="BATTLE_DUEL",
+            description=f"Duel {'remporté' if req.player_won else 'terminé'} en {req.subject}",
+            idempotency_key=idemp_key,
+            metadata={"player_won": req.player_won, "score": req.score, "subject": req.subject},
+        )
+    except Exception as err:
+        print(f"⚠️ [DuelReward] Erreur persistance wallet : {err}")
+    finally:
+        db.close()
 
     return {
         "status": "success",

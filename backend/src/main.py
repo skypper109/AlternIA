@@ -41,6 +41,12 @@ from backend.src.routes import (
     sync_router,
     flashcard_router,
     grin_router,
+    wallet_router,
+    retrait_router,
+    parrainage_router,
+    abonnement_router,
+    defi_national_router,
+    admin_finance_router,
 )
 
 
@@ -126,6 +132,12 @@ app.include_router(podcast_router)
 app.include_router(sync_router)
 app.include_router(flashcard_router)
 app.include_router(grin_router)
+app.include_router(wallet_router)
+app.include_router(retrait_router)
+app.include_router(parrainage_router)
+app.include_router(abonnement_router)
+app.include_router(defi_national_router)
+app.include_router(admin_finance_router)
 
 
 

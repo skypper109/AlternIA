@@ -384,3 +384,181 @@ class CulturePack(Base):
     bundle_data_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # Full offline JSON
     date_mise_a_jour: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
 
+
+# ==============================================================================
+# MODÈLES MODULE F & G : PORTEFEUILLE CENTRAL, TRANSACTIONS & RETRAITS MOBILE MONEY
+# ==============================================================================
+
+class Portefeuille(Base):
+    __tablename__ = "portefeuilles"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    apprenant_id: Mapped[str] = mapped_column(String(36), unique=True, index=True, nullable=False)
+    solde_pieces: Mapped[int] = mapped_column(Integer, default=0)
+    pieces_reservees: Mapped[int] = mapped_column(Integer, default=0)  # Réservées pour un retrait en attente
+    pieces_retirees_total: Mapped[int] = mapped_column(Integer, default=0)
+    argent_total_gagne_fcfa: Mapped[int] = mapped_column(Integer, default=0)
+    date_creation: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
+    date_mise_a_jour: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
+
+    transactions: Mapped[List["TransactionPiece"]] = relationship("TransactionPiece", back_populates="portefeuille")
+
+
+class TransactionPiece(Base):
+    __tablename__ = "transactions_pieces"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    portefeuille_id: Mapped[str] = mapped_column(String(36), ForeignKey("portefeuilles.id"), index=True, nullable=False)
+    apprenant_id: Mapped[str] = mapped_column(String(36), index=True, nullable=False)
+    montant: Mapped[int] = mapped_column(Integer, nullable=False)  # Positif (crédit) ou négatif (débit)
+    type_operation: Mapped[str] = mapped_column(String(40), nullable=False)  # 'CREDIT', 'DEBIT_RESERVATION', 'DEBIT_FINAL', 'REMBOURSEMENT'
+    origine: Mapped[str] = mapped_column(String(50), nullable=False)  # 'DEFI_NATIONAL', 'BATTLE_DUEL', 'CHALLENGE_SOLO', 'SESSION_GRIN', 'BONUS_FIDELITE', 'CULTURE_VALIDEE', 'RETRAIT_MOBILE_MONEY', 'PARRAINAGE'
+    idempotency_key: Mapped[Optional[str]] = mapped_column(String(100), unique=True, index=True, nullable=True)
+    description: Mapped[str] = mapped_column(String(255), nullable=False)
+    metadonnees_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    solde_apres: Mapped[int] = mapped_column(Integer, nullable=False)
+    date_creation: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
+
+    portefeuille: Mapped["Portefeuille"] = relationship("Portefeuille", back_populates="transactions")
+
+
+class DemandeRetrait(Base):
+    __tablename__ = "demandes_retrait"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    apprenant_id: Mapped[str] = mapped_column(String(36), index=True, nullable=False)
+    numero_transaction_ref: Mapped[str] = mapped_column(String(50), unique=True, index=True, nullable=False)
+    pieces_debitees: Mapped[int] = mapped_column(Integer, nullable=False)
+    montant_fcfa: Mapped[int] = mapped_column(Integer, nullable=False)
+    operateur: Mapped[str] = mapped_column(String(30), nullable=False)  # 'ORANGE_MONEY', 'MOOV_MONEY', 'WAVE'
+    numero_telephone: Mapped[str] = mapped_column(String(30), nullable=False)
+    nom_titulaire: Mapped[str] = mapped_column(String(100), nullable=False)
+    statut: Mapped[str] = mapped_column(String(40), default="EN_ATTENTE", index=True)  # 'EN_ATTENTE', 'EN_VERIFICATION', 'ACCEPTEE', 'REJETEE', 'EN_COURS_DE_PAIEMENT', 'PAYEE', 'ECHEC'
+    motif_rejet: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    reference_operateur: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    traite_par_admin_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
+    date_demande: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
+    date_traitement: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    date_paiement: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    ip_demandeur: Mapped[Optional[str]] = mapped_column(String(45), nullable=True)
+
+
+# ==============================================================================
+# MODÈLES MODULE A : PARRAINAGE & RÉCOMPENSES
+# ==============================================================================
+
+class ParrainageCode(Base):
+    __tablename__ = "parrainage_codes"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    apprenant_id: Mapped[str] = mapped_column(String(36), unique=True, index=True, nullable=False)
+    code: Mapped[str] = mapped_column(String(20), unique=True, index=True, nullable=False)
+    total_filleuls: Mapped[int] = mapped_column(Integer, default=0)
+    total_filleuls_actifs: Mapped[int] = mapped_column(Integer, default=0)
+    pieces_gagnees_parrainage: Mapped[int] = mapped_column(Integer, default=0)
+    date_creation: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class ParrainageFilleul(Base):
+    __tablename__ = "parrainage_filleuls"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    parrain_id: Mapped[str] = mapped_column(String(36), index=True, nullable=False)
+    filleul_id: Mapped[str] = mapped_column(String(36), unique=True, index=True, nullable=False)
+    code_utilise: Mapped[str] = mapped_column(String(20), nullable=False)
+    statut: Mapped[str] = mapped_column(String(30), default="EN_ATTENTE")  # 'EN_ATTENTE', 'VALIDE', 'SUSPECT_REJETE'
+    recompense_attribuee: Mapped[bool] = mapped_column(Boolean, default=False)
+    date_inscription: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
+    date_validation: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
+
+# ==============================================================================
+# MODÈLES MODULE H : ABONNEMENTS & DROITS PREMIUM
+# ==============================================================================
+
+class OffreAbonnement(Base):
+    __tablename__ = "offres_abonnement"
+
+    id: Mapped[str] = mapped_column(String(50), primary_key=True)  # 'mensuel_standard', 'trimestriel', 'annuel'
+    titre: Mapped[str] = mapped_column(String(100), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    prix_fcfa: Mapped[int] = mapped_column(Integer, nullable=False)
+    duree_jours: Mapped[int] = mapped_column(Integer, nullable=False, default=30)
+    avantages_json: Mapped[str] = mapped_column(Text, nullable=False)
+    actif: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class AbonnementUtilisateur(Base):
+    __tablename__ = "abonnements_utilisateurs"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    apprenant_id: Mapped[str] = mapped_column(String(36), index=True, nullable=False)
+    offre_id: Mapped[str] = mapped_column(String(50), nullable=False)
+    source: Mapped[str] = mapped_column(String(50), default="ACHAT_MOBILE_MONEY")  # 'ACHAT_MOBILE_MONEY', 'PARRAINAGE_OFFERT', 'ADMIN_GRATIFIE'
+    statut: Mapped[str] = mapped_column(String(30), default="ACTIF", index=True)  # 'ACTIF', 'EXPIRE', 'RESILIE'
+    date_debut: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
+    date_expiration: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=False)
+    date_creation: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+# ==============================================================================
+# MODÈLES MODULE B : DÉFI NATIONAL DU PROGRAMME MALIEN
+# ==============================================================================
+
+class DefiNational(Base):
+    __tablename__ = "defis_nationaux"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    titre: Mapped[str] = mapped_column(String(150), nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    classe: Mapped[str] = mapped_column(String(30), nullable=False, index=True)  # '12eme', '10eme', 'TSE', etc.
+    matiere: Mapped[str] = mapped_column(String(80), nullable=False)
+    statut: Mapped[str] = mapped_column(String(30), default="EN_COURS", index=True)  # 'A_VENIR', 'EN_COURS', 'CLOTURE'
+    date_debut: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
+    date_fin: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=False)
+    duree_minutes: Mapped[int] = mapped_column(Integer, default=15)
+    recompense_pieces_premier: Mapped[int] = mapped_column(Integer, default=500)
+    recompense_pieces_top10: Mapped[int] = mapped_column(Integer, default=250)
+    recompense_pieces_participation: Mapped[int] = mapped_column(Integer, default=50)
+    questions_json: Mapped[str] = mapped_column(Text, nullable=False)  # Questions officielles
+    date_creation: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
+
+    participations: Mapped[List["ParticipationDefiNational"]] = relationship("ParticipationDefiNational", back_populates="defi")
+
+
+class ParticipationDefiNational(Base):
+    __tablename__ = "participations_defi_national"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    defi_id: Mapped[str] = mapped_column(String(36), ForeignKey("defis_nationaux.id"), index=True, nullable=False)
+    apprenant_id: Mapped[str] = mapped_column(String(36), index=True, nullable=False)
+    apprenant_nom: Mapped[str] = mapped_column(String(100), nullable=False)
+    apprenant_classe: Mapped[str] = mapped_column(String(30), nullable=False)
+    score: Mapped[int] = mapped_column(Integer, default=0)
+    temps_secondes: Mapped[int] = mapped_column(Integer, default=0)
+    pieces_remportees: Mapped[int] = mapped_column(Integer, default=0)
+    xp_remportes: Mapped[int] = mapped_column(Integer, default=0)
+    rang_final: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    reponses_soumises_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    soumis_a: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
+
+    defi: Mapped["DefiNational"] = relationship("DefiNational", back_populates="participations")
+
+
+# ==============================================================================
+# JOURNAL D'AUDIT SÉCURISÉ (ADMINISTRATION & FINANCES)
+# ==============================================================================
+
+class JournalAuditSecurite(Base):
+    __tablename__ = "journaux_audit_securite"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    admin_id_ou_systeme: Mapped[str] = mapped_column(String(100), nullable=False)
+    action_type: Mapped[str] = mapped_column(String(50), nullable=False, index=True)  # 'RETRAIT_APPROUVE', 'RETRAIT_REJETE', 'RETRAIT_PAYE', 'RESET_CLASSEMENT', etc.
+    entite_cible: Mapped[str] = mapped_column(String(50), nullable=False)
+    entite_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    details_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    adresse_ip: Mapped[Optional[str]] = mapped_column(String(45), nullable=True)
+    date_action: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
+
+

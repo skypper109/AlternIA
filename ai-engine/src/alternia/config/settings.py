@@ -12,9 +12,13 @@ class Settings(BaseSettings):
     app_env: str = "development"
     debug: bool = True
 
-    llm_provider: str = ""
-    llm_model: str = ""
+    llm_provider: str = "groq"
+    llm_model: str = "qwen/qwen3.8-27b"
     llm_api_key: str = ""
+    groq_api_key: str = ""
+    groq_model: str = "qwen/qwen3.8-27b"
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-3-flash-preview"
     
     # Local LLM (Privilégie le modèle 1.5B en local pour rapidité et faible empreinte RAM)
     @staticmethod
@@ -54,7 +58,7 @@ class Settings(BaseSettings):
     backend_port: int = 8000
 
     default_class: str = "12eme"
-    tts_voice: str = "henri"
+    tts_voice: str = "vivienne"
     tts_rate: int = 190
 
     embedding_model_path: str = str(

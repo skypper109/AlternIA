@@ -448,12 +448,15 @@ class CultureService:
         monument_id: Optional[str] = None,
         region_id: Optional[str] = None,
         context_hint: Optional[str] = None,
+        custom_system_prompt: Optional[str] = None,
+        use_case: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
-        Assistant RAG du Guide Culturel :
-        - Contexte documentaire précis extrait de la base haute fidélité (Monuments, Personnages, Lieux, Contes, Proverbes)
-        - Reformulation dynamique, chaleureuse et variée par le LLM (Vieux Sage / Griot du Mali)
-        - À chaque demande, même posée deux fois de suite, la reformulation est vivante et renouvelée (temp=0.72)
+        Assistant RAG & IA Adaptative du Guide Culturel :
+        - Contexte documentaire haute fidélité (Monuments, Personnages, Contes, Proverbes)
+        - Système de Prompts adaptatifs par cas d'usage (Monument, Héros, Conte, Sagesse, Art, Vie)
+        - Reformulation vivante et chaleureuse par le LLM (Griot / Vieux Sage du Mali)
+        - Température 0.72 pour assurer variété et fraîcheur à chaque réponse
         """
         t0_ask = time.perf_counter()
         clean_q = question.strip().lower()
@@ -638,23 +641,87 @@ class CultureService:
 
         facts_text = "\n\n".join(facts_blocks)
 
-        # ── 7. PROMPT POUR LE VIEUX SAGE & REFORMULATION ORALE PAR LE LLM ──
-        system_prompt = (
-            "Tu es le « Vieux Sage et Griot du Mali », vénérable gardien de la mémoire orale, des contes et de l'histoire sous l'arbre à palabres.\n\n"
-            "DIRECTIVES IMPÉRATIVES D'ÉLOQUENCE ET D'AUTHENTICITÉ :\n"
-            "1. VÉRITÉ HISTORIQUE STRICTE : Appuie-toi en priorité absolue sur le [CONTEXTE FACTUEL DU MALI] fourni. Respecte fidèlement les faits historiques, noms, dates, lieux et symboles réels.\n"
-            "2. REFORMULATION VIVANTE ET POÉTIQUE : Ne copie JAMAIS textuellement la fiche ! Parle avec la verve, la musicalité et la chaleur d'un véritable griot ouest-africain (images évocatrices, chaleur humaine, fierté du patrimoine).\n"
-            "3. VARIABILITÉ TOTALE À CHAQUE RÉPONSE : Ne récite jamais deux fois la même réponse si l'on te pose une question similaire ! Invente à chaque fois une entrée en matière unique (ex: 'I ni ce, noble voyageur', 'Écoute ce que le vent du Djoliba dépose sous notre baobab...', 'Approche-toi du feu de veillée, voyageur de la lumière...'), change l'ordre de tes anecdotes et emploie des métaphores variées pour que le dialogue reste interactif, captivant et vivant.\n"
-            "4. DISTINCTION FAITS ET TRADITIONS : S'il y a des secrets ou légendes, présente-les comme la mémoire orale transmise par nos aïeux.\n"
-            "5. STRUCTURE PARFAITE : Fais une réponse équilibrée et fluide de 2 à 4 paragraphes rythmés (ni trop courte, ni assommante), sans liste à puces mécanique, terminée par une formule de bénédiction ou une invitation bienveillante."
-        )
+        # ── 7. PROMPT ADAPTATIF POUR LE GUIDE CULTUREL & REFORMULATION ORALE DU GRIOT ──
+        # Détection adaptative du cas d'usage si non fourni
+        detected_use_case = use_case or "generalCulture"
+        if not use_case:
+            if target_monument or any(w in norm_q for w in ["monument", "tour de l'afrique", "independance", "djenne", "mosquee", "tombouctou", "askia", "tata", "sikasso", "obelisque", "paix", "martyrs", "statue"]):
+                detected_use_case = "monumentSite"
+            elif any(w in norm_q for w in ["soundiata", "keita", "mansa moussa", "babemba", "traore", "samory", "coulibaly", "sonni ali", "askia mohammed", "heros", "resistant", "roi", "empereur"]):
+                detected_use_case = "historicalFigure"
+            elif any(w in norm_q for w in ["conte", "fable", "bouki", "hyene", "leuk", "lievre", "legende", "mythe", "arbre a palabres", "veillee"]):
+                detected_use_case = "storyTale"
+            elif any(w in norm_q for w in ["proverbe", "adage", "maxime", "sagesse", "kouroukan", "fouga", "charte", "senankouya", "cousinage", "diatiguiya"]):
+                detected_use_case = "proverbWisdom"
+            elif any(w in norm_q for w in ["ciwara", "bogolan", "kora", "balafon", "ngoni", "djembe", "masque", "crepissage", "artisanat", "forgeron"]):
+                detected_use_case = "traditionArt"
+            elif any(w in norm_q for w in ["peur", "angoisse", "conseil", "vie", "avenir", "courage", "famille", "reussir", "bonheur", "aide-moi", "que faire"]):
+                detected_use_case = "philosophicalLife"
+
+        if custom_system_prompt and len(custom_system_prompt.strip()) > 20:
+            system_prompt = custom_system_prompt.strip()
+            if "CONTEXTE FACTUEL" not in system_prompt:
+                system_prompt += (
+                    "\n\nDIRECTIVE CONTEXTE FACTUEL : Appuie-toi sur les éléments du patrimoine malien transmis "
+                    "pour enrichir fidèlement ta réponse tout en conservant ton ton noble et vivant."
+                )
+        else:
+            base_griot = (
+                "Tu es le « Vieux Sage et grand Griot du Mali », vénérable gardien de la mémoire orale sous l'arbre à palabres au bord du fleuve Djoliba.\n"
+                "Tu t'exprimes avec noblesse, poésie, musicalité orale et chaleur humaine (accueils chaleureux : 'I ni ce', 'Aw bisimila').\n"
+                "N'utilise jamais de listes à puces plates ni de ton scolaire rigide. Structure ta parole en paragraphes harmonieux et rythmés."
+            )
+            if detected_use_case == "monumentSite":
+                specific = (
+                    "MISSION SPÉCIFIQUE (MONUMENT DU MALI) :\n"
+                    "- Fais résonner la fierté des pierres, des bâtisseurs et des symboles de notre souveraineté.\n"
+                    "- Décris la majesté de l'édifice, son rôle civique et les secrets transmis par les anciens."
+                )
+            elif detected_use_case == "historicalFigure":
+                specific = (
+                    "MISSION SPÉCIFIQUE (HÉROS & RÉSISTANTS DU MALI) :\n"
+                    "- Adopte le souffle épique du Griot du Manden ou du Kénédougou !\n"
+                    "- Entonne l'éloge du souverain ou du résistant comme au son de la Kora, cite sa devise de bravoure (ex: Danbè) "
+                    "et invite l'apprenant à puiser dans ce courage ancestral."
+                )
+            elif detected_use_case == "storyTale":
+                specific = (
+                    "MISSION SPÉCIFIQUE (CONTES & VEILLÉES) :\n"
+                    "- Invite l'auditeur près du feu au clair de lune : 'Taali taali ! Que le conte aille et revienne sous nos yeux...'\n"
+                    "- Mets en scène l'intelligence et les ruses (ex: Leuk le lièvre et Bouki l'hyène) et termine par la perle de sagesse morale."
+                )
+            elif detected_use_case == "proverbWisdom":
+                specific = (
+                    "MISSION SPÉCIFIQUE (PROVERBES & SAGESSE DE PAIX) :\n"
+                    "- Exprime la profonde sérénité des maîtres de la parole.\n"
+                    "- Cite la sagesse dans sa langue d'origine avec sa traduction et relie-la aux boucliers de concorde "
+                    "(Charte de Kouroukan Fouga de 1236, Senankouya / cousinage à plaisanterie, Diatiguiya)."
+                )
+            elif detected_use_case == "traditionArt":
+                specific = (
+                    "MISSION SPÉCIFIQUE (ARTS & TRADITIONS DU MALI) :\n"
+                    "- Célèbre le savoir-faire sacré des forgerons (Noumou), des sculpteurs de masques Ciwara, "
+                    "des tisseuses de Bogolan et des poètes du Balafon et de la Kora."
+                )
+            elif detected_use_case == "philosophicalLife":
+                specific = (
+                    "MISSION SPÉCIFIQUE (CONSEILS DE VIE SOUS LE BAOBAB) :\n"
+                    "- Écoute le cœur de ton visiteur avec une infinie bienveillance.\n"
+                    "- Offre-lui réconfort, patience (Munya), courage et foi en l'avenir en puisant dans la philosophie millénaire du Mali."
+                )
+            else:
+                specific = (
+                    "MISSION GÉNÉRALE : Célèbre l'héritage des trois grands empires (Ghana, Manden, Songhoï) "
+                    "et réponds avec profondeur, bienveillance et éclat."
+                )
+            system_prompt = f"{base_griot}\n\n{specific}\n\nDIRECTIVE VÉRITÉ FACTUELLE : Appuie-toi sur les faits historiques authentiques fournis sans jamais les recopier mécaniquement."
 
         user_prompt = (
             f"--- CONTEXTE FACTUEL DU PATRIMOINE DU MALI (BASE DE DONNÉES DE RÉFÉRENCE) ---\n"
             f"{facts_text}\n"
             f"--------------------------------------------------------------------------\n\n"
-            f"Question du voyageur : « {question} »\n\n"
-            f"En tant que Vieux Sage et Griot, réponds au voyageur en t'imprégnant de ce contexte pour le reformuler avec sagesse, vivacité et éloquence :"
+            f"Question / Demande : « {question} »\n\n"
+            f"En tant que Guide Culturel et Vieux Sage, réponds avec éloquence, sagesse et haute fidélité culturelle :"
         )
 
         reponse: Optional[str] = None
@@ -670,7 +737,7 @@ class CultureService:
                 prompt=user_prompt,
                 system_prompt=system_prompt,
                 temperature=0.72,
-                max_tokens=250,
+                max_tokens=650,
             )
             dt_llm = time.perf_counter() - t_gen_start
             if raw_gen and len(raw_gen.strip()) > 30:
@@ -737,6 +804,7 @@ class CultureService:
         print(f"\n\033[1;35m════════════════════════════════════════════════════════════════════════════════\033[0m")
         print(f"\033[1;36m🗣️  [Guide Culturel IA]\033[0m Requête reçue sur \033[1mPOST /api/v1/culture/ask\033[0m")
         print(f"   • Question           : \033[1m\"{question}\"\033[0m")
+        print(f"   • Cas d'usage IA     : \033[1;34m{detected_use_case}\033[0m {'(Prompt client adaptatif)' if custom_system_prompt else '(Prompt adaptatif auto)'}")
         print(f"   • Cible RAG détectée : \033[1;33m{matched_item_name or 'Patrimoine Général du Mali'}\033[0m (Type: {matched_item_type})")
         print(f"   • Contexte injecté   : \033[36m{len(facts_blocks)} bloc(s) de faits authentiques extraits de la BDD\033[0m")
         if dt_llm > 0:

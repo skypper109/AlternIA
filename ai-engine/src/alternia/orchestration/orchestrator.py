@@ -1069,11 +1069,13 @@ class AlterniaOrchestrator:
 
         meta = metadata or {}
         system_override = meta.get("system_override")
+        max_tokens = meta.get("max_tokens")
 
         content = await asyncio.to_thread(
             self.llm_client.generate,
             prompt=user_message,
             system_prompt=system_override,
+            max_tokens=max_tokens,
         )
 
         return {

@@ -1,0 +1,23 @@
+[Unit]
+Description=AlternIA Cloudflare Tunnel Daemon (Domaines Officiels Mali & SSL)
+After=network.target network-online.target alternia-backend.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/home/ubuntu
+EnvironmentFile=/home/ubuntu/AlternIA/.env
+ExecStart=/usr/local/bin/cloudflared tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+
+Restart=always
+RestartSec=5
+TimeoutStartSec=0
+LimitNOFILE=65536
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=alternia-tunnel
+
+[Install]
+WantedBy=multi-user.target

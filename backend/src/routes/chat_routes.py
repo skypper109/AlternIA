@@ -95,7 +95,12 @@ def chat_endpoint(req: ChatRequest):
         from ..services.culture_service import CultureService
         from ..db.database import SessionLocal
         with SessionLocal() as db_session:
-            cult_res = CultureService.ask_cultural_guide(db=db_session, question=req.question)
+            cult_res = CultureService.ask_cultural_guide(
+                db=db_session,
+                question=req.question,
+                custom_system_prompt=getattr(req, "system", None),
+                use_case=getattr(req, "use_case", None),
+            )
             chat_sources = [
                 ChatSource(
                     chunk_id=f"culture-{i}",
@@ -238,7 +243,12 @@ async def chat_stream_endpoint(req: ChatRequest):
         from ..services.culture_service import CultureService
         from ..db.database import SessionLocal
         with SessionLocal() as db_session:
-            cult_res = CultureService.ask_cultural_guide(db=db_session, question=req.question)
+            cult_res = CultureService.ask_cultural_guide(
+                db=db_session,
+                question=req.question,
+                custom_system_prompt=getattr(req, "system", None),
+                use_case=getattr(req, "use_case", None),
+            )
         full_text = cult_res["answer"]
 
         async def sse_cultural_generator() -> AsyncIterator[str]:

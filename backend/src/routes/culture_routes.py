@@ -34,6 +34,12 @@ class AskGuideRequest(BaseModel):
     question: str = Field(..., description="Question posée au guide culturel")
     monument_id: Optional[str] = Field(None, description="ID du monument en cours de consultation")
     region_id: Optional[str] = Field(None, description="ID de la région contextuelle")
+    system: Optional[str] = Field(None, description="System prompt spécialisé ou adapté")
+    use_case: Optional[str] = Field(None, description="Cas d'usage culturel")
+    context: Optional[str] = Field(None, description="Contexte patrimonial immédiat")
+
+    class Config:
+        extra = "allow"
 
 
 class DiscoveryRecordRequest(BaseModel):
@@ -170,7 +176,7 @@ def get_dataset_image(monument_id: str, filename: str):
 @router.post("/ask")
 def ask_cultural_guide(payload: AskGuideRequest, db: Session = Depends(get_db)):
     """
-    Interroge le Guide Culturel AlterniA (RAG vérifié).
+    Interroge le Guide Culturel AlterniA (RAG vérifié + Prompts adaptatifs).
     Distingue faits documentés, traditions orales et portée patrimoniale.
     """
     return CultureService.ask_cultural_guide(
@@ -178,6 +184,9 @@ def ask_cultural_guide(payload: AskGuideRequest, db: Session = Depends(get_db)):
         question=payload.question,
         monument_id=payload.monument_id,
         region_id=payload.region_id,
+        context_hint=payload.context,
+        custom_system_prompt=payload.system,
+        use_case=payload.use_case,
     )
 
 

@@ -1,0 +1,11 @@
+[Unit]
+Description=Timer pour AlternIA Auto-Healing Watchdog (Toutes les 30s)
+After=alternia-backend.service
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=30s
+AccuracySec=5s
+
+[Install]
+WantedBy=timers.target

@@ -11,9 +11,10 @@ import re
 import time
 import uuid
 from typing import Any, Dict, List, Optional
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
+from backend.src.services.document_extractor_service import extraire_texte_document
 from backend.src.services.orchestrator_service import get_orchestrator, normalize_student_class
 
 router = APIRouter(prefix="/api/education/podcast", tags=["Podcasts de Révision IA"])
@@ -105,7 +106,7 @@ async def generate_revision_podcast(req: PodcastGenerateRequest):
             ai_response = await orchestrator.process_message(
                 user_message=user_prompt,
                 conversation_id=f"podcast_{podcast_id}",
-                metadata={"system_override": system_prompt, "target": "education_podcast"},
+                metadata={"system_override": system_prompt, "target": "education_podcast", "max_tokens": 4096},
             )
             content = ai_response.get("content", "") if isinstance(ai_response, dict) else str(ai_response)
         elif hasattr(orchestrator, "llm_client") and orchestrator.llm_client:
@@ -114,6 +115,7 @@ async def generate_revision_podcast(req: PodcastGenerateRequest):
                 orchestrator.llm_client.generate,
                 prompt=user_prompt,
                 system_prompt=system_prompt,
+                max_tokens=4096,
             )
         else:
             content = ""
@@ -150,8 +152,37 @@ async def generate_revision_podcast(req: PodcastGenerateRequest):
             except Exception:
                 pass
 
+        # Secours regex ultra-robuste si le JSON est incomplet ou tronqué
+        if not full_script:
+            script_match = re.search(r'"full_script"\s*:\s*"([\s\S]*?)(?:"\s*,\s*"\w+"|"\}|$)', content)
+            if script_match:
+                extracted = script_match.group(1).replace(r'\"', '"').replace(r'\n', '\n').strip()
+                if len(extracted) > 60:
+                    full_script = extracted
+
+        if title == f"Révision : {topic}":
+            title_match = re.search(r'"title"\s*:\s*"([^"\n]+)"', content)
+            if title_match:
+                title = title_match.group(1).strip()
+
+        if summary == f"Synthèse audio sur {topic} pour la classe de {class_level}.":
+            sum_match = re.search(r'"summary"\s*:\s*"([^"\n]+)"', content)
+            if sum_match:
+                summary = sum_match.group(1).strip()
+
+        if not chapters:
+            chap_matches = re.findall(r'\{\s*"title"\s*:\s*"([^"]+)"\s*,\s*"timestamp_seconds"\s*:\s*(\d+)\s*\}', content)
+            for ct, cts in chap_matches:
+                chapters.append(PodcastChapterDto(title=ct, timestamp_seconds=int(cts)))
+
+        if not key_takeaways:
+            kt_match = re.search(r'"key_takeaways"\s*:\s*\[([\s\S]*?)\]', content)
+            if kt_match:
+                raw_items = re.findall(r'"([^"\n]+)"', kt_match.group(1))
+                key_takeaways = [it.strip() for it in raw_items if len(it.strip()) > 5]
+
         # Si le full_script n'était pas explicite dans le JSON, on formate la narration IA
-        if not full_script and summary:
+        if not full_script and summary and len(summary) > 20:
             chapter_points = "\n".join([f"• {c.title}" for c in chapters]) if chapters else f"• Les bases indispensables de {topic}"
             full_script = (
                 f"Bonjour et bienvenue dans ton podcast de révision AlternIA !\n"
@@ -448,3 +479,184 @@ def _subject_to_icon(subject: str) -> str:
     if "fran" in sub or "litt" in sub:
         return "menu_book"
     return "headphones"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 4. GÉNÉRATION DE PODCAST DEPUIS UN DOCUMENT IMPORTÉ (PDF, WORD, POWERPOINT)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class PodcastFromTextRequest(BaseModel):
+    course_text: str
+    subject: str = "Sciences"
+    class_level: str = "12eme"
+    student_name: str = "Élève"
+    duration_minutes: int = 6
+
+
+async def _synthetiser_cours_en_podcast(
+    raw_text: str,
+    source_title: str,
+    subject: str,
+    class_level: str,
+    student_name: str,
+    duration_minutes: int,
+) -> PodcastDto:
+    """Transforme un texte brut de cours en podcast audio structuré conforme au programme malien."""
+    duration = max(3, min(10, duration_minutes))
+    podcast_id = f"import_pod_{int(time.time())}_{uuid.uuid4().hex[:6]}"
+    clean_sample = raw_text[:4000].strip()
+
+    system_prompt = (
+        "Tu es le Professeur IA d'AlternIA au Mali. Tu dois transformer le document de cours importé "
+        f"en un podcast de révision audio oralisé pour un élève de {class_level} du Mali.\n"
+        "Réponds STRICTEMENT au format JSON avec :\n"
+        "- 'title': titre clair du cours\n"
+        "- 'summary': résumé synthétique de 2 phrases\n"
+        "- 'chapters': liste de 3 ou 4 chapitres avec 'title' et 'timestamp_seconds'\n"
+        "- 'key_takeaways': 4 points essentiels à retenir pour le Bac/DEF\n"
+        "- 'full_script': script narratif complet d'au moins 300 mots, clair, captivant, sans puces ni astérisques, optimisé pour la voix TTS."
+    )
+
+    user_prompt = (
+        f"Matière : {subject}\n"
+        f"Niveau scolaire malien : {class_level}\n"
+        f"Document source : {source_title}\n"
+        f"Contenu du cours :\n{clean_sample}\n\n"
+        "Génère maintenant le podcast au format JSON."
+    )
+
+    try:
+        orchestrator = get_orchestrator()
+        content = ""
+        if hasattr(orchestrator, "process_message"):
+            ai_res = await orchestrator.process_message(
+                user_message=user_prompt,
+                conversation_id=f"doc_podcast_{podcast_id}",
+                metadata={"system_override": system_prompt},
+            )
+            content = ai_res.get("content", "") if isinstance(ai_res, dict) else str(ai_res)
+        elif hasattr(orchestrator, "llm_client") and orchestrator.llm_client:
+            import asyncio
+            content = await asyncio.to_thread(
+                orchestrator.llm_client.generate,
+                prompt=user_prompt,
+                system_prompt=system_prompt,
+            )
+
+        json_match = re.search(r"\{[\s\S]*\}", content)
+        if json_match:
+            data = json.loads(re.sub(r",\s*([\}\]])", r"\1", json_match.group(0)), strict=False)
+            chapters = [
+                PodcastChapterDto(
+                    title=str(c.get("title", f"Partie {idx+1}")),
+                    timestamp_seconds=int(c.get("timestamp_seconds", idx * 90)),
+                )
+                for idx, c in enumerate(data.get("chapters", []))
+                if isinstance(c, dict)
+            ]
+            if not chapters:
+                chapters = [
+                    PodcastChapterDto(title="Introduction du cours importé", timestamp_seconds=0),
+                    PodcastChapterDto(title="Notions essentielles & Formules", timestamp_seconds=120),
+                    PodcastChapterDto(title="Synthèse & Méthodologie Bac", timestamp_seconds=240),
+                ]
+
+            return PodcastDto(
+                id=podcast_id,
+                title=data.get("title", f"Cours : {source_title}"),
+                subject=subject,
+                class_level=class_level,
+                duration_minutes=duration,
+                summary=data.get("summary", f"Podcast de révision extrait de {source_title}."),
+                narrator="Professeur IA (AlternIA)",
+                chapters=chapters,
+                key_takeaways=[str(k) for k in data.get("key_takeaways", []) if isinstance(k, str)],
+                full_script=str(data.get("full_script", "")).strip(),
+                icon_name=_subject_to_icon(subject),
+                source="import_document_ia",
+            )
+    except Exception as e:
+        print(f"⚠️ [PodcastImport] Fallback heuristique : {e}")
+
+    # Fallback robuste basé sur le texte extrait
+    lignes = [l.strip() for l in raw_text.splitlines() if len(l.strip()) > 30][:6]
+    extrait_resume = " ".join(lignes[:2]) if lignes else f"Ce cours aborde les notions de base de {subject}."
+    
+    script_fallback = (
+        f"Bonjour {student_name} ! Bienvenue dans ton podcast de révision AlternIA généré à partir de ton document : {source_title}.\n\n"
+        f"Pour ta classe de {class_level}, voici l'explication structurée des points essentiels de cette leçon :\n\n"
+        f"{extrait_resume}\n\n"
+        f"Au Mali, la réussite des épreuves de {subject} repose sur trois piliers : la compréhension rigoureuse des définitions, "
+        f"la maîtrise des formules et théorèmes associés, et une argumentation méthodique lors de la rédaction.\n\n"
+        f"Prends le temps de réécouter ce passage, note les concepts fondamentaux dans ton cahier de révision, et entraîne-toi avec AlternIA !"
+    )
+
+    return PodcastDto(
+        id=podcast_id,
+        title=f"Cours Importé : {source_title}",
+        subject=subject,
+        class_level=class_level,
+        duration_minutes=duration,
+        summary=f"Synthèse de révision extraite du document '{source_title}' pour la classe de {class_level}.",
+        narrator="Professeur IA (AlternIA)",
+        chapters=[
+            PodcastChapterDto(title=f"Introduction à {source_title}", timestamp_seconds=0),
+            PodcastChapterDto(title="Notions Clés du Document", timestamp_seconds=100),
+            PodcastChapterDto(title="Conseils Méthodologiques Mali", timestamp_seconds=200),
+        ],
+        key_takeaways=[
+            f"Identifier les thèmes centraux développés dans {source_title}.",
+            f"Relier les concepts aux exigences officielles du programme malien en {class_level}.",
+            "Retenir les définitions et termes techniques spécifiques.",
+            "Consolider par des exercices pratiques dans AlternIA.",
+        ],
+        full_script=script_fallback,
+        icon_name=_subject_to_icon(subject),
+        source="import_document_certifie",
+    )
+
+
+@router.post("/generate-from-text", response_model=PodcastDto)
+async def generate_podcast_from_text_endpoint(req: PodcastFromTextRequest):
+    """Génère un cours audio à partir d'un texte ou d'un cours déjà présent dans AlterniA."""
+    if len(req.course_text.strip()) < 50:
+        raise HTTPException(status_code=400, detail="Le texte du cours doit comporter au moins 50 caractères.")
+    return await _synthetiser_cours_en_podcast(
+        raw_text=req.course_text,
+        source_title="Cours AlterniA",
+        subject=req.subject,
+        class_level=req.class_level,
+        student_name=req.student_name,
+        duration_minutes=req.duration_minutes,
+    )
+
+
+@router.post("/import-and-generate", response_model=PodcastDto)
+async def generate_podcast_from_file_endpoint(
+    file: UploadFile = File(...),
+    subject: str = Form("Sciences"),
+    class_level: str = Form("12eme"),
+    student_name: str = Form("Élève"),
+    duration_minutes: int = Form(6),
+):
+    """
+    Importe un document de cours (PDF, Word .docx, PowerPoint .pptx ou texte),
+    extrait son contenu et génère un podcast structuré conforme au programme officiel du Mali.
+    """
+    try:
+        contenu_bytes = await file.read()
+        texte_extrait = extraire_texte_document(file.filename or "cours.txt", contenu_bytes)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors de l'analyse du fichier : {e}")
+
+    return await _synthetiser_cours_en_podcast(
+        raw_text=texte_extrait,
+        source_title=file.filename or "Document de cours",
+        subject=subject,
+        class_level=class_level,
+        student_name=student_name,
+        duration_minutes=duration_minutes,
+    )
+

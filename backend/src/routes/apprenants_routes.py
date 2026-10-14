@@ -93,14 +93,22 @@ def api_gamification_stats(eleve_nom: str = "Diallo", classe: str = "TSS", db: S
             norm_sub = s.matiere.strip()
             subjects_progress[norm_sub] = min(100, subjects_progress.get(norm_sub, 50) + 5)
             
+    from backend.src.services.wallet_service import get_wallet_summary
+
+    student_id = apprenant.id if apprenant else "eleve_defaut"
+    wallet_info = get_wallet_summary(db, student_id)
+    coins_count = wallet_info["solde_pieces"]
+
     return {
         "status": "success",
         "streak": streak_days,
         "streak_label": f"{streak_days}j",
         "xp": total_xp,
         "xp_label": f"{total_xp:,}".replace(",", " "),
-        "coins": 240,
-        "coins_label": "240",
+        "coins": coins_count,
+        "coins_label": f"{coins_count:,}".replace(",", " "),
+        "valeur_fcfa": wallet_info["valeur_fcfa"],
+        "valeur_fcfa_label": wallet_info["valeur_fcfa_label"],
         "seances": total_seances,
         "seances_label": f"{total_seances}",
         "subjects_progress": subjects_progress,

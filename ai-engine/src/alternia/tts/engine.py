@@ -46,11 +46,11 @@ class TTSEngine:
     ):
         self.system = platform.system()
         self.use_neural = use_neural
-        self.neural_voice = self._resolve_neural_voice(voice or "henri")
+        self.neural_voice = self._resolve_neural_voice(voice or "vivienne")
         self.system_voice = self._detect_best_system_voice()
         self.rate = rate or 190
 
-        # Répertoire de cache pour accélérer la voix Henri sur le serveur
+        # Répertoire de cache pour accélérer la voix Vivienne sur le serveur
         if cache_dir:
             self.cache_dir = Path(cache_dir)
         else:
@@ -82,7 +82,7 @@ class TTSEngine:
     def _resolve_neural_voice(self, voice_name: str) -> str:
         """Résout un nom court ou label de voix en identifiant officiel Azure Neural."""
         if not voice_name:
-            return NEURAL_VOICES["henri"]
+            return NEURAL_VOICES["vivienne"]
         cleaned = voice_name.strip().lower().replace("é", "e").replace("è", "e")
         if cleaned in NEURAL_VOICES:
             return NEURAL_VOICES[cleaned]
@@ -92,10 +92,10 @@ class TTSEngine:
             if key in cleaned:
                 return NEURAL_VOICES[key]
         if any(k in cleaned for k in ["masculin", "homme", "male", "garcon"]):
-            return NEURAL_VOICES["henri"]
+            return NEURAL_VOICES["remy"]
         if any(k in cleaned for k in ["feminin", "femme", "female"]):
             return NEURAL_VOICES["vivienne"]
-        return NEURAL_VOICES["henri"]
+        return NEURAL_VOICES["vivienne"]
 
     def set_voice(self, voice_name: str) -> str:
         """Change dynamiquement la voix utilisée."""
@@ -367,17 +367,42 @@ class TTSEngine:
         return t.strip()
 
     async def synthesize_to_bytes(self, text: str) -> bytes:
-        """Génère directement les octets audio MP3 pour l'API web/dispositif."""
+        """Génère directement les octets audio MP3 pour l'API web/dispositif avec cache disque."""
         clean_text = self._clean_for_speech(text)
         if not clean_text:
             return b""
-        import edge_tts
-        communicate = edge_tts.Communicate(clean_text, self.neural_voice, rate="+5%")
-        audio_chunks = []
-        async for chunk in communicate.stream():
-            if chunk["type"] == "audio" and "data" in chunk:
-                audio_chunks.append(chunk["data"])
-        return b"".join(audio_chunks)
+
+        # 1. Vérification du cache disque ultra-rapide (0ms)
+        text_hash = hashlib.md5(f"{self.neural_voice}_{clean_text}_{self.rate}".encode("utf-8")).hexdigest()
+        cached_file = self.cache_dir / f"{text_hash}.mp3"
+        if cached_file.exists() and cached_file.stat().st_size > 0:
+            try:
+                return cached_file.read_bytes()
+            except Exception:
+                pass
+
+        # 2. Synthèse Neurale via Edge-TTS officiel avec retry automatique
+        for attempt in range(1, 4):
+            try:
+                import edge_tts
+                communicate = edge_tts.Communicate(clean_text, self.neural_voice, rate="+5%")
+                audio_chunks = []
+                async for chunk in communicate.stream():
+                    if chunk["type"] == "audio" and "data" in chunk:
+                        audio_chunks.append(chunk["data"])
+                audio_bytes = b"".join(audio_chunks)
+                if audio_bytes:
+                    try:
+                        cached_file.write_bytes(audio_bytes)
+                    except Exception:
+                        pass
+                    return audio_bytes
+            except Exception as e:
+                print(f"⚠️ [TTSEngine] Tentative {attempt}/3 Edge-TTS échouée ({e})")
+                if attempt < 3:
+                    await asyncio.sleep(0.4 * attempt)
+
+        return b""
 
     def speak(self, text: str, async_mode: bool = False) -> None:
         """Lit un texte complet."""

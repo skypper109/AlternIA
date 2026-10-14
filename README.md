@@ -349,9 +349,21 @@ AlternIA/
 │   │   └── main.py                    # Point d'entrée de l'application FastAPI
 │   └── tests/                         # Tests d'intégration des endpoints API
 │
+├── aws-deployment/                   # Infrastructure Cloud AWS EC2 t3.xlarge (Zero-Touch Auto-Start)
+│   ├── setup_aws_t3_xlarge.sh         # Script d'installation et configuration automatique
+│   ├── user_data_cloud_init.sh        # Script User Data pour lancement automatique à l'instanciation AWS
+│   ├── systemd/                       # Services systemd (FastAPI 4-workers, Qdrant, Cloudflare Tunnel, Watchdog)
+│   ├── docker/                        # Déploiement conteneurisé Docker Compose alternatif
+│   └── nginx/                         # Reverse-proxy haute performance et WebSocket
+│
+├── raspberry-pi/                      # Boîtier matériel AlternIA Box (Raspberry Pi 3)
+│   ├── rpi_client.py                  # Client autonome (boutons GPIO, micro PTT, LEDs)
+│   ├── install.sh                     # Installation automatique sur Raspberry Pi OS
+│   └── alternia-box.service           # Service de démarrage automatique au boot
+│
 ├── device/                            # Dispositif physique et Kiosk AlternIA
 │   ├── frontend/                      # Interface Kiosk & simulateur holographique (HTML/CSS/JS)
-│   └── hardware/                      # Scripts et pilotes matériels (boutons, micro, audio)
+│   └── hardware/                      # Documentation et pilotes matériels
 │
 ├── data/                              # Index vectoriels persistants (Qdrant / Local)
 ├── knowledge-base/                    # Manuels et programmes scolaires maliens (PDF)

@@ -25,14 +25,17 @@ router = APIRouter(tags=["Système & Dispositif"])
 @router.get("/api/health")
 def health():
     """Vérification d'état et santé de l'API AlternIA."""
-    _ = get_orchestrator()
+    try:
+        _ = get_orchestrator()
+    except Exception:
+        pass
     return {
         "status": "healthy",
         "application": "AlternIA",
         "version": "1.0.0",
-        "rag_ready": state.rag_ready,
+        "rag_ready": getattr(state, "rag_ready", False),
         "llm_model": f"Qwen 2.5 ({state.model_name}) (GGUF Local)" if getattr(state, "model_name", None) else "Qwen 2.5 1.5B Instruct (GGUF Local)",
-        "default_class": settings.default_class,
+        "default_class": getattr(settings, "default_class", "12eme"),
     }
 
 
@@ -78,7 +81,7 @@ async def tts_post_endpoint(req: TTSRequest):
     if not req.text or not req.text.strip():
         raise HTTPException(status_code=400, detail="Texte manquant pour la synthèse vocale")
 
-    voice_name = req.voice or settings.tts_voice or "henri"
+    voice_name = req.voice or settings.tts_voice or "vivienne"
     tts_engine = TTSEngine(voice=voice_name)
     try:
         audio_bytes = await tts_engine.synthesize_to_bytes(req.text)
@@ -90,12 +93,12 @@ async def tts_post_endpoint(req: TTSRequest):
 
 
 @router.get("/api/tts")
-async def tts_get_endpoint(text: str, voice: Optional[str] = "henri"):
+async def tts_get_endpoint(text: str, voice: Optional[str] = "vivienne"):
     """Synthèse vocale neurale haute fidélité (GET query param)."""
     if not text.strip():
         raise HTTPException(status_code=400, detail="Texte manquant pour la synthèse vocale")
 
-    tts_engine = TTSEngine(voice=voice or "henri")
+    tts_engine = TTSEngine(voice=voice or settings.tts_voice or "vivienne")
     try:
         audio_bytes = await tts_engine.synthesize_to_bytes(text)
         if not audio_bytes:

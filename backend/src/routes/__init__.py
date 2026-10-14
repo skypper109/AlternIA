@@ -20,6 +20,12 @@ from backend.src.routes.podcast_routes import router as podcast_router
 from backend.src.routes.sync_routes import router as sync_router
 from backend.src.routes.flashcard_routes import router as flashcard_router
 from backend.src.routes.grin_routes import router as grin_router
+from backend.src.routes.wallet_routes import router as wallet_router
+from backend.src.routes.retrait_routes import router as retrait_router
+from backend.src.routes.parrainage_routes import router as parrainage_router
+from backend.src.routes.abonnement_routes import router as abonnement_router
+from backend.src.routes.defi_national_routes import router as defi_national_router
+from backend.src.routes.admin_finance_routes import router as admin_finance_router
 
 __all__ = [
     "chat_router",
@@ -41,4 +47,10 @@ __all__ = [
     "sync_router",
     "flashcard_router",
     "grin_router",
+    "wallet_router",
+    "retrait_router",
+    "parrainage_router",
+    "abonnement_router",
+    "defi_national_router",
+    "admin_finance_router",
 ]
