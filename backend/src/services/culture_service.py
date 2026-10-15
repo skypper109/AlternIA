@@ -192,40 +192,46 @@ SCENIC_ACTIONS_GRANDMERE_MAH = [
 
 
 def _build_grandmere_mah_speech_for_nom(n: CultureNom) -> str:
-    """Génère la narration orale authentique de Grand-mère Mah sous le baobab pour un patronyme ou prénom."""
+    """
+    Narration de Grand-mère Mah pour un patronyme ou un prénom.
+    Elle ne fait que mettre en voix les informations stockées en BDD :
+    aucune signification, aucun totem ni senankouya n'est ajouté ici.
+    """
+    parts: List[str] = []
+
     if n.type == "prenom":
-        return (
-            f"« Mon enfant, approche et écoute ce que Grand-mère Mah lit dans le chant des flammes sur ton prénom, « {n.nom} ».\n\n"
-            f"Sais-tu ce que signifie réellement porter ce prénom ? {n.signification} "
-            f"Ce n'est pas un simple mot que l'on crie dans la cour : dans nos terroirs de {n.ethnie_ou_region}, c'est une bénédiction soufflée à l'oreille du nouveau-né au septième jour pour guider chacun de ses pas.\n\n"
-            f"Les anciens racontent que {n.anecdote} {n.clan_role}.\n\n"
-            "Garde toujours la tête haute : un prénom n'est pas donné par hasard dans notre savane, il est une graine d'honneur semée en toi. Fais-en un arbre bienveillant dont l'ombre protègera les autres. »"
+        parts.append(f"« Mon enfant, écoute ce que Grand-mère Mah sait du prénom « {n.nom} ».")
+        parts.append(n.signification or "")
+        if n.clan_role:
+            parts.append(n.clan_role)
+        if n.anecdote:
+            parts.append(f"Les anciens racontent ceci : {n.anecdote}")
+        parts.append(
+            "Chez nous, le prénom est donné lors du baptême, au septième jour après la naissance. "
+            "Porte-le avec honneur. »"
         )
+        return "\n\n".join(p for p in parts if p)
 
-    totem_phrase = (
-        f"Ton animal totem sacré — ton Tanan — est {n.totem}. Nos ancêtres nous ont interdit de lui faire du mal, "
-        "car il est le miroir de l'âme et du serment sacré de notre lignée."
-        if n.totem else ""
+    parts.append(f"« Mon enfant, assieds-toi près des braises. Voici ce que la tradition sait du nom « {n.nom} ».")
+    parts.append(n.signification or "")
+    berceau = f"Berceau : {n.ethnie_ou_region}." if n.ethnie_ou_region else ""
+    parts.append(" ".join(p for p in [berceau, n.clan_role or ""] if p))
+    if n.anecdote:
+        parts.append(f"Écoute ce que racontent les griots : {n.anecdote}")
+    if n.totem:
+        parts.append(f"Le tana (interdit) associé à ce clan : {n.totem}")
+    if n.senankouya:
+        parts.append(
+            f"Ton senankun (cousin à plaisanterie) : {n.senankouya} "
+            "Entre vous, on se taquine, mais jamais on ne se fâche."
+        )
+    if n.devise_ou_louange:
+        parts.append(f"Les griots disent : {n.devise_ou_louange}")
+    parts.append(
+        "Chaque lignée garde aussi ses propres récits et ses propres interdits : "
+        "demande aux anciens de ta famille, ils compléteront ce que je t'ai dit. »"
     )
-
-    senankouya_phrase = (
-        f"Et n'oublie jamais ton Senankouya (cousinage à plaisanterie) : {n.senankouya}. "
-        "Si un jour la discorde menace, use de cette plaisanterie sacrée pour éteindre la colère comme l'eau éteint le feu."
-        if n.senankouya else ""
-    )
-
-    devise_phrase = f"\n\nRetiens cette noble louange des griots : {n.devise_ou_louange}" if n.devise_ou_louange else ""
-
-    return (
-        f"« Mon enfant, assieds-toi plus près des braises. Laisse Grand-mère Mah te conter la véritable histoire du nom « {n.nom} ».\n\n"
-        f"Vois-tu, beaucoup croient qu'un nom n'est qu'une suite de lettres sur une carte. Mais chez nous, {n.nom} signifie {n.signification} ! "
-        f"Tes racines plongent au cœur de {n.ethnie_ou_region}, là où tes nobles aïeux étaient reconnus comme {n.clan_role}.\n\n"
-        f"Écoute bien cette histoire que les griots se transmettent depuis la nuit des temps : {n.anecdote}\n\n"
-        f"{totem_phrase}\n\n"
-        f"{senankouya_phrase}"
-        f"{devise_phrase}\n\n"
-        "Porte ton nom avec la fierté tranquille du baobab, car en toi coule la mémoire de mille veillées. Sois digne de ton Danbé ! »"
-    )
+    return "\n\n".join(p for p in parts if p)
 
 
 def _serialize_culture_nom(n: CultureNom) -> Dict[str, Any]:

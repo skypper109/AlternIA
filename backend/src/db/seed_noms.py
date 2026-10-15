@@ -1,8 +1,12 @@
 """
-Module de peuplement (Seed) des Patronymes (Jamu) et Prénoms traditionnels du Mali.
-Fournit pour la base de données alta_db les données généalogiques certifiées :
-origines, significations authentiques, rôles de caste/clan, totems sacrés (Tanan),
-cousinage à plaisanterie (Senankouya / Sinankunya) et récits oraux pour Grand-mère Mah.
+Module de peuplement (Seed) des Patronymes (Jamu) et Prénoms du Mali.
+
+Règle éditoriale : on n'écrit QUE ce qui est attesté par la tradition orale
+reconnue (griots, épopée de Soundiata) ou par l'histoire documentée.
+- Quand une étymologie est une explication populaire, elle est présentée comme telle.
+- Quand le sens d'un nom n'est pas établi, on le dit clairement au lieu d'inventer.
+- Les champs `totem` (tana) et `senankouya` restent vides s'il n'existe pas
+  d'information fiable et générale (ils varient souvent selon les lignages).
 """
 
 from datetime import datetime
@@ -14,79 +18,121 @@ from backend.src.db.models import CultureNom
 
 logger = logging.getLogger("AlternIA.NomsSeed")
 
+SENS_NON_ETABLI = "Son sens littéral n'est pas établi de façon fiable."
+PACTE_PEULS_FORGERONS = (
+    "Les forgerons (numu : Kanté, Doumbia, Fané…), selon le grand pacte de "
+    "cousinage à plaisanterie entre Peuls et forgerons."
+)
+PACTE_FORGERONS_PEULS = (
+    "Les Peuls (Diallo, Diakité, Sidibé, Sangaré…), selon le grand pacte de "
+    "cousinage à plaisanterie entre forgerons et Peuls."
+)
+
 
 NOMS_DATA = [
     # ══════════════════════════════════════════════════════════════════════════
-    # 1. PATRONYMES TRADITIONNELS DU MALI (JAMU / DJAMOU)
+    # 1. PATRONYMES (JAMU)
     # ══════════════════════════════════════════════════════════════════════════
     {
         "id": "nom_keita",
         "nom": "Keïta",
         "nom_normalise": "keita",
         "type": "nom",
-        "ethnie_ou_region": "Mandé ancestral (Kangaba, Niani, Kita, Kouroussa)",
-        "signification": "« Les Héritiers » ou « Ceux qui ont pris possession de la royauté » (de Ké-I-Ta en langue mandingue : « Prends la chose / Hérite du pouvoir »).",
-        "clan_role": "Dynastie impériale fondatrice du grand Empire du Mali (Mansa), souverains protecteurs et gardiens de la Charte de Kouroukan Fouga (1236).",
-        "totem": "L'Hippopotame (Mali en bamanankan) et le Lion royal (Jara).",
-        "senankouya": "Coulibaly, Soumaoro, Diarra, Touré, Samaké.",
-        "devise_ou_louange": "« Keïta Mansa ! Fils de Sogolon Kadjou et de Naré Maghann Konaté, maîtres du fleuve et lions de la savane. »",
-        "anecdote": "Lignée prestigieuse de Soundiata Keïta, le héros au destin prophétisé qui vainquit Soumaoro Kanté à Kirina en 1235 et unifia les 12 provinces du Mandé sous le grand baobab de Kangaba.",
-        "variantes": ["Keita", "Keïta", "Keyta", "Kéita"],
+        "ethnie_ou_region": "Mandé (Niani, Kangaba, Kita) — Malinké",
+        "signification": (
+            "Selon l'explication la plus répandue chez les griots, Keïta viendrait de "
+            "« kè ita » : « prendre l'héritage », c'est-à-dire « celui qui a reçu l'héritage »."
+        ),
+        "clan_role": "Lignée royale du Mandé : la dynastie des Mansa de l'Empire du Mali (Soundiata Keïta, Mansa Moussa).",
+        "totem": "",
+        "senankouya": "Coulibaly (le pacte Keïta–Coulibaly est l'un des plus connus du Mali).",
+        "devise_ou_louange": "« Keïta, descendants de Soundiata, le lion du Mandé ! »",
+        "anecdote": (
+            "Soundiata Keïta, fils de Naré Maghan Kon Fatta et de Sogolon Kédjou, vainquit Soumaoro Kanté "
+            "à Kirina (vers 1235) et fonda l'Empire du Mali ; la tradition lui attribue la Charte de Kouroukan Fouga. "
+            "Depuis Balla Fasséké, les griots Kouyaté sont les griots attitrés des Keïta."
+        ),
+        "variantes": ["Keita", "Keïta", "Kéita", "Keyta"],
     },
     {
         "id": "nom_traore",
         "nom": "Traoré",
         "nom_normalise": "traore",
         "type": "nom",
-        "ethnie_ou_region": "Mandé, Kénédougou (Sikasso, Koutiala) et Wassoulou",
-        "signification": "« Les Clairvoyants » ou « Nous avons vu la piste / Ceux qui ouvrent le chemin » (An bè tara en mandingue), maîtres vénérés de la confrérie des chasseurs (Dozo / Donson).",
-        "clan_role": "Maîtres archers, stratèges de guerre intrépides et rois fondateurs du fier Royaume du Kénédougou.",
-        "totem": "La Panthère (Wara) et le Chien de chasse fidèle.",
-        "senankouya": "Diarra, Coulibaly, Konaté, Samaké.",
-        "devise_ou_louange": "« Traoré bilakorobala ! Ceux dont le carquois ne s'épuise jamais et dont la flèche ne manque point la cible. »",
-        "anecdote": "Descendants du grand général Tiramakhan Traoré qui conquit l'ouest jusqu'en Gambie. Plus tard à Sikasso, le roi Babemba Traoré immortalisa la devise sacrée : « Saya ka fisa ni malo yé » (Plutôt la mort que la honte).",
-        "variantes": ["Traore", "Traoré", "Tarawele", "Tarawali"],
+        "ethnie_ou_region": "Mandé, Kénédougou (Sikasso) et tout l'espace mandingue",
+        "signification": (
+            "Traoré est la forme francisée de Tarawele. Une étymologie populaire rapportée par les griots "
+            "y voit « tara wele » (« va l'appeler »), en souvenir du guerrier qu'on allait chercher dans les "
+            "moments de péril ; ce sens reste une tradition, pas une certitude."
+        ),
+        "clan_role": (
+            "Clan noble guerrier du Mandé, issu selon l'épopée de Tiramakan Traoré, général de Soundiata. "
+            "Au XIXe siècle, des Traoré régnèrent sur le royaume du Kénédougou (Sikasso)."
+        ),
+        "totem": "",
+        "senankouya": "Diarra (le pacte Traoré–Diarra est l'un des plus célèbres du Mali).",
+        "devise_ou_louange": "« Tarawele, descendants de Tiramakan ! »",
+        "anecdote": (
+            "Après Kirina, Tiramakan Traoré mena la conquête de l'ouest, jusqu'au Kaabu. "
+            "En 1898, à Sikasso, le roi Babemba Traoré préféra la mort à la reddition face aux troupes coloniales ; "
+            "on lui prête la parole « Plutôt la mort que la honte »."
+        ),
+        "variantes": ["Traore", "Traoré", "Tarawele", "Tarawally"],
     },
     {
         "id": "nom_coulibaly",
         "nom": "Coulibaly",
         "nom_normalise": "coulibaly",
         "type": "nom",
-        "ethnie_ou_region": "Ségou, Kaarta, Bélédougou et Banamba",
-        "signification": "« Sans Pirogue » (Kouloun-bali en bambara) : ceux dont la force herculéenne et la vaillance permettent de franchir les fleuves déchaînés sans aucune embarcation.",
-        "clan_role": "Fondateurs du puissant Royaume Bambara de Ségou, seigneurs de la terre et chefs suprêmes de la confrérie guerrière des Tônjon.",
-        "totem": "Le Silure géant sacré (Mankoro) et le Crocodile du Djoliba.",
-        "senankouya": "Keïta, Samaké, Traoré, Cissé.",
-        "devise_ou_louange": "« Coulibaly de Ségou aux 4 444 balanzans ! Maîtres de la terre ferme et bâtisseurs de greniers d'abondance. »",
-        "anecdote": "Biton Mamary Coulibaly fonda Ségou au XVIIIe siècle en unissant les jeunes chasseurs de la cité. Son armée de Tônjons fit régner la justice et la prospérité sur toute la vallée du fleuve Niger.",
-        "variantes": ["Coulibaly", "Koulibaly", "Koulidibi", "Colibaly"],
+        "ethnie_ou_region": "Ségou, Kaarta et Bélédougou — Bambara",
+        "signification": "« Sans pirogue », du bambara « kulun » (pirogue) et « bali » (sans, absence de).",
+        "clan_role": "Fondateurs du royaume bambara de Ségou (Biton Coulibaly, début du XVIIIe siècle) et du royaume du Kaarta (les Massassi).",
+        "totem": "Le silure (poisson-chat), qui selon la légende fit traverser le fleuve aux ancêtres du clan.",
+        "senankouya": "Keïta.",
+        "devise_ou_louange": None,
+        "anecdote": (
+            "La légende raconte que deux frères ancêtres du clan, Niangolo et Baramangolo, poursuivis par leurs ennemis, "
+            "arrivèrent au bord du Niger sans pirogue. Un silure les fit traverser : d'où le nom « sans pirogue » "
+            "et l'interdit de manger ce poisson. Plus tard, Biton Coulibaly transforma l'association des jeunes (ton) "
+            "en armée et fit de Ségou un royaume puissant."
+        ),
+        "variantes": ["Coulibaly", "Koulibaly", "Kulibali"],
     },
     {
         "id": "nom_diakite",
         "nom": "Diakité",
         "nom_normalise": "diakite",
         "type": "nom",
-        "ethnie_ou_region": "Wassoulou (Yanfolila, Bougouni), Macina, Foulassaba et Fouta",
-        "signification": "« Les Veilleurs des Pâturages et Protecteurs du Foyer », nobles pasteurs peuls profondément enracinés dans la culture mandingue.",
-        "clan_role": "Chefs pastoraux, cavaliers réputés pour leur sagesse diplomatique et maîtres des transhumances paisibles.",
-        "totem": "La Vache blanche sans tache et l'Oiseau messager migrateur.",
-        "senankouya": "Diallo, Sidibé, Sangaré, Cissé.",
-        "devise_ou_louange": "« Diakité Fula dambé ! Gardiens du troupeau blanc et chevaliers de la concorde sous les étoiles du Wassoulou. »",
-        "anecdote": "Au Wassoulou, les Diakité ont uni la fierté noble peule et les rythmes sacrés du Kamalen N'goni, créant une culture de bravoure et de générosité réputée dans toute l'Afrique.",
-        "variantes": ["Diakite", "Diakité", "Diakhité"],
+        "ethnie_ou_region": "Wassoulou, Macina et Mandé — famille d'origine peule",
+        "signification": (
+            "Nom d'origine peule porté par des familles intégrées au monde mandingue ; la tradition le rattache "
+            "au clan peul des Diallo. " + SENS_NON_ETABLI
+        ),
+        "clan_role": "Avec les Diallo, Sidibé et Sangaré, les Diakité forment dans la tradition du Wassoulou les « quatre frères » peuls.",
+        "totem": "",
+        "senankouya": PACTE_PEULS_FORGERONS,
+        "devise_ou_louange": None,
+        "anecdote": (
+            "Au Wassoulou, Peuls et Malinké se sont tant mêlés que les Diakité, Sidibé et Sangaré parlent "
+            "le malinké ou le bambara tout en revendiquant fièrement leur ascendance peule."
+        ),
+        "variantes": ["Diakite", "Diakité", "Diakhité", "Jakite"],
     },
     {
         "id": "nom_diallo",
         "nom": "Diallo",
         "nom_normalise": "diallo",
         "type": "nom",
-        "ethnie_ou_region": "Macina (Mopti, Ténenkou, Djenné), Sahel et pays Peul",
-        "signification": "« Les Nobles Pasteurs » (Jallo en Pulaar), hommes d'honneur, de retenue, de sérénité et de fidélité à la parole donnée.",
-        "clan_role": "Lignée royale et guerrière de l'Empire Peul du Macina fondé par le marabout Sékou Amadou.",
-        "totem": "Le Bélier blanc et l'onde pure du fleuve Niger.",
-        "senankouya": "Diakité, Sangaré, Dicko, forgerons.",
-        "devise_ou_louange": "« Diallo Pulaaku ! Ceux pour qui la honte est plus lourde que la montagne et dont la parole est un pacte d'acier. »",
-        "anecdote": "Les Diallo incarnent l'esprit du Pulaaku, code moral séculaire articulé autour de la pudeur (Semteende), du courage stoïque (Ngorgu) et de la générosité sans réserve (Dimmba).",
+        "ethnie_ou_region": "Macina, Sahel et toute l'Afrique de l'Ouest — Peul",
+        "signification": "Forme de « Jallo », l'un des grands clans peuls (Jallube), aux côtés des Bâ, Sow et Barry. " + SENS_NON_ETABLI,
+        "clan_role": "Clan peul parmi les plus répandus, du Macina au Fouta-Djalon.",
+        "totem": "",
+        "senankouya": PACTE_PEULS_FORGERONS,
+        "devise_ou_louange": None,
+        "anecdote": (
+            "Les Diallo, comme tous les Peuls, se réfèrent au pulaaku, le code de conduite peul fondé sur "
+            "la retenue (semteende), la patience (munyal) et la sagesse (hakkille)."
+        ),
         "variantes": ["Diallo", "Jallo", "Djallo"],
     },
     {
@@ -94,13 +140,16 @@ NOMS_DATA = [
         "nom": "Touré",
         "nom_normalise": "toure",
         "type": "nom",
-        "ethnie_ou_region": "Tombouctou, Gao, San et boucle du fleuve Niger",
-        "signification": "« Les Bâtisseurs de Cités et Grands Marchands de Savoir », issus de l'aristocratie marchande et lettrée songhoï et mandingue.",
-        "clan_role": "Dynastie impériale des Askia (Askia Mohammed Touré), savants des universités islamiques de Sankoré et négociateurs transsahariens.",
-        "totem": "L'Éléphant royal et la Grue couronnée.",
-        "senankouya": "Cissé, Haïdara, Sylla, Keïta.",
-        "devise_ou_louange": "« Touré Askia ! Bâtisseurs des minarets de Tombouctou et détenteurs des parchemins d'or et de science. »",
-        "anecdote": "Sous le règne d'Askia Mohammed Touré au XVIe siècle, Tombouctou devint le centre intellectuel du monde musulman où plus de 25 000 étudiants apprenaient l'astronomie, le droit et la médecine.",
+        "ethnie_ou_region": "Boucle du Niger (Tombouctou, Gao), pays soninké et mandingue",
+        "signification": "Patronyme d'origine soninké et mandingue. " + SENS_NON_ETABLI,
+        "clan_role": "Nombreuses familles maraboutiques et commerçantes ; la tradition nomme Mohammed Touré le fondateur de la dynastie des Askia.",
+        "totem": "",
+        "senankouya": "Cissé (selon plusieurs traditions).",
+        "devise_ou_louange": None,
+        "anecdote": (
+            "Askia Mohammed, appelé Mohammed Touré par la tradition, prit le pouvoir dans l'Empire songhaï en 1493. "
+            "Sous son règne, Tombouctou et ses mosquées-universités (Sankoré, Djingareyber) connurent un grand rayonnement intellectuel."
+        ),
         "variantes": ["Toure", "Touré", "Ture"],
     },
     {
@@ -108,41 +157,51 @@ NOMS_DATA = [
         "nom": "Cissé",
         "nom_normalise": "cisse",
         "type": "nom",
-        "ethnie_ou_region": "Ancien Empire du Ghana / Wagadou (Koumbi Saleh, Nara, Kayes)",
-        "signification": "« Les Premiers Cavaliers » (Si-ssé en soninké), détenteurs de la plus ancienne dynastie impériale connue d'Afrique de l'Ouest.",
-        "clan_role": "Empereurs mythiques du Wagadou (Kaya Magan Cissé), marabouts émérites, protecteurs des routes caravanières de l'or.",
-        "totem": "Le Cheval de guerre et le Serpent sacré Wagadou Bida.",
-        "senankouya": "Touré, Traoré, Coulibaly, Sylla.",
-        "devise_ou_louange": "« Cissé Kaya Magan ! Maîtres de la cité aux douze portes dorées et seigneurs du grand désert. »",
-        "anecdote": "L'Empire du Wagadou des Cissé impressionna les chroniqueurs arabes qui rapportèrent que les chevaux des empereurs dormaient sur des tapis de soie et buvaient dans des auges en cuivre pur.",
-        "variantes": ["Cisse", "Cissé", "Cissi", "Sissé"],
+        "ethnie_ou_region": "Ancien Ghana / Wagadou (Nara, Nioro, Kayes) — Soninké",
+        "signification": "Patronyme soninké lié à l'ancien royaume du Wagadou. " + SENS_NON_ETABLI,
+        "clan_role": "Selon la tradition soninké, les Cissé (Cissé Tounkara) fournissaient les rois du Wagadou, l'ancien Ghana.",
+        "totem": "",
+        "senankouya": "Touré (selon plusieurs traditions).",
+        "devise_ou_louange": None,
+        "anecdote": (
+            "Selon la légende du Wagadou, la prospérité du royaume dépendait du serpent Bida, à qui l'on offrait "
+            "chaque année une jeune fille. Quand Mamadi le Taciturne tua le serpent pour sauver sa fiancée Sia Yatabaré, "
+            "la pluie d'or cessa, le Wagadou déclina et les Soninké se dispersèrent."
+        ),
+        "variantes": ["Cisse", "Cissé", "Sissé", "Cissey"],
     },
     {
         "id": "nom_diarra",
         "nom": "Diarra",
         "nom_normalise": "diarra",
         "type": "nom",
-        "ethnie_ou_region": "Ségou, Bélédougou, Kaarta et boucle du Baoulé",
-        "signification": "« Le Lion » (Jara en langue bamanankan), souveraineté indomptable, courage flamboyant et noblesse d'âme.",
-        "clan_role": "Dynastie régnante de Ségou (Ngolo Diarra, Da Monzon Diarra), maîtres incontestés de la cavalerie bambara.",
-        "totem": "Le Lion (Jara) et le Léopard.",
-        "senankouya": "Traoré, Coulibaly, Koné.",
-        "devise_ou_louange": "« Diarra Jara ! Ceux dont le rugissement fait trembler les feuillages et dont le pas ne recule devant nulle armée. »",
-        "anecdote": "Ngolo Diarra rétablit la paix civile à Ségou et étendit son influence jusqu'à Tombouctou. Son fils Da Monzon Diarra repoussa les invasions avec une chevalerie d'élite légendaire.",
-        "variantes": ["Diarra", "Jarra"],
+        "ethnie_ou_region": "Ségou, Kaarta et Bélédougou — Bambara",
+        "signification": "« Le lion », du bambara « jara ».",
+        "clan_role": "Dynastie qui régna sur le royaume bambara de Ségou après les Coulibaly, fondée par Ngolo Diarra vers 1766.",
+        "totem": "",
+        "senankouya": "Traoré.",
+        "devise_ou_louange": "« Diarra, jara : le lion ! »",
+        "anecdote": (
+            "Ngolo Diarra, ancien captif de la cour de Biton Coulibaly, prit le pouvoir à Ségou. Son fils Monzon Diarra, "
+            "puis son petit-fils Da Monzon Diarra, portèrent le royaume à son apogée au tournant du XIXe siècle."
+        ),
+        "variantes": ["Diarra", "Jara", "Jarra"],
     },
     {
         "id": "nom_camara",
         "nom": "Camara",
         "nom_normalise": "camara",
         "type": "nom",
-        "ethnie_ou_region": "Siby, Monts Mandingues, Tabon et Kita",
-        "signification": "« Ceux qui fendent la roche », maîtres forgerons et dompteurs des montagnes du Mandé.",
-        "clan_role": "Rois alliés de Soundiata (Mansa Kamandjan Camara de Siby), forgerons sacrés détenteurs des secrets du fer et du feu.",
-        "totem": "Le Singe de montagne ou le Varan des rochers.",
-        "senankouya": "Sanogo, Doumbia, Koné, Kanté.",
-        "devise_ou_louange": "« Camara de Siby ! La montagne a cédé devant leur sabre, le roc a tremblé devant leur courage. »",
-        "anecdote": "À Siby, pour prouver que la coalition de Soundiata Keïta triompherait du tyran Soumaoro, Kamandjan Camara transperça la montagne d'un coup de sabre magique, créant la célèbre Arche de Siby.",
+        "ethnie_ou_region": "Mandé (Siby, Tabon, Kita) — Malinké",
+        "signification": "Patronyme mandingue parmi les plus anciens. " + SENS_NON_ETABLI,
+        "clan_role": "Clan noble du Mandé, réputé pour ses chasseurs ; les Camara de Siby et de Tabon figurent parmi les alliés de Soundiata.",
+        "totem": "",
+        "senankouya": "",
+        "devise_ou_louange": None,
+        "anecdote": (
+            "Dans l'épopée, Kamandjan Camara, roi de Siby, rejoint Soundiata contre Soumaoro. "
+            "Près de Siby, l'arche de pierre naturelle porte son nom : l'Arche de Kamandjan."
+        ),
         "variantes": ["Camara", "Kamara"],
     },
     {
@@ -150,13 +209,13 @@ NOMS_DATA = [
         "nom": "Maïga",
         "nom_normalise": "maiga",
         "type": "nom",
-        "ethnie_ou_region": "Empire Songhoï (Gao, Ansongo, Tombouctou, Bourem, Ménaka)",
-        "signification": "« Le Maître / Le Chef Suprême » en langue Songhoï.",
-        "clan_role": "Princes, stratèges de la flotte fluviale et cavaliers d'élite de l'Empire Songhoï.",
-        "totem": "L'Aigle pêcheur du Niger et le Cheval bai.",
-        "senankouya": "Touré, Soumaré, Cissé, Peuls.",
-        "devise_ou_louange": "« Maïga Sonni ! Souverains du grand fleuve, de Gao la splendide aux confins du Sahara. »",
-        "anecdote": "Les Maïga perpétuent la bravoure de Sonni Ali Ber, conquérant infatigable qui commandait une flotte de centaines de pirogues armées reliant Gao, Tombouctou et Djenné.",
+        "ethnie_ou_region": "Gao, Bourem, Ansongo, Tombouctou — Songhaï",
+        "signification": "Grand patronyme songhaï. " + SENS_NON_ETABLI,
+        "clan_role": "Patronyme emblématique du pays songhaï, berceau de l'Empire de Gao.",
+        "totem": "",
+        "senankouya": "",
+        "devise_ou_louange": None,
+        "anecdote": "L'Empire songhaï, dont Gao était la capitale, domina la boucle du Niger aux XVe et XVIe siècles, sous Sonni Ali Ber puis les Askia.",
         "variantes": ["Maiga", "Maïga", "Mayga"],
     },
     {
@@ -164,13 +223,13 @@ NOMS_DATA = [
         "nom": "Sidibé",
         "nom_normalise": "sidibe",
         "type": "nom",
-        "ethnie_ou_region": "Wassoulou (Yanfolila, Bougouni, Manankoro)",
-        "signification": "« Les Seigneurs de la Terre et Voix Mélodieuses du Wassoulou ».",
-        "clan_role": "Chevaliers de savane, bâtisseurs de terroirs et chantres de l'âme musicale mandingue et peule.",
-        "totem": "La Tourterelle sauvage et le Zébu.",
-        "senankouya": "Diakité, Diallo, Sangaré.",
-        "devise_ou_louange": "« Sidibé du Wassoulou ! Fierté des chasseurs et douceur des chants sous les manguiers en fleurs. »",
-        "anecdote": "Le terroir Sidibé est la patrie historique du Kamalen N'goni et a donné au monde les plus grandes voix musicales qui chantent l'amour de la terre, le labeur et la beauté africaine.",
+        "ethnie_ou_region": "Wassoulou (Yanfolila, Bougouni) — famille d'origine peule",
+        "signification": "Nom peul du Wassoulou, souvent considéré comme l'équivalent mandingue du patronyme peul Sow. " + SENS_NON_ETABLI,
+        "clan_role": "L'un des « quatre frères » peuls du Wassoulou, avec les Diallo, Diakité et Sangaré.",
+        "totem": "",
+        "senankouya": PACTE_PEULS_FORGERONS,
+        "devise_ou_louange": None,
+        "anecdote": "Le Wassoulou, terre des Sidibé, Diakité et Sangaré, a donné naissance à la musique wassoulou, portée par des chanteuses comme Coumba Sidibé.",
         "variantes": ["Sidibe", "Sidibé"],
     },
     {
@@ -178,13 +237,13 @@ NOMS_DATA = [
         "nom": "Sangaré",
         "nom_normalise": "sangare",
         "type": "nom",
-        "ethnie_ou_region": "Wassoulou, Mopti, Macina et Mandé sud",
-        "signification": "« Les Puissants de la Savane », clan pastoral symbole de noblesse, d'endurance et de force sereine.",
-        "clan_role": "Cavaliers d'honneur et gardiens de la liberté des troupeaux ancestraux.",
-        "totem": "L'Éléphant et le Serpent d'eau protecteur.",
-        "senankouya": "Diakité, Diallo, Samaké.",
-        "devise_ou_louange": "« Sangaré noble guerrier ! Celui qui ne plie jamais devant la bourrasque et protège les siens avec tendresse. »",
-        "anecdote": "Partout au Mali, un Sangaré et un Diakité qui se croisent engagent immédiatement le cousinage à plaisanterie (Senankouya) : des joutes orales d'humour qui ont empêché tant de guerres au cours des siècles.",
+        "ethnie_ou_region": "Wassoulou, Macina — famille d'origine peule",
+        "signification": "Nom peul, souvent rapproché du patronyme Barry ; on le retrouve sous les formes Sankara (Burkina Faso) ou Shagari (Nigeria). " + SENS_NON_ETABLI,
+        "clan_role": "L'un des « quatre frères » peuls du Wassoulou, avec les Diallo, Diakité et Sidibé.",
+        "totem": "",
+        "senankouya": PACTE_PEULS_FORGERONS,
+        "devise_ou_louange": None,
+        "anecdote": "Oumou Sangaré, grande voix du Wassoulou, a fait connaître dans le monde entier la musique de cette région.",
         "variantes": ["Sangare", "Sangaré", "Sankare"],
     },
     {
@@ -192,13 +251,13 @@ NOMS_DATA = [
         "nom": "Samaké",
         "nom_normalise": "samake",
         "type": "nom",
-        "ethnie_ou_region": "Mandé (Kangaba, Ouélessébougou, Sanankoroba)",
-        "signification": "« La Force de l'Éléphant » (Sama signifiant Éléphant en langue bambara).",
-        "clan_role": "Chefs de chasseurs émérites, gardiens des bois sacrés et pionniers de la clairière.",
-        "totem": "L'Éléphant (Sama).",
-        "senankouya": "Coulibaly, Diakité, Bagayoko.",
-        "devise_ou_louange": "« Samaké Sama ! Tranquille comme le patriarche de la harde, mais inarrêtable quand justice doit être rendue. »",
-        "anecdote": "Les Samaké ont pour réputation ancestrale la loyauté sans faille : un pacte scellé avec un Samaké est garanti jusqu'à la fin des temps.",
+        "ethnie_ou_region": "Mandé et région de Bamako — Bambara",
+        "signification": "Généralement expliqué par le bambara « sama » (éléphant) et « kɛ » (mâle) : « l'éléphant mâle ».",
+        "clan_role": "Patronyme bambara du Mandé.",
+        "totem": "",
+        "senankouya": "",
+        "devise_ou_louange": None,
+        "anecdote": "L'éléphant, que le nom évoque, est dans les contes mandingues le symbole de la force tranquille.",
         "variantes": ["Samake", "Samaké"],
     },
     {
@@ -206,55 +265,65 @@ NOMS_DATA = [
         "nom": "Kouyaté",
         "nom_normalise": "kouyate",
         "type": "nom",
-        "ethnie_ou_region": "Mandé sacré (Kéla, Kangaba, Niagassola)",
-        "signification": "« Il y a un secret entre nous » (Kouya-té en mandingue), première lignée sacrée de griots (Jeli / Djéli) du Mandé.",
-        "clan_role": "Dépositaires suprêmes de la mémoire orale, conseillers intimes des rois et gardiens du Balafon sacré Sosso-Bala.",
-        "totem": "Aucun interdit alimentaire (la parole vivante et sacrée purifie tout).",
-        "senankouya": "Tous les clans nobles du Mandé (le griot est le parent et le cousin de tout le monde).",
-        "devise_ou_louange": "« Kouyaté Djéli ! Mémoire vivante des siècles passés, vous sans qui l'Histoire s'évanouirait comme fumée au vent. »",
-        "anecdote": "Balla Fasséké Kouyaté fut nommé par Soundiata Keïta grand maître de la parole. Il apprit à jouer du Sosso-Bala au nez et à la barbe du sorcier Soumaoro Kanté, sauvant la musique sacrée du Mandé.",
-        "variantes": ["Kouyate", "Kouyaté"],
+        "ethnie_ou_region": "Mandé (Niagassola, Kita, Kangaba) — griots malinké",
+        "signification": "Selon la tradition, le nom signifierait « il y a un secret entre nous », parole liée au lien unissant Balla Fasséké à son roi.",
+        "clan_role": "Première lignée de griots (jeli) du Mandé, descendants de Balla Fasséké, griot de Soundiata ; griots attitrés des Keïta.",
+        "totem": "",
+        "senankouya": "",
+        "devise_ou_louange": None,
+        "anecdote": (
+            "Balla Fasséké, captif chez Soumaoro Kanté, joua du Sosso-Bala, le balafon sacré du roi du Sosso. "
+            "Ce balafon est aujourd'hui gardé par les Kouyaté à Niagassola (Guinée) et inscrit au patrimoine immatériel de l'UNESCO."
+        ),
+        "variantes": ["Kouyate", "Kouyaté", "Kuyate", "Kuyateh"],
     },
     {
         "id": "nom_diabate",
         "nom": "Diabaté",
         "nom_normalise": "diabate",
         "type": "nom",
-        "ethnie_ou_region": "Kita (capitale spirituelle des griots), Mandé et Kénédougou",
-        "signification": "« Rien ne peut nous abattre / Nul ne peut nous réduire au silence » (Djan-bali-té).",
-        "clan_role": "Maîtres virtuoses de la Kora à 21 cordes, poètes épiques et historiens des grandes cours d'Afrique de l'Ouest.",
-        "totem": "La Parole sacrée et le Bois de Vène (flammes de la kora).",
-        "senankouya": "Sissoko, Kouyaté, N'Diaye.",
-        "devise_ou_louange": "« Diabaté de Kita Kourou ! Doigts d'or qui caressent les 21 cordes de la Kora et apaisent les colères des rois. »",
-        "anecdote": "Au pied de la falaise sacrée de Kita Kourou, les Diabaté transmettent de père en fils l'art de faire chanter la Kora pour réconcilier les familles et chanter la grandeur du Mali éternel.",
-        "variantes": ["Diabate", "Diabaté"],
+        "ethnie_ou_region": "Mandé (Kéla, Kangaba, Kita) — griots malinké",
+        "signification": "Grande lignée de griots. Plusieurs étymologies populaires circulent, mais aucune n'est établie.",
+        "clan_role": "Griots (jeli) : les Diabaté de Kéla récitent l'histoire du Mandé lors du Kamablon de Kangaba.",
+        "totem": "",
+        "senankouya": "",
+        "devise_ou_louange": None,
+        "anecdote": (
+            "Tous les sept ans, à Kangaba, on refait le toit de la case sacrée Kamablon ; les griots Diabaté de Kéla "
+            "y récitent l'histoire du Mandé. Cette cérémonie est inscrite au patrimoine immatériel de l'UNESCO (2009). "
+            "Le joueur de kora Toumani Diabaté est issu de cette tradition."
+        ),
+        "variantes": ["Diabate", "Diabaté", "Jobarteh"],
     },
     {
         "id": "nom_doumbia",
         "nom": "Doumbia",
         "nom_normalise": "doumbia",
         "type": "nom",
-        "ethnie_ou_region": "Mandé, Bélédougou, Bougouni et Kolondiéba",
-        "signification": "« Maîtres des Forges, des Secrets souterrains et des Grands Feux ».",
-        "clan_role": "Héritiers du légendaire Fakoli Doumbia (Koumba Fakoli), général en chef magicien et allié décisif de Soundiata Keïta.",
-        "totem": "L'Aigle pêcheur et l'Enclume sacrée des forgerons.",
-        "senankouya": "Camara, Sanogo, Koné, Kanté.",
-        "devise_ou_louange": "« Doumbia Fakoli ! Porteur du bonnet à cornes magiques, alchimiste qui transforme le minerai de la terre en rempart pour la patrie. »",
-        "anecdote": "Fakoli Doumbia quitta son oncle Soumaoro Kanté pour rejoindre l'alliance de la justice avec Soundiata Keïta. C'est sa forge magique qui fabriqua les flèches invincibles de Kirina en 1235.",
-        "variantes": ["Doumbia", "Dumbia"],
+        "ethnie_ou_region": "Mandé, Bélédougou, Wassoulou — Malinké et Bambara",
+        "signification": SENS_NON_ETABLI,
+        "clan_role": (
+            "Patronyme souvent associé aux forgerons (numu) ; la tradition rattache des Doumbia à Fakoli, "
+            "neveu de Soumaoro Kanté devenu général de Soundiata."
+        ),
+        "totem": "",
+        "senankouya": PACTE_FORGERONS_PEULS,
+        "devise_ou_louange": None,
+        "anecdote": "Selon l'épopée, Fakoli abandonna son oncle Soumaoro, qui lui avait pris son épouse Kéléya, et rejoignit Soundiata avec ses guerriers.",
+        "variantes": ["Doumbia", "Dumbia", "Dumbuya"],
     },
     {
         "id": "nom_konate",
         "nom": "Konaté",
         "nom_normalise": "konate",
         "type": "nom",
-        "ethnie_ou_region": "Mandé historique (Toron, Kankan, Kita)",
-        "signification": "« Ceux qui détiennent le pouvoir premier et originel ».",
-        "clan_role": "Très ancienne dynastie royale dont était issu Naré Maghann Konaté, le père vénéré de Soundiata Keïta.",
-        "totem": "Le Python d'eau sacré et le Lion de savane.",
-        "senankouya": "Keïta, Traoré, Camara.",
-        "devise_ou_louange": "« Konaté Mansa ! Racines profondes du Manden, ceux dont le sang coule dans les veines des empereurs. »",
-        "anecdote": "Avant que le nom de Keïta ne rayonne après la victoire de Kirina, la couronne sacrée du Manden reposait sur le front des nobles Konaté.",
+        "ethnie_ou_region": "Mandé (Niani, Kangaba) — Malinké",
+        "signification": SENS_NON_ETABLI,
+        "clan_role": "Lignée royale ancienne du Mandé, étroitement liée aux Keïta : la tradition rattache aux Konaté le père de Soundiata, Naré Maghan Kon Fatta.",
+        "totem": "",
+        "senankouya": "",
+        "devise_ou_louange": None,
+        "anecdote": "Les Konaté et les Keïta partagent une même souche dans la tradition : avant de devenir la marque de la dynastie impériale, les ancêtres de Soundiata sont aussi désignés comme Konaté.",
         "variantes": ["Konate", "Konaté"],
     },
     {
@@ -262,13 +331,13 @@ NOMS_DATA = [
         "nom": "Dembélé",
         "nom_normalise": "dembele",
         "type": "nom",
-        "ethnie_ou_region": "Pays Sénoufo, Bwa et Minianka (Koutiala, San, Sikasso)",
-        "signification": "« Les Bâtisseurs infatigables de greniers et maîtres de la fertilité ».",
-        "clan_role": "Seigneurs de l'agriculture héroïque, artisans du bois sacré et maîtres des rythmes du balafon sénoufo.",
-        "totem": "Le Calao sacré et la Perdrix mouchetée.",
-        "senankouya": "Camara, Traoré, Sanogo.",
-        "devise_ou_louange": "« Dembélé du pays du coton ! Mains fécondes qui font jaillir le mil de la terre rouge et nourrissent la nation. »",
-        "anecdote": "Chez les Sénoufo et Minianka, les Dembélé ont érigé le grenier plein en symbole absolu de l'honneur de l'homme : la paresse est bannie, le travail de la terre est une prière vivante.",
+        "ethnie_ou_region": "Centre et sud du Mali — Bambara, Minianka",
+        "signification": SENS_NON_ETABLI,
+        "clan_role": "Patronyme répandu chez les Bambara et les Minianka.",
+        "totem": "",
+        "senankouya": "",
+        "devise_ou_louange": None,
+        "anecdote": "",
         "variantes": ["Dembele", "Dembélé"],
     },
     {
@@ -276,27 +345,27 @@ NOMS_DATA = [
         "nom": "Sacko",
         "nom_normalise": "sacko",
         "type": "nom",
-        "ethnie_ou_region": "Khasso et pays Soninké (Kayes, Bafoulabé, Yélimané)",
-        "signification": "« Les Fiers Cavaliers du Khasso » et veilleurs du fleuve Sénégal.",
-        "clan_role": "Noblesse khassonkée et soninkée, guerriers d'honneur et diplomates des grandes vallées fluviales.",
-        "totem": "Le Cheval d'écume et le Poisson blanc.",
-        "senankouya": "Niakaté, Cissé, Bathily, Soumaré.",
-        "devise_ou_louange": "« Sacko du Khasso ! Cavaliers intrépides du confluent de Bafoulabé, fiers comme le rocher de Médine. »",
-        "anecdote": "Au confluent du Bafing et du Bakoye à Bafoulabé, les Sacko ont forgé le royaume du Khasso avec une élégance chevaleresque louée par tous les griots de la vallée du fleuve.",
-        "variantes": ["Sacko", "Sako"],
+        "ethnie_ou_region": "Région de Kayes — Soninké et Khassonké",
+        "signification": SENS_NON_ETABLI,
+        "clan_role": "Patronyme soninké et khassonké de la région de Kayes.",
+        "totem": "",
+        "senankouya": "",
+        "devise_ou_louange": None,
+        "anecdote": "",
+        "variantes": ["Sacko", "Sakho", "Sako"],
     },
     {
         "id": "nom_haidara",
         "nom": "Haïdara",
         "nom_normalise": "haidara",
         "type": "nom",
-        "ethnie_ou_region": "Tombouctou, Djenné, Gao et Sahel",
-        "signification": "« Le Lion de Dieu » (Haydar en arabe, lignée chérifienne sacrée).",
-        "clan_role": "Gardiens millénaires des manuscrits anciens de Tombouctou, juges de paix (Cadis) et érudits coraniques respectés.",
-        "totem": "L'Encre sacrée, le Palmier dattier et la Colombe de paix.",
-        "senankouya": "Touré, Cissé, Dramé, Sylla.",
-        "devise_ou_louange": "« Haïdara de la Cité Mystérieuse ! Ceux dont la plume protège la mémoire de la science et de la tolérance. »",
-        "anecdote": "La célèbre famille Haïdara d'Abdel Kader Haïdara a sauvé plus de 377 000 précieux manuscrits médiévaux de Tombouctou lors des crises récentes, préservant la mémoire écrite de toute l'Afrique.",
+        "ethnie_ou_region": "Tombouctou, Djenné, Gao — familles chérifiennes",
+        "signification": "De l'arabe « Haydar », « le lion », surnom d'Ali, gendre du Prophète.",
+        "clan_role": "Familles chérifiennes (se réclamant de la descendance du Prophète) et lettrées, gardiennes de bibliothèques de manuscrits.",
+        "totem": "",
+        "senankouya": "",
+        "devise_ou_louange": None,
+        "anecdote": "En 2012-2013, Abdel Kader Haïdara organisa l'évacuation clandestine de centaines de milliers de manuscrits de Tombouctou vers Bamako pour les sauver de la destruction.",
         "variantes": ["Haidara", "Haïdara", "Haydara"],
     },
     {
@@ -304,27 +373,27 @@ NOMS_DATA = [
         "nom": "Koné",
         "nom_normalise": "kone",
         "type": "nom",
-        "ethnie_ou_region": "Mandé, Kénédougou, Côte d'Ivoire et pays Sénoufo",
-        "signification": "« Les Protecteurs / Ceux qui veillent sur la cité ».",
-        "clan_role": "Grands chasseurs Dozo, stratèges militaires et chefs de terre respectés.",
-        "totem": "Le Buffle noir de la savane et le Fourmilier.",
-        "senankouya": "Traoré, Diarra, Camara.",
-        "devise_ou_louange": "« Koné Dozo Mansa ! Protecteurs de la brousse et gardiens de la paix civile. »",
-        "anecdote": "Les Koné et les Condé partagent une racine commune : ils sont réputés pour leur franchise absolue et leur fidélité inébranlable.",
-        "variantes": ["Kone", "Koné", "Condé", "Konde"],
+        "ethnie_ou_region": "Sud du Mali, Côte d'Ivoire, Burkina Faso — Bambara, Malinké, Sénoufo",
+        "signification": SENS_NON_ETABLI,
+        "clan_role": "Patronyme très répandu chez les Bambara, les Malinké et les Sénoufo.",
+        "totem": "",
+        "senankouya": "",
+        "devise_ou_louange": None,
+        "anecdote": "",
+        "variantes": ["Kone", "Koné"],
     },
     {
         "id": "nom_fofana",
         "nom": "Fofana",
         "nom_normalise": "fofana",
         "type": "nom",
-        "ethnie_ou_region": "Mandé, Kaarta, Bélédougou et pays Soninké",
-        "signification": "« Les Négociateurs de Paix et Artisans de la Concorde ».",
-        "clan_role": "Médiateurs diplomatiques traditionnels, commerçants de confiance et érudits de l'islam saharien.",
-        "totem": "Le Lièvre rusé et l'Oiseau tisserin.",
-        "senankouya": "Dembélé, Bagayoko.",
-        "devise_ou_louange": "« Fofana de la concorde ! Ceux qui éteignent le feu de la discorde par la douceur de leur verbe. »",
-        "anecdote": "Dans les conflits terriens du Bélédougou, la parole d'un sage Fofana suffisait à désarmer les belligérants et à sceller la paix sous l'arbre à palabres.",
+        "ethnie_ou_region": "Pays soninké et mandingue",
+        "signification": SENS_NON_ETABLI,
+        "clan_role": "Patronyme soninké et mandingue.",
+        "totem": "",
+        "senankouya": "",
+        "devise_ou_louange": None,
+        "anecdote": "",
         "variantes": ["Fofana"],
     },
     {
@@ -332,41 +401,44 @@ NOMS_DATA = [
         "nom": "Bagayoko",
         "nom_normalise": "bagayoko",
         "type": "nom",
-        "ethnie_ou_region": "Mandé, Bougouni, Kolondiéba et Bélédougou",
-        "signification": "« Les Guerriers fidèles de la Savane et Gardiens des Récoltes ».",
-        "clan_role": "Chasseurs émérites, défenseurs des greniers du village et cavaliers téméraires.",
-        "totem": "L'Écureuil volant et le Faucon.",
-        "senankouya": "Samaké, Fofana, Coulibaly.",
-        "devise_ou_louange": "« Bagayoko brave cœur ! Ceux qui veillent sur la terre nourricière quand tout le village repose. »",
-        "anecdote": "Les Bagayoko sont reconnus pour leur générosité proverbiale : aucun voyageur égaré dans la savane ne repart sans repas d'une concession Bagayoko.",
-        "variantes": ["Bagayoko", "Bakayoko"],
+        "ethnie_ou_region": "Mandé, Tombouctou — Bambara et familles lettrées",
+        "signification": SENS_NON_ETABLI,
+        "clan_role": "Patronyme mandingue, porté aussi par une célèbre lignée de savants de Tombouctou.",
+        "totem": "",
+        "senankouya": "",
+        "devise_ou_louange": None,
+        "anecdote": "Au XVIe siècle, le savant Mohammed Bagayogo (1523-1594) enseignait à Tombouctou ; il fut le maître du grand érudit Ahmed Baba.",
+        "variantes": ["Bagayoko", "Bagayogo", "Bakayoko"],
     },
     {
         "id": "nom_sissoko",
         "nom": "Sissoko",
         "nom_normalise": "sissoko",
         "type": "nom",
-        "ethnie_ou_region": "Khasso (Kayes, Bafoulabé), Kita et Mandé",
-        "signification": "« Les Chevaliers de l'Honneur et Maîtres de la Parole ».",
-        "clan_role": "Guerriers de prestige et grands griots historiens dépositaires de l'épopée du Khasso.",
-        "totem": "Le Cheval blanc et l'Épervier.",
-        "senankouya": "Diabaté, Kouyaté, Touré.",
-        "devise_ou_louange": "« Sissoko du fleuve d'or ! Fierté du Khasso et mémoire des rois de Kayes. »",
-        "anecdote": "Au Khasso, les Sissoko ont composé les plus belles mélodies au son du Doundounba pour exalter le travail des cultivateurs et la dignité humaine.",
-        "variantes": ["Sissoko", "Cissokho", "Cissoko"],
+        "ethnie_ou_region": "Khasso (Kayes), Kita, Mandé — Malinké et Khassonké",
+        "signification": SENS_NON_ETABLI,
+        "clan_role": "Patronyme porté à la fois par des familles nobles et par des lignées de griots.",
+        "totem": "",
+        "senankouya": "",
+        "devise_ou_louange": None,
+        "anecdote": "Le joueur de kora Ballaké Sissoko perpétue aujourd'hui l'art des griots mandingues.",
+        "variantes": ["Sissoko", "Cissoko", "Cissokho"],
     },
     {
         "id": "nom_guindo",
         "nom": "Guindo",
         "nom_normalise": "guindo",
         "type": "nom",
-        "ethnie_ou_region": "Falaise de Bandiagara, Pays Dogon (Sangha, Bankass, Koro)",
-        "signification": "« Les Enfants du Roc et Gardiens des Étoiles » en langue Dogon.",
-        "clan_role": "Prêtres sacrés du Hogon, maîtres des masques Kanaga et dépositaires de l'astronomie de l'étoile Po Tolo (Sirius B).",
-        "totem": "Le Crocodile sacré d'eau douce et le Renard pâle (Ogo).",
-        "senankouya": "Bozo (les Bozo et les Dogon partagent le plus ancien pacte de Senankouya du Mali).",
-        "devise_ou_louange": "« Guindo du Pays Dogon ! Gardiens des sanctuaires en falaise et poètes des danses cosmiques. »",
-        "anecdote": "Le pacte entre les Dogon (Guindo, Dolo, Togo) et les Bozo pêcheurs du fleuve est sacré : une légende raconte qu'un Dogon et un Bozo se sauvèrent mutuellement la vie durant une famine, scellant une alliance de paix éternelle.",
+        "ethnie_ou_region": "Pays dogon (falaise de Bandiagara, Bankass, Koro)",
+        "signification": "Patronyme dogon. " + SENS_NON_ETABLI,
+        "clan_role": "L'un des patronymes dogon les plus répandus, avec Dolo, Togo, Ongoïba ou Kassogué.",
+        "totem": "",
+        "senankouya": "Les Bozo (pacte Dogon–Bozo).",
+        "devise_ou_louange": None,
+        "anecdote": (
+            "Dogon et Bozo sont liés par un pacte ancien : ils se doivent assistance, ne peuvent se faire de mal "
+            "et, selon la tradition, ne se marient pas entre eux. Une légende dit qu'en temps de famine, l'un nourrit l'autre de sa propre chair."
+        ),
         "variantes": ["Guindo", "Gindo"],
     },
     {
@@ -374,87 +446,91 @@ NOMS_DATA = [
         "nom": "Thiéro",
         "nom_normalise": "thiero",
         "type": "nom",
-        "ethnie_ou_region": "Delta intérieur du Niger, Mopti, Djenné et Ségou (clan Bozo et Somono)",
-        "signification": "« Les Maîtres des Eaux et Seigneurs du Fleuve Djoliba ».",
-        "clan_role": "Pêcheurs émérites, bateliers et gardiens des génies du fleuve (Faro).",
-        "totem": "Le Poisson Capitaine et le Lamantin d'eau douce.",
-        "senankouya": "Dogon (Guindo, Dolo, Togo).",
-        "devise_ou_louange": "« Thiéro Maître du Fleuve ! Ceux qui domptent les vagues du Djoliba et nourrissent les marchés de Bamako et Mopti. »",
-        "anecdote": "Les Bozo sont les premiers habitants de la vallée du Niger. Nul ne peut naviguer sur le Djoliba sans solliciter la bénédiction et la sagesse des maîtres de l'eau.",
+        "ethnie_ou_region": "Région de Mopti et delta intérieur du Niger",
+        "signification": "Son sens et son rattachement ethnique précis ne sont pas documentés de façon fiable.",
+        "clan_role": "Patronyme présent dans la région de Mopti.",
+        "totem": "",
+        "senankouya": "",
+        "devise_ou_louange": None,
+        "anecdote": "",
         "variantes": ["Thiero", "Thiéro", "Tiero"],
     },
 
     # ══════════════════════════════════════════════════════════════════════════
-    # 2. PRÉNOMS TRADITIONNELS DU MALI
+    # 2. PRÉNOMS
+    #    (clan_role = usage du prénom ; pas de tana ni de senankouya pour un prénom)
     # ══════════════════════════════════════════════════════════════════════════
     {
         "id": "prenom_mamadou",
         "nom": "Mamadou",
         "nom_normalise": "mamadou",
         "type": "prenom",
-        "ethnie_ou_region": "Tout le Mali (mandingue, peul, songhoï, soninké)",
-        "signification": "« Celui qui est digne d'éloges suprêmes et de respect universel » (adaptation locale de Muhammad).",
-        "clan_role": "Prénom de sagesse et de responsabilité, confié traditionnellement à l'aîné des fils pour qu'il soit le pilier protecteur de ses frères et sœurs.",
-        "totem": "Symbole de bonté et de rectitude morale.",
-        "senankouya": "Tous les cadets de la concession !",
-        "devise_ou_louange": "« Mamadou Madou ! Cœur généreux et épaule solide sur laquelle toute la famille s'appuie. »",
-        "anecdote": "Au Mali, Mamadou est tendrement appelé Baba ou Madou. Porter ce prénom engage à incarner l'honnêteté et l'esprit d'entraide communautaire.",
-        "variantes": ["Mamadou", "Mahamadou", "Madou", "Amadou"],
+        "ethnie_ou_region": "Tout le Mali (Bambara, Peuls, Soninké, Songhaï…)",
+        "signification": "Forme ouest-africaine de Muhammad, de l'arabe : « le loué », « celui qui est digne de louanges ».",
+        "clan_role": "Prénom donné en hommage au Prophète de l'islam ; diminutifs courants : Madou, Mady.",
+        "totem": "",
+        "senankouya": "",
+        "devise_ou_louange": None,
+        "anecdote": "",
+        "variantes": ["Mamadou", "Mahamadou", "Madou"],
     },
     {
         "id": "prenom_fatoumata",
         "nom": "Fatoumata",
         "nom_normalise": "fatoumata",
         "type": "prenom",
-        "ethnie_ou_region": "Tout le Mali (mandingue, peul, songhoï, bambara)",
-        "signification": "« Celle qui sèvre, protège et nourrit l'âme » (surnommée affectueusement Fanta, Fatou ou Téhou).",
-        "clan_role": "Prénom de reine-mère, symbole de concorde, de paix et de bénédiction dans la grande cour familiale.",
-        "totem": "Symbole de la source d'eau vive et de la colombe.",
-        "senankouya": "Les beaux-parents et les cousins plaisantins !",
-        "devise_ou_louange": "« Fatoumata reine de cœur ! Lumière de la concession dont la bénédiction apporte la paix et l'abondance. »",
-        "anecdote": "Dans la tradition malienne, la bénédiction d'une mère nommée Fatoumata est réputée ouvrir toutes les portes fermées du destin.",
-        "variantes": ["Fatoumata", "Fatou", "Fanta", "Tehou"],
+        "ethnie_ou_region": "Tout le Mali",
+        "signification": "Forme ouest-africaine de Fatima, de l'arabe : « celle qui sèvre (son enfant) ».",
+        "clan_role": "Prénom donné en hommage à Fatima, fille du Prophète ; diminutifs courants : Fatou, Fanta.",
+        "totem": "",
+        "senankouya": "",
+        "devise_ou_louange": None,
+        "anecdote": "",
+        "variantes": ["Fatoumata", "Fatimata", "Fatou", "Fanta"],
     },
     {
         "id": "prenom_soundiata",
         "nom": "Soundiata",
         "nom_normalise": "soundiata",
         "type": "prenom",
-        "ethnie_ou_region": "Mandé ancestral et fierté nationale",
-        "signification": "« Le Lion de Sogolon » (contraction poétique de Sogolon-Jata en mandingue).",
-        "clan_role": "Prénom impérial de bravoure invincible et de triomphe sur l'adversité du sort.",
-        "totem": "Le Lion royal (Jara).",
-        "senankouya": "Soumaoro et les princes forgerons.",
-        "devise_ou_louange": "« Soundiata Mari Djata ! Le Lion du Manden qui déracina le baobab pour honorer sa mère. »",
-        "anecdote": "Enfant, Soundiata ne marchait point et subissait les railleries. Mais mû par l'amour de sa mère Sogolon, il se dressa sur ses deux jambes grâce à une barre de fer forgée, devint un archer prodige et fonda l'Empire du Mali.",
-        "variantes": ["Soundiata", "Sundiata", "Sunjata"],
+        "ethnie_ou_region": "Mandé — prénom historique",
+        "signification": "Contraction de « Sogolon Jara », « le lion de Sogolon », du nom de sa mère et du mot bambara/malinké « jara » (lion).",
+        "clan_role": "Prénom du fondateur de l'Empire du Mali, aussi appelé Mari Djata.",
+        "totem": "",
+        "senankouya": "",
+        "devise_ou_louange": None,
+        "anecdote": (
+            "Selon l'épopée, l'enfant ne pouvait pas marcher et était moqué. Un jour, humilié pour sa mère, "
+            "il se leva en s'appuyant sur une barre de fer forgée, puis arracha un jeune baobab pour en offrir les feuilles à Sogolon."
+        ),
+        "variantes": ["Soundiata", "Sundiata", "Sunjata", "Soundjata"],
     },
     {
         "id": "prenom_awa",
         "nom": "Awa",
         "nom_normalise": "awa",
         "type": "prenom",
-        "ethnie_ou_region": "Tout le Mali (sahélien et mandingue)",
-        "signification": "« La Mère de la Vie / Le souffle primordial » (forme africaine d'Ève / Hawwa).",
-        "clan_role": "Première fille bénie, symbole de vitalité, de renouveau et d'accueil chaleureux (Diatiguiya).",
-        "totem": "Symbole de la terre féconde.",
-        "senankouya": "Les frères aînés farceurs.",
-        "devise_ou_louange": "« Awa source vive ! Celle dont le sourire dissipe les soucis et dont les mains apportent la joie. »",
-        "anecdote": "Au Mali, la grande dirigeante patriotique Awa Keïta fut la première femme députée du pays et une pionnière héroïque de la libération africaine.",
-        "variantes": ["Awa", "Hawa"],
+        "ethnie_ou_region": "Tout le Mali",
+        "signification": "Forme de Hawwa, Ève en arabe, nom généralement compris comme « la vivante », « celle qui donne la vie ».",
+        "clan_role": "Prénom donné en hommage à la première femme de la tradition biblique et coranique.",
+        "totem": "",
+        "senankouya": "",
+        "devise_ou_louange": None,
+        "anecdote": "Aoua Keïta, sage-femme et militante, fut en 1959 la première femme élue députée au Soudan français, futur Mali.",
+        "variantes": ["Awa", "Hawa", "Aoua"],
     },
     {
         "id": "prenom_modibo",
         "nom": "Modibo",
         "nom_normalise": "modibo",
         "type": "prenom",
-        "ethnie_ou_region": "Macina, Tombouctou et tout le Mali",
-        "signification": "« Le Grand Érudit, le Sage Lettré, le Guide Éclairé » (Moodibo en langue Pulaar).",
-        "clan_role": "Titre d'honneur conféré à celui qui consacre son existence à l'apprentissage, à la droiture et à la transmission du savoir.",
-        "totem": "La plume d'encre et le flambeau de la vérité.",
-        "senankouya": "Les camarades d'étude et les forgerons.",
-        "devise_ou_louange": "« Modibo artisan de souveraineté ! Flambeau de dignité qui refusa la soumission et éveilla la jeunesse. »",
-        "anecdote": "Porté par Modibo Keïta, père de l'indépendance du Mali le 22 septembre 1960, ardent défenseur de l'unité africaine et bâtisseur de la nation moderne.",
+        "ethnie_ou_region": "Tout le Mali (d'origine peule)",
+        "signification": "Du peul « moodibbo » : « le savant, le lettré » (en sciences islamiques).",
+        "clan_role": "Titre d'érudit devenu prénom.",
+        "totem": "",
+        "senankouya": "",
+        "devise_ou_louange": None,
+        "anecdote": "Modibo Keïta fut le premier président du Mali indépendant, proclamé le 22 septembre 1960.",
         "variantes": ["Modibo", "Moodibo"],
     },
     {
@@ -462,41 +538,41 @@ NOMS_DATA = [
         "nom": "Aminata",
         "nom_normalise": "aminata",
         "type": "prenom",
-        "ethnie_ou_region": "Tout le Mali (surnommée affectueusement Ami ou Amita)",
-        "signification": "« Celle en qui repose une confiance absolue, loyale, intègre et sereine ».",
-        "clan_role": "Prénom de pureté de cœur, de droiture et de fidélité dans l'amitié comme dans la famille.",
-        "totem": "Symbole de la colombe blanche et de l'arbre protecteur.",
-        "senankouya": "Les tantes maternelles !",
-        "devise_ou_louange": "« Aminata parole d'or ! Cœur pur sur lequel l'épreuve n'a point de prise. »",
-        "anecdote": "Porté par de grandes dames de la littérature et de la culture malienne comme l'écrivaine et ancienne ministre Aminata Traoré.",
-        "variantes": ["Aminata", "Ami", "Amita"],
+        "ethnie_ou_region": "Tout le Mali",
+        "signification": "Forme ouest-africaine d'Amina, de l'arabe : « digne de confiance, fidèle ».",
+        "clan_role": "Prénom donné en hommage à Amina, mère du Prophète.",
+        "totem": "",
+        "senankouya": "",
+        "devise_ou_louange": None,
+        "anecdote": "L'essayiste Aminata Dramane Traoré fut ministre de la Culture du Mali de 1997 à 2000.",
+        "variantes": ["Aminata", "Aminatou", "Amina"],
     },
     {
         "id": "prenom_sekou",
         "nom": "Sékou",
         "nom_normalise": "sekou",
         "type": "prenom",
-        "ethnie_ou_region": "Mandingue, Peul et Sahel (forme locale de Cheick)",
-        "signification": "« Le Maître Spirituel, le Guide Vénérable, le Sage Conseiller ».",
-        "clan_role": "Désigne l'autorité morale tranquille, la justice impartiale et l'écoute attentive des plus faibles.",
-        "totem": "Le grand baobab aux branches protectrices.",
-        "senankouya": "Les neveux farceurs !",
-        "devise_ou_louange": "« Sékou chef de concorde ! Regard clair qui apaise les tempêtes et réconcilie les cœurs divisés. »",
-        "anecdote": "Illustré par Sékou Amadou au XIXe siècle, qui fit du Macina un havre de sécurité, d'écoles gratuites et d'organisation pastorale équitable.",
-        "variantes": ["Sekou", "Sékou", "Cheick", "Cheickné"],
+        "ethnie_ou_region": "Tout le Mali",
+        "signification": "Forme mandingue de Cheikh, de l'arabe : « l'ancien », « le maître (spirituel) ».",
+        "clan_role": "Prénom de respect, lié au savoir religieux.",
+        "totem": "",
+        "senankouya": "",
+        "devise_ou_louange": None,
+        "anecdote": "Sékou Amadou (Cheikou Amadou Barry) fonda en 1818 la Diina, l'État peul du Macina, avec Hamdallaye pour capitale.",
+        "variantes": ["Sekou", "Sékou", "Seykou", "Cheickou"],
     },
     {
         "id": "prenom_tenin",
         "nom": "Tênin",
         "nom_normalise": "tenin",
         "type": "prenom",
-        "ethnie_ou_region": "Tradition mandingue et bambara des jours de naissance",
-        "signification": "« Enfant née un Lundi » (Tênin-don en bambara), jour faste des grands marchés sahéliens et de l'abondance.",
-        "clan_role": "Symbole de prospérité marchande, de gaieté, de fertilité et de douceur de vivre.",
-        "totem": "L'étoile du matin et le panier d'épices.",
-        "senankouya": "Les enfants nés le vendredi (Juma) !",
-        "devise_ou_louange": "« Tênin donnière de joie ! Celle dont le pas fait fleurir la cour et dont la présence chasse la tristesse. »",
-        "anecdote": "Chez les Bambaras, les enfants du lundi (Tênin) sont réputés apporter la bonne fortune dans les récoltes et le commerce familial.",
+        "ethnie_ou_region": "Bambara et Malinké",
+        "signification": "Du bambara « tɛnɛn » : « lundi ». Prénom donné à une fille née un lundi.",
+        "clan_role": "Fait partie des prénoms liés au jour de naissance.",
+        "totem": "",
+        "senankouya": "",
+        "devise_ou_louange": None,
+        "anecdote": "",
         "variantes": ["Tenin", "Tênin", "Ténin"],
     },
     {
@@ -504,13 +580,13 @@ NOMS_DATA = [
         "nom": "Bintou",
         "nom_normalise": "bintou",
         "type": "prenom",
-        "ethnie_ou_region": "Tout le Mali (surnommée affectueusement Binta ou Bibiche)",
-        "signification": "« La Fille précieuse, gracieuse et bienveillante ».",
-        "clan_role": "Prénom de douceur filiale, apportant la lumière et l'harmonie dans le foyer.",
-        "totem": "La fleur de coton et la gazelle du Sahel.",
-        "senankouya": "Les grands-parents !",
-        "devise_ou_louange": "« Bintou sourire d'aurore ! Fierté de ses parents et roseau souple que le vent caresse sans jamais rompre. »",
-        "anecdote": "Dans les contes du clair de lune, Bintou est souvent l'héroïne généreuse qui partage son repas avec le voyageur et reçoit en récompense la sagesse des ancêtres.",
+        "ethnie_ou_region": "Tout le Mali",
+        "signification": "Généralement rattaché à l'arabe « bint » : « la fille ».",
+        "clan_role": "Prénom féminin courant ; variante : Binta.",
+        "totem": "",
+        "senankouya": "",
+        "devise_ou_louange": None,
+        "anecdote": "",
         "variantes": ["Bintou", "Binta"],
     },
     {
@@ -518,48 +594,70 @@ NOMS_DATA = [
         "nom": "Boubacar",
         "nom_normalise": "boubacar",
         "type": "prenom",
-        "ethnie_ou_region": "Tout le Mali (surnommé Bouba ou Bakary)",
-        "signification": "« Le Droit, le Premier Compagnon, le Pionnier intrépide ».",
-        "clan_role": "Défenseur loyal, bâtisseur patient et soutien fidèle de la communauté.",
-        "totem": "Le grand baobab séculaire.",
-        "senankouya": "Les forgerons et les griots !",
-        "devise_ou_louange": "« Boubacar esprit solide ! Homme de conviction dont la démarche est assurée et le cœur généreux. »",
-        "anecdote": "Au Mali, Boubacar et Bakary désignent souvent des bâtisseurs calmes qui agissent plus qu'ils ne parlent et mènent les projets à la victoire.",
-        "variantes": ["Boubacar", "Bakary", "Bouba", "Bokar"],
+        "ethnie_ou_region": "Tout le Mali",
+        "signification": "Forme ouest-africaine d'Abou Bakr, de l'arabe : « le père du jeune chameau ».",
+        "clan_role": "Prénom donné en hommage à Abou Bakr, compagnon du Prophète et premier calife ; formes mandingues : Bakary, Bocar.",
+        "totem": "",
+        "senankouya": "",
+        "devise_ou_louange": None,
+        "anecdote": "",
+        "variantes": ["Boubacar", "Bakary", "Bocar", "Aboubacar"],
     },
     {
         "id": "prenom_sogolon",
         "nom": "Sogolon",
         "nom_normalise": "sogolon",
         "type": "prenom",
-        "ethnie_ou_region": "Mandé ancestral et boucle du Niger",
-        "signification": "« La Mère Buffle » (Sogolon Kondé), symbole sacré d'abnégation, de patience infinie et d'amour maternel sublime.",
-        "clan_role": "Reine protectrice, figure d'immortalité féminine qui a forgé le destin de la plus grande civilisation mandingue.",
-        "totem": "Le Buffle sacré (Sogon).",
-        "senankouya": "Les rois du Sosso !",
-        "devise_ou_louange": "« Sogolon Kèjou ! Mère de Soundiata Keïta, celle dont la patience inébranlable a changé le cours de l'Histoire africaine. »",
-        "anecdote": "À Bamako, la statue monumentale de Sogolon à Hamdallaye ACI 2000 rappelle aux enfants que le sacrifice et l'amour d'une mère dépassent toute gloire militaire.",
-        "variantes": ["Sogolon", "Sogoba"],
+        "ethnie_ou_region": "Mandé — prénom historique",
+        "signification": "Nom de la mère de Soundiata, Sogolon Kédjou (Sogolon Condé). Son sens littéral n'est pas établi.",
+        "clan_role": "Prénom porté en hommage à la mère du fondateur de l'Empire du Mali.",
+        "totem": "",
+        "senankouya": "",
+        "devise_ou_louange": None,
+        "anecdote": (
+            "Selon l'épopée, deux chasseurs vainquirent la femme-buffle du pays de Dô et reçurent en récompense "
+            "Sogolon, jeune femme bossue et laide, qu'ils conduisirent au roi Naré Maghan. Elle devint la mère de Soundiata."
+        ),
+        "variantes": ["Sogolon"],
     },
     {
         "id": "prenom_kadiatou",
         "nom": "Kadiatou",
         "nom_normalise": "kadiatou",
         "type": "prenom",
-        "ethnie_ou_region": "Tout le Mali (surnommée Kadia ou Kadi)",
-        "signification": "« La Bienfaitrice précoce, noble, noble d'esprit et de parole ».",
-        "clan_role": "Femme d'initiative et d'action, protectrice des orphelins et des démunis.",
-        "totem": "L'hirondelle de saison des pluies.",
-        "senankouya": "Les neveux et nièces !",
-        "devise_ou_louange": "« Kadiatou mains d'abondance ! Celle qui partage avant de penser à elle et réchauffe les cœurs isolés. »",
-        "anecdote": "Les Kadiatou sont célébrées dans les chants de griottes pour leur indépendance d'esprit et leur dévouement envers la communauté.",
-        "variantes": ["Kadiatou", "Kadia", "Kadi"],
+        "ethnie_ou_region": "Tout le Mali",
+        "signification": "Forme ouest-africaine de Khadija, de l'arabe : « née avant terme », « la prématurée ».",
+        "clan_role": "Prénom donné en hommage à Khadija, première épouse du Prophète ; diminutifs : Kadia, Kadidia.",
+        "totem": "",
+        "senankouya": "",
+        "devise_ou_louange": None,
+        "anecdote": "",
+        "variantes": ["Kadiatou", "Kadidiatou", "Kadia", "Kadidia"],
     },
 ]
 
 
+def _apply(rec: CultureNom, item: dict) -> None:
+    rec.nom = item["nom"]
+    rec.nom_normalise = item["nom_normalise"]
+    rec.type = item["type"]
+    rec.ethnie_ou_region = item["ethnie_ou_region"]
+    rec.signification = item["signification"]
+    rec.clan_role = item["clan_role"]
+    rec.totem = item.get("totem") or ""
+    rec.senankouya = item.get("senankouya") or ""
+    rec.devise_ou_louange = item.get("devise_ou_louange")
+    rec.anecdote = item.get("anecdote") or ""
+    rec.variantes_json = json.dumps(item.get("variantes", [item["nom"]]), ensure_ascii=False)
+
+
 def seed_noms_data(db: Session, force: bool = False):
-    """Insère ou synchronise la base généalogique des noms et prénoms du Mali."""
+    """
+    Synchronise la base des noms et prénoms du Mali.
+    Ce sont des données de référence : les lignes existantes sont TOUJOURS mises à jour
+    pour que les corrections éditoriales soient propagées (le paramètre `force` est conservé
+    pour compatibilité).
+    """
     try:
         inserted = 0
         updated = 0
@@ -567,39 +665,17 @@ def seed_noms_data(db: Session, force: bool = False):
         for item in NOMS_DATA:
             rec = db.query(CultureNom).filter(CultureNom.id == item["id"]).first()
             if not rec:
-                db.add(CultureNom(
-                    id=item["id"],
-                    nom=item["nom"],
-                    nom_normalise=item["nom_normalise"],
-                    type=item["type"],
-                    ethnie_ou_region=item["ethnie_ou_region"],
-                    signification=item["signification"],
-                    clan_role=item["clan_role"],
-                    totem=item["totem"],
-                    senankouya=item["senankouya"],
-                    devise_ou_louange=item.get("devise_ou_louange"),
-                    anecdote=item["anecdote"],
-                    variantes_json=json.dumps(item.get("variantes", [item["nom"]]), ensure_ascii=False),
-                    date_creation=datetime.utcnow(),
-                ))
+                rec = CultureNom(id=item["id"], date_creation=datetime.utcnow())
+                _apply(rec, item)
+                db.add(rec)
                 inserted += 1
-            elif force:
-                rec.nom = item["nom"]
-                rec.nom_normalise = item["nom_normalise"]
-                rec.type = item["type"]
-                rec.ethnie_ou_region = item["ethnie_ou_region"]
-                rec.signification = item["signification"]
-                rec.clan_role = item["clan_role"]
-                rec.totem = item["totem"]
-                rec.senankouya = item["senankouya"]
-                rec.devise_ou_louange = item.get("devise_ou_louange")
-                rec.anecdote = item["anecdote"]
-                rec.variantes_json = json.dumps(item.get("variantes", [item["nom"]]), ensure_ascii=False)
+            else:
+                _apply(rec, item)
                 updated += 1
 
         db.commit()
-        logger.info(f"Seed Noms terminé : {inserted} insérés, {updated} mis à jour.")
-        print(f"[OK] Genealogie Grand-mere Mah : {len(NOMS_DATA)} patronymes et prenoms du Mali synchronises en BDD.")
+        logger.info(f"Seed Noms terminé : {inserted} insérés, {updated} synchronisés.")
+        print(f"[OK] Noms du Mali : {len(NOMS_DATA)} patronymes et prenoms synchronises en BDD.")
     except Exception as exc:
         db.rollback()
         logger.error(f"Erreur lors du seed des patronymes : {exc}")
