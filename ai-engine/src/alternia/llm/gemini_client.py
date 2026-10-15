@@ -28,12 +28,12 @@ from alternia.llm.client import LLMClient
 
 
 DEFAULT_GEMINI_API_KEY = "AQ.Ab8RN6JGzagbZCG-VcH1I4tTAUGUmN9bB9nwWLDUsP1xTs0r5w"
-DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
+DEFAULT_GEMINI_MODEL = "gemini-3.1-flash-lite"
 FALLBACK_GEMINI_MODELS = [
+    "gemini-3.1-flash-lite",
     "gemini-2.5-flash",
     "gemini-3.8-flash",
     "gemini-3.5-flash-lite",
-    "gemini-3-flash-preview",
 ]
 
 

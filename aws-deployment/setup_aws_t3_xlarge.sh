@@ -129,12 +129,12 @@ APP_NAME=AlternIA
 APP_ENV=production
 DEBUG=false
 
-# LLM Providers (Gemini 2.5 Flash / Groq Qwen 27B)
+# LLM Providers (Gemini 3.1 Flash Lite / Groq Qwen 27B)
 LLM_PROVIDER=gemini
-LLM_MODEL=gemini-2.5-flash
+LLM_MODEL=gemini-3.1-flash-lite
 LLM_API_KEY=AQ.Ab8RN6JGzagbZCG-VcH1I4tTAUGUmN9bB9nwWLDUsP1xTs0r5w
 GEMINI_API_KEY=AQ.Ab8RN6JGzagbZCG-VcH1I4tTAUGUmN9bB9nwWLDUsP1xTs0r5w
-GEMINI_MODEL=gemini-2.5-flash
+GEMINI_MODEL=gemini-3.1-flash-lite
 GROQ_API_KEY=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
 GROQ_MODEL=qwen/qwen3.8-27b
 

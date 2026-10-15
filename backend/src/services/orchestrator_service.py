@@ -66,7 +66,7 @@ def get_orchestrator() -> AlterniaOrchestrator:
     gemini_model = (
         getattr(settings, "gemini_model", None)
         or os.getenv("GEMINI_MODEL")
-        or "gemini-2.5-flash"
+        or "gemini-3.1-flash-lite"
     )
     gemini_client = GeminiLLMClient(
         api_key=gemini_api_key,
