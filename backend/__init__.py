@@ -1,0 +1,3 @@
+"""
+Package backend pour AlternIA.
+"""

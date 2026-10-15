@@ -22,6 +22,7 @@ from backend.src.db.models import (
     CultureProverbe,
     CulturePack,
     CultureDecouverte,
+    CultureNom,
 )
 
 logger = logging.getLogger("AlternIA.CultureService")
@@ -178,6 +179,82 @@ def _serialize_monument(m: CultureMonument) -> Dict[str, Any]:
     res["realPhotos"] = real_photos
     res["galleryPhotos"] = real_photos
     return res
+
+
+SCENIC_ACTIONS_GRANDMERE_MAH = [
+    "Grand-mère Mah attise le feu de bois d'un geste tranquille et rajuste son moussor",
+    "Grand-mère Mah jette une poignée de brindilles parfumées sur les braises rougeoyantes",
+    "Grand-mère Mah esquisse un sourire bienveillant et incline doucement la tête vers les flammes",
+    "Grand-mère Mah fait tinter discrètement ses perles d'ambre et pose sa main sur la calebasse",
+    "Grand-mère Mah lève les yeux vers le ciel étoilé du Mandé avant de répondre avec douceur",
+    "Grand-mère Mah souffle avec tendresse sur la braise pour faire danser les étincelles d'or",
+]
+
+
+def _build_grandmere_mah_speech_for_nom(n: CultureNom) -> str:
+    """Génère la narration orale authentique de Grand-mère Mah sous le baobab pour un patronyme ou prénom."""
+    if n.type == "prenom":
+        return (
+            f"« Mon enfant, approche et écoute ce que Grand-mère Mah lit dans le chant des flammes sur ton prénom, « {n.nom} ».\n\n"
+            f"Sais-tu ce que signifie réellement porter ce prénom ? {n.signification} "
+            f"Ce n'est pas un simple mot que l'on crie dans la cour : dans nos terroirs de {n.ethnie_ou_region}, c'est une bénédiction soufflée à l'oreille du nouveau-né au septième jour pour guider chacun de ses pas.\n\n"
+            f"Les anciens racontent que {n.anecdote} {n.clan_role}.\n\n"
+            "Garde toujours la tête haute : un prénom n'est pas donné par hasard dans notre savane, il est une graine d'honneur semée en toi. Fais-en un arbre bienveillant dont l'ombre protègera les autres. »"
+        )
+
+    totem_phrase = (
+        f"Ton animal totem sacré — ton Tanan — est {n.totem}. Nos ancêtres nous ont interdit de lui faire du mal, "
+        "car il est le miroir de l'âme et du serment sacré de notre lignée."
+        if n.totem else ""
+    )
+
+    senankouya_phrase = (
+        f"Et n'oublie jamais ton Senankouya (cousinage à plaisanterie) : {n.senankouya}. "
+        "Si un jour la discorde menace, use de cette plaisanterie sacrée pour éteindre la colère comme l'eau éteint le feu."
+        if n.senankouya else ""
+    )
+
+    devise_phrase = f"\n\nRetiens cette noble louange des griots : {n.devise_ou_louange}" if n.devise_ou_louange else ""
+
+    return (
+        f"« Mon enfant, assieds-toi plus près des braises. Laisse Grand-mère Mah te conter la véritable histoire du nom « {n.nom} ».\n\n"
+        f"Vois-tu, beaucoup croient qu'un nom n'est qu'une suite de lettres sur une carte. Mais chez nous, {n.nom} signifie {n.signification} ! "
+        f"Tes racines plongent au cœur de {n.ethnie_ou_region}, là où tes nobles aïeux étaient reconnus comme {n.clan_role}.\n\n"
+        f"Écoute bien cette histoire que les griots se transmettent depuis la nuit des temps : {n.anecdote}\n\n"
+        f"{totem_phrase}\n\n"
+        f"{senankouya_phrase}"
+        f"{devise_phrase}\n\n"
+        "Porte ton nom avec la fierté tranquille du baobab, car en toi coule la mémoire de mille veillées. Sois digne de ton Danbé ! »"
+    )
+
+
+def _serialize_culture_nom(n: CultureNom) -> Dict[str, Any]:
+    """Sérialise un patronyme ou prénom malien pour les réponses API."""
+    variantes = []
+    try:
+        variantes = json.loads(n.variantes_json) if n.variantes_json else []
+    except Exception:
+        variantes = [n.nom]
+
+    return {
+        "id": n.id,
+        "name": n.nom,
+        "nom": n.nom,
+        "nomNormalise": n.nom_normalise,
+        "type": n.type,
+        "origin": n.ethnie_ou_region,
+        "ethnieOuRegion": n.ethnie_ou_region,
+        "meaning": n.signification,
+        "signification": n.signification,
+        "clanRole": n.clan_role,
+        "clan_role": n.clan_role,
+        "totem": n.totem,
+        "senankouya": n.senankouya,
+        "deviseOuLouange": n.devise_ou_louange,
+        "anecdote": n.anecdote,
+        "variantes": variantes,
+        "narrativeText": _build_grandmere_mah_speech_for_nom(n),
+    }
 
 
 class CultureService:
@@ -468,6 +545,28 @@ class CultureService:
         sources: List[str] = []
         facts_blocks: List[str] = []
 
+        # ── 0. RECHERCHE DANS LES NOMS ET PATRONYMES DU MALI (GRAND-MÈRE MAH) ──
+        matched_nom = CultureService.find_culture_nom_by_keyword(db, norm_q)
+        if matched_nom:
+            matched_item_name = f"{matched_nom.nom} ({matched_nom.type})"
+            matched_item_type = "nom_patronyme"
+            context_item = _serialize_culture_nom(matched_nom)
+            sources = [
+                f"Généalogie Ancestrale du Mali — {matched_nom.nom}",
+                f"Terroir : {matched_nom.ethnie_ou_region}",
+                "Tradition Orale des Griots du Mandé",
+            ]
+            facts_blocks.append(
+                f"PATRONYME / PRÉNOM DU MALI : {matched_nom.nom} (Type: {matched_nom.type})\n"
+                f"TERROIR ET BERCEAU : {matched_nom.ethnie_ou_region}\n"
+                f"SIGNIFICATION AUTHENTIQUE : {matched_nom.signification}\n"
+                f"RÔLE DU CLAN / CASTE : {matched_nom.clan_role}\n"
+                f"ANIMAL TOTEM SACRÉ (TANAN) : {matched_nom.totem or 'Respect de la parole'}\n"
+                f"COUSINAGE À PLAISANTERIE (SENANKOUYA) : {matched_nom.senankouya or 'Fraternité universelle'}\n"
+                f"RÉCIT ET ANECDOTE HISTORIQUE : {matched_nom.anecdote}\n"
+                f"DEVISE OU LOUANGE : {matched_nom.devise_ou_louange or 'Gardiens de la dignité (Danbé)'}"
+            )
+
         # ── 1. RECHERCHE DANS LES MONUMENTS (Scoring spécifique par mot discriminant) ──
         STOP_WORDS = {
             "de", "du", "la", "le", "les", "des", "un", "une", "a", "au", "aux", "en", "sur",
@@ -476,10 +575,10 @@ class CultureService:
         }
 
         target_monument: Optional[CultureMonument] = None
-        if monument_id:
+        if monument_id and not matched_nom:
             target_monument = db.query(CultureMonument).filter(CultureMonument.id == monument_id).first()
 
-        if not target_monument:
+        if not target_monument and not matched_nom:
             all_monuments = db.query(CultureMonument).all()
             best_monument = None
             best_monument_score = 0
@@ -645,7 +744,9 @@ class CultureService:
         # Détection adaptative du cas d'usage si non fourni
         detected_use_case = use_case or "generalCulture"
         if not use_case:
-            if target_monument or any(w in norm_q for w in ["monument", "tour de l'afrique", "independance", "djenne", "mosquee", "tombouctou", "askia", "tata", "sikasso", "obelisque", "paix", "martyrs", "statue"]):
+            if matched_nom or any(w in norm_q for w in ["nom", "prenom", "prénom", "djamou", "jamu", "totem", "tanan", "senankouya", "sinankouya", "cousinage"]):
+                detected_use_case = "genealogyClan"
+            elif target_monument or any(w in norm_q for w in ["monument", "tour de l'afrique", "independance", "djenne", "mosquee", "tombouctou", "askia", "tata", "sikasso", "obelisque", "paix", "martyrs", "statue"]):
                 detected_use_case = "monumentSite"
             elif any(w in norm_q for w in ["soundiata", "keita", "mansa moussa", "babemba", "traore", "samory", "coulibaly", "sonni ali", "askia mohammed", "heros", "resistant", "roi", "empereur"]):
                 detected_use_case = "historicalFigure"
@@ -667,11 +768,19 @@ class CultureService:
                 )
         else:
             base_griot = (
-                "Tu es le « Vieux Sage et grand Griot du Mali », vénérable gardien de la mémoire orale sous l'arbre à palabres au bord du fleuve Djoliba.\n"
-                "Tu t'exprimes avec noblesse, poésie, musicalité orale et chaleur humaine (accueils chaleureux : 'I ni ce', 'Aw bisimila').\n"
-                "N'utilise jamais de listes à puces plates ni de ton scolaire rigide. Structure ta parole en paragraphes harmonieux et rythmés."
+                "Tu es « Grand-mère Mah / le Vieux Sage et grand Griot du Mali », vénérable gardienne de la mémoire orale sous le grand baobab au coin du feu.\n"
+                "Tu t'exprimes avec noblesse, poésie, musicalité orale et chaleur humaine (accueils chaleureux : 'I ni ce', 'I ni sou', 'Aw bisimila').\n"
+                "N'utilise jamais de listes à puces plates ni aucun emoji. Structure ta parole en récits harmonieux et rythmés."
             )
-            if detected_use_case == "monumentSite":
+            if detected_use_case == "genealogyClan":
+                specific = (
+                    "MISSION SPÉCIFIQUE (GÉNÉALOGIE, PATRONYMES & TOTEMS - GRAND-MÈRE MAH) :\n"
+                    "- Tu es Grand-mère Mah sous le grand baobab au coin du feu crépitant.\n"
+                    "- Révèle avec tendresse et fierté l'origine sacrée du patronyme (Jamu) ou du prénom, sa signification étymologique exacte, "
+                    "son animal totem (Tanan) et son cousinage à plaisanterie (Senankouya).\n"
+                    "- Rappelle la dignité (Danbé) et invite l'enfant à honorer la mémoire de ses ancêtres."
+                )
+            elif detected_use_case == "monumentSite":
                 specific = (
                     "MISSION SPÉCIFIQUE (MONUMENT DU MALI) :\n"
                     "- Fais résonner la fierté des pierres, des bâtisseurs et des symboles de notre souveraineté.\n"
@@ -774,7 +883,9 @@ class CultureService:
             ]
             intro = random.choice(intros)
             
-            if target_monument:
+            if matched_nom:
+                reponse = _build_grandmere_mah_speech_for_nom(matched_nom)
+            elif target_monument:
                 corps = (
                     f"{target_monument.nom} ({target_monument.sous_titre}) veille fièrement sur {target_monument.ville}, "
                     f"dans la région de {target_monument.region_nom}. {target_monument.recit_historique}\n\n"
@@ -791,12 +902,13 @@ class CultureService:
                     "notre patrimoine est une source inépuisable de fierté et de concorde."
                 )
 
-            outro_list = [
-                "Quelle autre merveille de notre terre souhaites-tu explorer avec moi ?",
-                "La parole est comme l'eau du fleuve, elle fertilise l'esprit de qui sait écouter. Pose-moi une autre question quand tu le désires !",
-                "Sous cet arbre à palabres, mes souvenirs restent éveillés pour éclairer tes prochains pas. À très bientôt, voyageur !"
-            ]
-            reponse = f"{intro}\n\n{corps}\n\n{random.choice(outro_list)}"
+            if not matched_nom:
+                outro_list = [
+                    "Quelle autre merveille de notre terre souhaites-tu explorer avec moi ?",
+                    "La parole est comme l'eau du fleuve, elle fertilise l'esprit de qui sait écouter. Pose-moi une autre question quand tu le désires !",
+                    "Sous cet arbre à palabres, mes souvenirs restent éveillés pour éclairer tes prochains pas. À très bientôt, voyageur !"
+                ]
+                reponse = f"{intro}\n\n{corps}\n\n{random.choice(outro_list)}"
 
         dt_total = time.perf_counter() - t0_ask
 
@@ -1071,3 +1183,165 @@ class CultureService:
                 "discoveredAt": d.date_decouverte.isoformat() if d.date_decouverte else None,
             })
         return res
+
+    # ==========================================================================
+    # LOGIQUE MÉTIER : GRAND-MÈRE MAH, NOMS, PRÉNOMS ET VEILLÉE SOUS LE BAOBAB
+    # ==========================================================================
+
+    @staticmethod
+    def get_noms(
+        db: Session,
+        type: Optional[str] = None,
+        query: Optional[str] = None,
+        skip: int = 0,
+        limit: int = 50,
+    ) -> List[Dict[str, Any]]:
+        """Récupère le catalogue des patronymes et prénoms traditionnels du Mali."""
+        q = db.query(CultureNom)
+        if type:
+            q = q.filter(CultureNom.type == type.lower())
+        if query:
+            clean = f"%{query.strip()}%"
+            q = q.filter(
+                or_(
+                    CultureNom.nom.ilike(clean),
+                    CultureNom.nom_normalise.ilike(clean),
+                    CultureNom.ethnie_ou_region.ilike(clean),
+                    CultureNom.signification.ilike(clean),
+                    CultureNom.clan_role.ilike(clean),
+                )
+            )
+        noms = q.order_by(CultureNom.nom.asc()).offset(skip).limit(limit).all()
+        return [_serialize_culture_nom(n) for n in noms]
+
+    @staticmethod
+    def get_nom_by_id_or_exact_name(db: Session, identifier: str) -> Optional[Dict[str, Any]]:
+        """Récupère la fiche détaillée d'un patronyme ou prénom par son identifiant ou libellé exact."""
+        clean = identifier.strip()
+        norm = _normalize_text(clean)
+        nom = db.query(CultureNom).filter(
+            or_(
+                CultureNom.id == clean,
+                CultureNom.nom_normalise == norm,
+                CultureNom.nom.ilike(clean),
+            )
+        ).first()
+        if not nom:
+            nom = CultureService.find_culture_nom_by_keyword(db, clean)
+        return _serialize_culture_nom(nom) if nom else None
+
+    @staticmethod
+    def find_culture_nom_by_keyword(db: Session, query: str) -> Optional[CultureNom]:
+        """
+        Détection et extraction haute précision d'un patronyme ou prénom malien dans un texte libre.
+        Gère les minuscules, les accents et les variantes orthographiques courantes.
+        """
+        if not query:
+            return None
+        norm_q = _normalize_text(query)
+        words = norm_q.split()
+
+        all_noms = db.query(CultureNom).all()
+
+        # 1. Correspondance mot-à-mot directe sur le nom normalisé
+        for n in all_noms:
+            if n.nom_normalise in words:
+                return n
+
+        # 2. Correspondance sur sous-chaîne avec validation de frontière
+        for n in all_noms:
+            if n.nom_normalise in norm_q:
+                # Éviter les faux positifs sur les noms très courts
+                if len(n.nom_normalise) >= 5 or any(w == n.nom_normalise for w in words):
+                    return n
+
+        # 3. Correspondance sur variantes orthographiques (JSON)
+        for n in all_noms:
+            try:
+                variantes = json.loads(n.variantes_json) if n.variantes_json else []
+                for v in variantes:
+                    v_norm = _normalize_text(v)
+                    if v_norm in words or (len(v_norm) >= 5 and v_norm in norm_q):
+                        return n
+            except Exception:
+                pass
+
+        return None
+
+    @staticmethod
+    def chat_grandmere_mah(
+        db: Session,
+        user_message: str,
+        history: Optional[List[Dict[str, str]]] = None,
+        additional_context: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Logique métier complète du Chat avec Grand-mère Mah sous le grand baobab au coin du feu.
+        Interroge directement la base de données pour les vrais sens des noms, prénoms,
+        totems (Tanan) et cousinage à plaisanterie (Senankouya), avec actions scéniques immersives.
+        """
+        clean_msg = user_message.strip() if user_message else ""
+        if not clean_msg:
+            return {
+                "answer": (
+                    "I ni sou, mon enfant ! Approche, assieds-toi près du feu sous le grand baobab. "
+                    "Je suis Grand-mère Mah, mémoire vivante et conteuse du Mandé. "
+                    "Dis-moi quel est ton nom de famille ou ton prénom, et je te révèlerai son histoire sacrée !"
+                ),
+                "scenicAction": SCENIC_ACTIONS_GRANDMERE_MAH[0],
+                "matchedName": None,
+                "sources": ["Grand-mère Mah — Veillée sous le Baobab"],
+            }
+
+        norm_q = _normalize_text(clean_msg)
+        idx_action = (len(history or []) + len(clean_msg)) % len(SCENIC_ACTIONS_GRANDMERE_MAH)
+        scenic_action = SCENIC_ACTIONS_GRANDMERE_MAH[idx_action]
+
+        # 1. Recherche d'un patronyme ou prénom dans la base de données
+        matched_nom = CultureService.find_culture_nom_by_keyword(db, clean_msg)
+
+        if matched_nom:
+            serialized_nom = _serialize_culture_nom(matched_nom)
+            speech = _build_grandmere_mah_speech_for_nom(matched_nom)
+            return {
+                "answer": speech,
+                "scenicAction": scenic_action,
+                "matchedName": serialized_nom,
+                "sources": [
+                    f"Base de Données Généalogique — {matched_nom.nom}",
+                    f"Terroir : {matched_nom.ethnie_ou_region}",
+                    "Tradition des Griots du Mandé",
+                ],
+            }
+
+        # 2. Si l'utilisateur demande en général son nom ou son prénom sans précision
+        if any(w in norm_q for w in ["mon nom", "mon prenom", "mon prénom", "nom de famille", "djamou", "jamu", "totem", "tanan", "senankouya", "sinankouya", "cousinage"]):
+            return {
+                "answer": (
+                    "« I ni ce, mon enfant ! Chaque patronyme au Mali (*Jamu*) est un trésor vivant gravé dans la mémoire de nos pères.\n\n"
+                    "Dis-moi simplement quel est **ton nom de famille** (ex : *Keïta, Traoré, Coulibaly, Diakité, Diallo, Touré, Cissé, Diarra, Camara, Maïga, Sidibé, Doumbia, Dembélé, Guindo...*) ou **ton prénom** (ex : *Mamadou, Fatoumata, Soundiata, Modibo, Awa, Sékou, Tênin...*).\n\n"
+                    "Je te révélerai aussitôt son origine sacrée, sa véritable signification, son clan historique, son animal totem (*Tanan*) et ton cousinage à plaisanterie (*Senankouya*) ! »"
+                ),
+                "scenicAction": scenic_action,
+                "matchedName": None,
+                "sources": ["Grand-mère Mah — Dictionnaire des Noms du Mali"],
+            }
+
+        # 3. Traitement des questions de sagesse, contes, monuments ou requêtes générales
+        rag_res = CultureService.ask_cultural_guide(
+            db=db,
+            question=clean_msg,
+            context_hint=additional_context,
+            custom_system_prompt=(
+                "Tu es « Grand-mère Mah, mémoire vivante et conteuse sous le grand baobab au coin du feu de veillée ».\n"
+                "Tu accueilles tendrement l'enfant ou le visiteur en français poétique et chaleureux, émaillé d'expressions mandingues (I ni ce, I ni sou, Nba).\n"
+                "N'utilise JAMAIS d'emojis. Raconte avec la ferveur des veillées orales au clair de lune."
+            ),
+        )
+
+        return {
+            "answer": rag_res.get("answer", rag_res.get("reponse", "")),
+            "scenicAction": scenic_action,
+            "matchedName": rag_res.get("contextItem") if rag_res.get("contextItem", {}).get("type") == "nom_patronyme" else None,
+            "sources": rag_res.get("sources", ["Tradition Orale du Mali"]),
+        }
