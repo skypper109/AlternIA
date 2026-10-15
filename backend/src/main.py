@@ -97,8 +97,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Contrôle d'accès exclusif : device.alterniamali.com n'est accessible que connecté au Point d'Accès ESP32
-app.add_middleware(ESP32AccessControlMiddleware, esp32_manager=esp32_manager)
+# Accès Kiosk Élève ouvert sans restriction (accessible via Wi-Fi Alta-box1 ou direct)
+# app.add_middleware(ESP32AccessControlMiddleware, esp32_manager=esp32_manager)
 
 
 @app.middleware("http")

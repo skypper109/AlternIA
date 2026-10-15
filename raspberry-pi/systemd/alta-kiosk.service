@@ -1,0 +1,16 @@
+[Unit]
+Description=Alta-Box Fullscreen Chromium Kiosk on Raspberry Pi Display
+After=graphical.target alta-hotspot.service nginx.service
+Wants=graphical.target
+
+[Service]
+Type=simple
+User=ubuntu
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=/home/ubuntu/.Xauthority
+ExecStart=/bin/bash /home/ubuntu/AlternIA/raspberry-pi/kiosk/launch_kiosk.sh
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=graphical.target

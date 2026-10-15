@@ -1,0 +1,18 @@
+[Unit]
+Description=Alta-Box Heartbeat & Telemetry Daemon (Connecté à AWS t3.xlarge)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/home/ubuntu/AlternIA/raspberry-pi
+ExecStart=/usr/bin/python3 /home/ubuntu/AlternIA/raspberry-pi/agent/box_heartbeat.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=alta-agent
+
+[Install]
+WantedBy=multi-user.target

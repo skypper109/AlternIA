@@ -7,13 +7,14 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from backend.src.db.database import get_db
-from backend.src.models.boitier import BoitierCreateRequest, BoitierSyncRequest, BoitierWifiRequest
+from backend.src.models.boitier import BoitierCreateRequest, BoitierHeartbeatRequest, BoitierSyncRequest, BoitierWifiRequest
 from backend.src.services.boitier_service import (
     configure_boitier_wifi,
     create_boitier,
     delete_boitier,
     get_boitier_detail,
     list_boitiers,
+    record_boitier_heartbeat,
     sync_boitier,
 )
 
@@ -54,3 +55,13 @@ def api_sync_boitier(boitier_id: str, req: Optional[BoitierSyncRequest] = None, 
 def api_config_wifi_boitier(boitier_id: str, req: BoitierWifiRequest, db: Session = Depends(get_db)):
     """Met à jour les paramètres Wi-Fi du boîtier."""
     return configure_boitier_wifi(db, boitier_id, req)
+
+
+@router.post("/heartbeat")
+@router.post("/{boitier_id}/heartbeat")
+def api_heartbeat_boitier(req: BoitierHeartbeatRequest, boitier_id: Optional[str] = None, db: Session = Depends(get_db)):
+    """Reçoit le battement de cœur et la télémétrie du boîtier (Raspberry Pi 5 / ESP32)."""
+    if boitier_id and not req.boitier_id:
+        req.boitier_id = boitier_id
+    return record_boitier_heartbeat(db, req)
+

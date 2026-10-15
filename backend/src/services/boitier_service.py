@@ -127,3 +127,55 @@ def delete_boitier(db: Session, boitier_id: str) -> Dict[str, Any]:
     db.delete(b)
     db.commit()
     return {"succes": True, "message": f"Boîtier {boitier_id} supprimé avec succès"}
+
+
+def record_boitier_heartbeat(db: Session, req: Any) -> Dict[str, Any]:
+    """Enregistre ou met à jour la télémétrie en temps réel d'un boîtier (Raspberry Pi 5 / ESP32)."""
+    b = db.query(Boitier).filter((Boitier.id == req.boitier_id) | (Boitier.numero_serie == req.boitier_id)).first()
+
+    if not b:
+        # Création automatique du boîtier s'il n'existe pas encore
+        b = Boitier(
+            id=req.boitier_id,
+            numero_serie=req.numero_serie or req.boitier_id,
+            modele=req.modele or "Raspberry Pi 5 (8GB)",
+            firmware=req.firmware or "v3.0-Pi5-Edge",
+            statut="en_ligne",
+            batterie=req.batterie if req.batterie is not None else 100,
+            stockage_go=32,
+            stockage_utilise_go=round(req.ram_utilisee_mo / 1024.0, 2) if req.ram_utilisee_mo else 2.1,
+            wifi_ssid=req.wifi_ssid or "Alta-box1",
+            ip_locale=req.ip_locale or "10.42.0.1",
+            etablissement_id=req.etablissement_id or "etab-lbad-bamako",
+            enfant_id=req.enfant_id,
+            derniere_synchro=datetime.utcnow(),
+        )
+        db.add(b)
+    else:
+        b.statut = req.statut or "en_ligne"
+        b.derniere_synchro = datetime.utcnow()
+        if req.ip_locale:
+            b.ip_locale = req.ip_locale
+        if req.wifi_ssid:
+            b.wifi_ssid = req.wifi_ssid
+        if req.firmware:
+            b.firmware = req.firmware
+        if req.modele:
+            b.modele = req.modele
+        if req.batterie is not None:
+            b.batterie = req.batterie
+        if req.etablissement_id:
+            b.etablissement_id = req.etablissement_id
+        if req.enfant_id:
+            b.enfant_id = req.enfant_id
+
+    db.commit()
+    db.refresh(b)
+    return {
+        "succes": True,
+        "boitier_id": b.id,
+        "statut": b.statut,
+        "derniereSynchro": b.derniere_synchro.isoformat() if b.derniere_synchro else None,
+        "message": f"Télémétrie reçue pour {b.id} ({b.modele})",
+    }
+
