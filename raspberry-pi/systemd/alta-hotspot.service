@@ -6,7 +6,7 @@ Wants=NetworkManager.service
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=/bin/bash -c "nmcli connection up Alta-Hotspot || nmcli device wifi hotspot ifname wlan0 ssid Alta-box1 password Bamako+223"
+ExecStart=/bin/bash -c "nmcli connection up Alta-Hotspot || nmcli device wifi hotspot ifname uap0 ssid Alta-box1 password Bamako+223 2>/dev/null || nmcli device wifi hotspot ifname wlan0 ssid Alta-box1 password Bamako+223"
 
 [Install]
 WantedBy=multi-user.target

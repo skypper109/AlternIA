@@ -41,18 +41,32 @@ apt-get install -y \
     iptables-persistent \
     alsa-utils \
     mpg123 \
-    chromium-browser \
-    unclutter \
     python3 \
     python3-pip \
     python3-gpiozero \
-    python3-gpiod \
     python3-psutil
+
+# Paquets graphiques et GPIO optionnels selon l'édition de Raspberry Pi OS
+apt-get install -y gpiod python3-libgpiod 2>/dev/null || true
+apt-get install -y chromium-browser 2>/dev/null || apt-get install -y chromium 2>/dev/null || true
+apt-get install -y unclutter 2>/dev/null || true
 
 echo -e "\n${BLUE}[2/7] Configuration du Point d'Accès Wi-Fi officiel 'Alta-box1' (NetworkManager)...${NC}"
 # S'assurer que NetworkManager contrôle le Wi-Fi
 systemctl enable NetworkManager
 systemctl start NetworkManager
+
+# Création de l'interface virtuelle uap0 pour diffusion simultanée (AP + STA)
+if ! iw dev uap0 info >/dev/null 2>&1; then
+    iw dev wlan0 interface add uap0 type __ap 2>/dev/null || true
+fi
+
+AP_IFACE="wlan0"
+if iw dev uap0 info >/dev/null 2>&1; then
+    AP_IFACE="uap0"
+    ip link set dev uap0 up 2>/dev/null || true
+    echo "📶 Mode Simultané activé : le Pi 5 diffusera 'Alta-box1' sur '$AP_IFACE' tout en restant connecté à votre Wi-Fi de bureau sur 'wlan0' !"
+fi
 
 # Suppression d'un ancien profil Hotspot s'il existe
 nmcli connection delete "Alta-Hotspot" 2>/dev/null || true
@@ -60,7 +74,7 @@ nmcli connection delete "Alta-Hotspot" 2>/dev/null || true
 # Création du profil Hotspot WPA2 officiel
 nmcli connection add \
     type wifi \
-    ifname wlan0 \
+    ifname "$AP_IFACE" \
     con-name "Alta-Hotspot" \
     autoconnect yes \
     ssid "Alta-box1"
@@ -68,7 +82,6 @@ nmcli connection add \
 nmcli connection modify "Alta-Hotspot" \
     802-11-wireless.mode ap \
     802-11-wireless.band bg \
-    802-11-wireless.channel 6 \
     wifi-sec.key-mgmt wpa-psk \
     wifi-sec.psk "Bamako+223" \
     ipv4.method shared \
@@ -76,7 +89,7 @@ nmcli connection modify "Alta-Hotspot" \
 
 # Démarrage immédiat du hotspot
 nmcli connection up "Alta-Hotspot" || true
-echo "✅ Point d'Accès Wi-Fi 'Alta-box1' actif (Pass : Bamako+223 | Passerelle : 10.42.0.1)."
+echo "✅ Point d'Accès Wi-Fi 'Alta-box1' actif sur $AP_IFACE (Pass : Bamako+223 | Passerelle : 10.42.0.1)."
 
 echo -e "\n${BLUE}[3/7] Activation du Routage IP & NAT (Partage Internet vers AWS)...${NC}"
 cat << 'EOF' > /etc/sysctl.d/90-alta-routing.conf
@@ -85,7 +98,8 @@ net.ipv6.conf.all.forwarding=1
 EOF
 sysctl -p /etc/sysctl.d/90-alta-routing.conf > /dev/null
 
-# Règles de masquerade pour Ethernet (eth0) et clés 4G USB (usb0, wwan0, ppp0)
+# Règles de masquerade pour Wi-Fi bureau (wlan0), Ethernet (eth0) et clés 4G USB
+iptables -t nat -C POSTROUTING -o wlan0 -j MASQUERADE 2>/dev/null || iptables -t nat -A POSTROUTING -o wlan0 -j MASQUERADE
 iptables -t nat -C POSTROUTING -o eth0 -j MASQUERADE 2>/dev/null || iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
 iptables -t nat -C POSTROUTING -o usb0 -j MASQUERADE 2>/dev/null || iptables -t nat -A POSTROUTING -o usb0 -j MASQUERADE
 iptables -t nat -C POSTROUTING -o wwan0 -j MASQUERADE 2>/dev/null || iptables -t nat -A POSTROUTING -o wwan0 -j MASQUERADE
