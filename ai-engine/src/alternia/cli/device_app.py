@@ -98,16 +98,21 @@ def main():
     # Boucle de capture clavier pour le mode simulation sur Mac / PC
     # Sur Raspberry Pi, les vrais boutons GPIO fonctionnent en parallèle automatiquement via HardwareManager
     try:
-        import tty, termios  # pyrefly: ignore
-        def getch():
-            fd = sys.stdin.fileno()
-            old_settings = termios.tcgetattr(fd)
-            try:
-                tty.setraw(sys.stdin.fileno())
-                ch = sys.stdin.read(1)
-            finally:
-                termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-            return ch
+        if sys.platform == "win32":
+            import msvcrt
+            def getch():
+                return msvcrt.getch().decode("utf-8", errors="ignore")
+        else:
+            import tty, termios  # type: ignore
+            def getch():
+                fd = sys.stdin.fileno()
+                old_settings = termios.tcgetattr(fd)  # type: ignore
+                try:
+                    tty.setraw(sys.stdin.fileno())  # type: ignore
+                    ch = sys.stdin.read(1)
+                finally:
+                    termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)  # type: ignore
+                return ch
     except Exception:
         def getch():
             return input().strip()[:1]

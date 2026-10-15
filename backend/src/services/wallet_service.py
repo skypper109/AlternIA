@@ -248,7 +248,7 @@ def list_transactions(db: Session, student_id: str, limit: int = 50) -> List[Dic
     txs = (
         db.query(TransactionPiece)
         .filter(TransactionPiece.apprenant_id == student_id)
-        .order_by(desc(TransactionPiece.date_creation))
+        .order_by(TransactionPiece.date_creation.desc())  # type: ignore
         .limit(limit)
         .all()
     )

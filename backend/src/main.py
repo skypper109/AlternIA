@@ -4,6 +4,17 @@ from pathlib import Path
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
+if sys.platform == "win32":
+    try:
+        reconf_out = getattr(sys.stdout, "reconfigure", None)
+        if callable(reconf_out):
+            reconf_out(encoding="utf-8", errors="replace")
+        reconf_err = getattr(sys.stderr, "reconfigure", None)
+        if callable(reconf_err):
+            reconf_err(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 # Résolution automatique des chemins racine et ai-engine
 ROOT_DIR = Path(__file__).resolve().parents[2]
 AI_ENGINE_DIR = ROOT_DIR / "ai-engine" / "src"

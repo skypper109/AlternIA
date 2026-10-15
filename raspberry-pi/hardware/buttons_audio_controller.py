@@ -56,7 +56,7 @@ class HardwareController:
         """Configure les broches GPIO sous Raspberry Pi OS Bookworm."""
         self.buttons_ready = False
         try:
-            from gpiozero import Button
+            from gpiozero import Button  # type: ignore
             self.btn_mic = Button(PIN_BTN_MIC, pull_up=True, bounce_time=0.05)
             self.btn_repeat = Button(PIN_BTN_REPEAT, pull_up=True, bounce_time=0.05)
             self.btn_class = Button(PIN_BTN_CLASS, pull_up=True, bounce_time=0.05)

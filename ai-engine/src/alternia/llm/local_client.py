@@ -108,7 +108,7 @@ class LocalLLMClient(LLMClient):
         print(f"\033[36m🚀 [local_client.py]\033[0m Chargement du LLM ({Path(self.model_path).name}) — Mode : \033[1;32m{target_mode}\033[0m")
 
         try:
-            from llama_cpp import Llama
+            from llama_cpp import Llama  # type: ignore
         except ImportError:
             raise ImportError(
                 "Le paquet llama-cpp-python n'est pas installé. "

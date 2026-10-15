@@ -70,7 +70,7 @@ class STTEngine:
             return self._whisper_model
 
         try:
-            from faster_whisper import WhisperModel
+            from faster_whisper import WhisperModel  # type: ignore
 
             local_tiny = self.models_dir / "tiny"
             if local_tiny.exists() and (local_tiny / "model.bin").exists():
@@ -105,7 +105,7 @@ class STTEngine:
 
         def _record_worker():
             try:
-                import sounddevice as sd
+                import sounddevice as sd  # type: ignore
 
                 def audio_callback(indata, frames, time_info, status):
                     if self._is_recording:
@@ -160,7 +160,7 @@ class STTEngine:
         Fournit le niveau sonore (VU-meter) via on_audio_chunk si configuré.
         """
         try:
-            import sounddevice as sd
+            import sounddevice as sd  # type: ignore
         except ImportError:
             logger.error("sounddevice n'est pas installé.")
             return None
@@ -266,7 +266,7 @@ class STTEngine:
     def _transcribe_fallback(self, audio_data_or_path: Any) -> str:
         """Transcription de secours via SpeechRecognition."""
         try:
-            import speech_recognition as sr  # pyrefly: ignore
+            import speech_recognition as sr  # type: ignore
             r: Any = sr.Recognizer()
             if isinstance(audio_data_or_path, (str, Path)):
                 with sr.AudioFile(str(audio_data_or_path)) as source:

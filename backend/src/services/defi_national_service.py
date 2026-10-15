@@ -294,7 +294,7 @@ def get_classement_defi(db: Session, defi_id: str, limit: int = 50) -> List[Dict
         db.query(ParticipationDefiNational)
         .filter(ParticipationDefiNational.defi_id == defi_id)
         .order_by(
-            desc(ParticipationDefiNational.score),
+            ParticipationDefiNational.score.desc(),  # type: ignore
             ParticipationDefiNational.temps_secondes,
         )
         .limit(limit)
