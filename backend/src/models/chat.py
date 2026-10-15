@@ -20,6 +20,9 @@ class ChatRequest(BaseModel):
     session_id: Optional[str] = None
     enable_rag: bool = True
     history: Optional[list[ChatMessagePayload]] = None
+    system: Optional[str] = None
+    matiere: Optional[str] = None
+    context: Optional[str] = None
 
 
 class ChatSource(BaseModel):

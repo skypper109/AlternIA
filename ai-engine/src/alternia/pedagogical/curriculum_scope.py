@@ -46,6 +46,14 @@ class CurriculumScopeChecker:
     """
 
     CLASS_RANKS = {
+        "def": 9,
+        "9eme": 9,
+        "9ème": 9,
+        "9": 9,
+        "9e": 9,
+        "9eme annee": 9,
+        "9ème année": 9,
+        "fondamental": 9,
         "10eme": 10,
         "10ème": 10,
         "10": 10,

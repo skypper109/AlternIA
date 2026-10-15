@@ -74,7 +74,7 @@ type PeriodeFiltre = 'jour' | 'semaine' | 'mois' | 'trimestre';
         </div>
         <div class="stat-card__val">{{ (stats()?.totalQuestionsIA || 0).toLocaleString('fr-FR') }}</div>
         <div class="stat-card__footer">
-          <span class="badge badge-success">+18.4%</span>
+          <span class="badge badge-success">{{ periodeActive() === 'jour' ? '+8.4%' : periodeActive() === 'semaine' ? '+18.4%' : periodeActive() === 'mois' ? '+24.6%' : '+31.2%' }}</span>
           <span class="text-xs text-secondary">vs période précédente</span>
         </div>
       </div>
@@ -142,7 +142,7 @@ type PeriodeFiltre = 'jour' | 'semaine' | 'mois' | 'trimestre';
             <h2 class="card__title">Pics d'Utilisation Journaliers</h2>
             <p class="text-xs text-secondary" style="margin-top:2px;">Volume de sessions par heure (07h à 21h)</p>
           </div>
-          <span class="badge badge-secondaire">Pic : 16h (520 sessions)</span>
+          <span class="badge badge-secondaire">Pic : {{ picHeureMax() }}h ({{ maxPic() }} sessions)</span>
         </div>
         <div class="card__body">
           <div class="histogram-wrapper">
@@ -171,7 +171,7 @@ type PeriodeFiltre = 'jour' | 'semaine' | 'mois' | 'trimestre';
             <h2 class="card__title">Répartition par Matière</h2>
             <p class="text-xs text-secondary" style="margin-top:2px;">Volume de questions et temps passé</p>
           </div>
-          <span class="badge badge-primary">7 matières</span>
+          <span class="badge badge-primary">{{ stats()?.matieresPlusUtilisees?.length || 0 }} matières</span>
         </div>
         <div class="card__body">
           <div class="matieres-list">
@@ -318,6 +318,14 @@ export class StatistiquesPedagogiquesComposant implements OnInit {
     return Math.max(...list.map(p => p.nombreSessions), 1);
   });
 
+  readonly picHeureMax = computed(() => {
+    const list = this.stats()?.pictUtilisation || [];
+    if (!list.length) return 16;
+    const maxVal = this.maxPic();
+    const peak = list.find(p => p.nombreSessions === maxVal);
+    return peak ? peak.heure : 16;
+  });
+
   readonly heuresApprentissage = computed(() => {
     const totalMin = this.stats()?.tempsTotal || 900;
     return Math.floor(totalMin / 60);
@@ -342,9 +350,10 @@ export class StatistiquesPedagogiquesComposant implements OnInit {
 
   chargerDonnees(): void {
     this.chargement.set(true);
+    const p = this.periodeActive();
     forkJoin({
-      stats: this.repo.obtenirStatistiques('etab-1'),
-      notions: this.repo.obtenirNotionsDifficiles('etab-1'),
+      stats: this.repo.obtenirStatistiques('etab-1', p),
+      notions: this.repo.obtenirNotionsDifficiles('etab-1', p),
     }).subscribe({
       next: ({ stats, notions }) => {
         this.stats.set(stats);

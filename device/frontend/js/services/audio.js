@@ -18,12 +18,27 @@ export class AudioService {
     this.isPlayingQueue = false;
     this.currentPlayer = null;
     this.currentSource = null;
+    this.currentVoice = 'henri'; // Voix TTS masculine par défaut (Henri)
     
-    this.ENABLE_SIMLI = true; // Streaming Simli en parallèle si connecté
+    this.enableSimli = false; // Désactivé par défaut ! Activé UNIQUEMENT quand l'avatar modal est ouvert
     this.simli = new SimliService('modal-avatar-video', 'simli-audio');
 
     // Déblocage automatique de l'AudioContext dès le premier clic/toucher utilisateur
     this.setupUserGestureUnlock();
+  }
+
+  setSimliActive(active) {
+    this.enableSimli = !!active;
+    if (!active && this.simli) {
+      this.simli.close();
+    }
+  }
+
+  setVoice(voice) {
+    if (voice && typeof voice === 'string') {
+      this.currentVoice = voice.trim().toLowerCase();
+      console.log(`🎙️ [AudioService] Voix configurée : ${this.currentVoice}`);
+    }
   }
 
   setupUserGestureUnlock() {
@@ -126,15 +141,18 @@ export class AudioService {
       .trim();
   }
 
-  enqueueSentence(sentence) {
+  enqueueSentence(sentence, voiceOverride = null) {
     if (this.isMuted || !sentence) return;
     const cleanText = this.cleanTextForTTS(sentence);
     if (cleanText.length < 2) return;
 
     this.ensureAudioContext();
 
+    const voiceToUse = voiceOverride || this.currentVoice || 'henri';
+    console.log(`🎙️ [AudioService] Synthèse vocale (${voiceToUse}) : "${cleanText.substring(0, 45)}..."`);
+
     // Pré-chargement immédiat du blob en arrière-plan
-    const audioPromise = ApiService.fetchTTSBlob(cleanText);
+    const audioPromise = ApiService.fetchTTSBlob(cleanText, voiceToUse);
     this.audioQueue.push({ text: cleanText, audioPromise });
     this.processQueue();
   }
@@ -177,19 +195,37 @@ export class AudioService {
     while (this.audioQueue.length > 0 && !this.isMuted) {
       const item = this.audioQueue.shift();
       try {
-        console.log("🔊 [AudioService] Lecture de la phrase :", item.text);
+        console.log("🔊 [AudioService] Traitement de la phrase :", item.text);
         const audioBlob = await item.audioPromise;
 
         if (audioBlob && audioBlob.size > 100) {
-          // 1. Envoi parallèle vers Simli WebRTC (si connecté pour l'avatar vidéo)
-          if (this.ENABLE_SIMLI && this.simli && this.simli.isConnected) {
-            this.resampleToPCM16(audioBlob).then(({ pcm16Data, duration }) => {
-              console.log(`🚀 [Simli] Envoi audio PCM16 (${(duration).toFixed(1)}s) vers WebRTC...`);
-              this.simli.sendAudioBuffer(pcm16Data);
-            }).catch(() => {});
+          const isSimliActive = this.enableSimli && this.simli;
+          let simliReady = false;
+
+          // 1. Envoi vers Simli WebRTC UNIQUEMENT si l'avatar modal est actif
+          if (isSimliActive) {
+            // Si la connexion Simli est en cours, attendre qu'elle s'établisse pour ne pas perdre la voix
+            if (!this.simli.isConnected && this.simli.isConnecting) {
+              await this.simli.waitForConnection(3500);
+            }
+            if (this.simli.isConnected) {
+              try {
+                const { pcm16Data, duration } = await this.resampleToPCM16(audioBlob);
+                console.log(`🚀 [Simli] Envoi audio PCM16 (${duration.toFixed(1)}s) pour Lip-Sync avatar...`);
+                this.simli.sendAudioBuffer(pcm16Data);
+                simliReady = true;
+              } catch (resampleErr) {
+                console.warn("⚠️ [AudioService] Erreur rééchantillonnage Simli :", resampleErr);
+              }
+            }
           }
 
-          // 2. Lecture audio locale directe avec analyseur FFT pour le Vortex
+          // 2. Lecture audio avec analyseur FFT
+          // RÈGLE ANTI-DOUBLON STRICTE :
+          // Si Simli est actif et connecté, le son sort EXCLUSIVEMENT par le flux WebRTC de Simli.
+          // Le gain local audioCtx est forcé à 0 (silence absolu sur les haut-parleurs locaux).
+          // Il reste connecté uniquement à l'analyser FFT pour animer les ondes visuelles.
+          // Si Simli a échoué ou n'est pas actif, le gain passe à 1 pour jouer le son en local.
           let played = false;
           this.ensureAudioContext();
 
@@ -210,15 +246,15 @@ export class AudioService {
               this.currentSource = source;
 
               const gainNode = this.audioCtx.createGain();
-              gainNode.gain.value = (this.ENABLE_SIMLI && this.simli && this.simli.isConnected) ? 0 : 1;
+              // Silence complet en local si Simli est actif et diffuse le son
+              gainNode.gain.value = (isSimliActive && simliReady) ? 0.0 : 1.0;
 
               source.connect(gainNode);
               gainNode.connect(this.audioCtx.destination);
 
               if (this.analyser) {
-                // Déconnecter l'analyseur de toute destination précédente pour éviter l'écho
                 this.analyser.disconnect();
-                // Connecter la source à l'analyseur juste pour lire les données FFT (animation)
+                // Toujours connecter à l'analyseur pour garder les ondes visuelles en direct
                 source.connect(this.analyser);
               }
 
@@ -235,11 +271,10 @@ export class AudioService {
             }
           }
 
-          // 3. Fallback : HTML5 Audio player
-          if (!played) {
+          // 3. Fallback HTML5 Audio player UNIQUEMENT si Simli n'est pas actif
+          if (!played && (!isSimliActive || !simliReady)) {
             await this.playWithAudioElement(audioBlob);
           }
-
         } else if (this.speechSynthesis) {
           // 4. Fallback ultime : Web Speech API si le backend n'a pas produit de blob
           await this.speakWithWebSpeech(item.text);
@@ -278,8 +313,8 @@ export class AudioService {
     });
   }
 
-  speakText(fullText, formulaSpeech = null) {
+  speakText(fullText, formulaSpeech = null, voiceOverride = null) {
     this.stop();
-    this.enqueueSentence(formulaSpeech || fullText);
+    this.enqueueSentence(formulaSpeech || fullText, voiceOverride);
   }
 }

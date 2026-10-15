@@ -21,7 +21,7 @@ for p in (PROJECT_ROOT, AI_ENGINE_DIR, BACKEND_DIR):
 
 
 def print_banner():
-    print("""\033[1;36m
+    print(r"""\033[1;36m
    _   _ _                  ___   _  
   /_\ | | |_ ___ _ _ _ _   |_ _| /_\ 
  / _ \| |  _/ -_) '_| ' \   | | / _ \
@@ -54,13 +54,10 @@ def start_local_server(port: int = 8000, open_browser: bool = True):
 def connect_to_cloud():
     """Configure la connexion de l'interface locale vers un serveur Cloud GPU."""
     print("\n☁️  \033[1;33mMode Connexion Cloud GPU\033[0m")
-    print("Entrez l'URL publique HTTPS générée par votre serveur RunPod / Cloudflare.")
-    print("Exemple : https://mon-serveur-cloud.trycloudflare.com\n")
+    print("Entrez l'URL publique HTTPS (votre domaine officiel ou tunnel).")
+    print("Défaut officiel : https://alterniamali.com\n")
 
-    cloud_url = input("🔗 URL du serveur Cloud : ").strip()
-    if not cloud_url:
-        print("❌ Aucune URL fournie. Annulation.")
-        return
+    cloud_url = input("🔗 URL du serveur Cloud (Défaut: https://alterniamali.com) : ").strip() or "https://alterniamali.com"
 
     if not cloud_url.startswith("http"):
         cloud_url = "https://" + cloud_url
@@ -83,15 +80,17 @@ def show_mobile_instructions():
     print("""
 \033[1;35m📱 INSTRUCTIONS DE CONNEXION POUR L'APPLICATION MOBILE\033[0m
 ============================================================================
-1. Récupérez l'URL HTTPS de votre serveur Cloud (RunPod / Cloudflare Tunnel)
-   Exemple : https://votre-tunnel.trycloudflare.com
+1. URL Officielle Permanente du Serveur :
+   👉 https://api.alterniamali.com
 
 2. Dans l'application mobile AlternIA :
-   - Ouvrez les Réglages > Adresse du Serveur
-   - Collez l'URL complète
+   - L'application est DÉJÀ configurée par défaut sur cette URL fixe.
+   - Si vous souhaitez tester manuellement : Ouvrez Réglages > Adresse du Serveur
+   - Entrez : https://api.alterniamali.com
    - Appuyez sur 'Tester la connexion'
 
-3. Les révisions, quiz, et l'avatar enseignant se synchroniseront en temps réel !
+3. Votre nom de domaine officiel étant relié au tunnel permanent,
+   aucun changement d'adresse ne sera jamais requis aux redémarrages !
 ============================================================================
 """)
 

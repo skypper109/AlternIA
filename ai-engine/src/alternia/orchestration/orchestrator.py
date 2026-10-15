@@ -250,7 +250,14 @@ class AlterniaOrchestrator:
         detected_subj = detect_malian_curriculum_subject(question)
         is_curriculum_topic = (detected_subj is not None)
 
-        if not (is_greeting_or_id or has_rag_sources or is_conversation_followup or is_curriculum_topic):
+        is_culture = (
+            student_class == "culture"
+            or "culture" in (student_class or "").lower()
+            or "culture" in (subject or "").lower()
+            or "patrimoine" in (subject or "").lower()
+        )
+
+        if not is_culture and not (is_greeting_or_id or has_rag_sources or is_conversation_followup or is_curriculum_topic):
             refusal_text = (
                 "Je suis ALTA, le tuteur pédagogique d'AlternIA dédié aux programmes scolaires du secondaire au Mali. "
                 "Je ne peux pas répondre aux questions hors du cadre scolaire. "
@@ -432,7 +439,14 @@ class AlterniaOrchestrator:
         detected_subj = detect_malian_curriculum_subject(question)
         is_curriculum_topic = (detected_subj is not None)
 
-        if not (is_greeting_or_id or has_rag_sources or is_conversation_followup or is_curriculum_topic):
+        is_culture = (
+            student_class == "culture"
+            or "culture" in (student_class or "").lower()
+            or "culture" in (subject or "").lower()
+            or "patrimoine" in (subject or "").lower()
+        )
+
+        if not is_culture and not (is_greeting_or_id or has_rag_sources or is_conversation_followup or is_curriculum_topic):
             refusal_text = (
                 "Je suis ALTA, le tuteur pédagogique d'AlternIA dédié aux programmes scolaires du secondaire au Mali. "
                 "Je ne peux pas répondre aux questions hors du cadre scolaire. "
@@ -1035,3 +1049,37 @@ class AlterniaOrchestrator:
 
             context=context_text,
         )
+
+    # =========================================================
+    # REQUÊTES ASYNCHRONES / UTILITAIRES (Flashcards, Podcasts, etc.)
+    # =========================================================
+    async def process_message(
+        self,
+        user_message: str,
+        conversation_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """
+        Traite un message utilisateur de manière asynchrone pour les requêtes utilitaires
+        (génération de flashcards, podcasts, synthèses, etc.).
+        Prend en charge les métadonnées telles que 'system_override' et exécute l'appel LLM
+        dans un thread pool afin d'éviter de bloquer la boucle d'événements asyncio.
+        """
+        import asyncio
+
+        meta = metadata or {}
+        system_override = meta.get("system_override")
+        max_tokens = meta.get("max_tokens")
+
+        content = await asyncio.to_thread(
+            self.llm_client.generate,
+            prompt=user_message,
+            system_prompt=system_override,
+            max_tokens=max_tokens,
+        )
+
+        return {
+            "content": content,
+            "conversation_id": conversation_id,
+            "metadata": meta,
+        }

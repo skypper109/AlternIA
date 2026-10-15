@@ -29,10 +29,10 @@ from alternia.pedagogical.curriculum_keywords import detect_malian_curriculum_su
 
 def create_orchestrator(enable_rag: bool = True):
     """Initialise et met en cache l'orchestrateur pédagogique avec RAG réel et LLM local."""
-    # Sélection automatique du meilleur modèle (3B en priorité pour une qualité pédagogique maximale, ou 1.5B)
-    model_3b = PROJECT_ROOT / "ai-engine" / "models" / "llm" / "qwen2.5-3b-instruct-q4_k_m.gguf"
+    # Sélection du modèle léger 1.5B en local pour rapidité et fluidité
     model_1_5b = PROJECT_ROOT / "ai-engine" / "models" / "llm" / "qwen2.5-1.5b-instruct-q4_k_m.gguf"
-    model_path = model_3b if model_3b.exists() else model_1_5b
+    model_3b = PROJECT_ROOT / "ai-engine" / "models" / "llm" / "qwen2.5-3b-instruct-q4_k_m.gguf"
+    model_path = model_1_5b if model_1_5b.exists() else model_3b
 
     print(f"⏳ Chargement du modèle LLM local ({model_path.name})...")
     llm_client = LocalLLMClient(
@@ -46,10 +46,15 @@ def create_orchestrator(enable_rag: bool = True):
     if enable_rag:
         print("⏳ Chargement du moteur d'embedding et de la base de connaissances...")
         embedding_service = EmbeddingService()
-        vector_store = LocalVectorStore()
+        from alternia.rag.vector_store import get_vector_store
+        vector_store = get_vector_store()
         loaded = vector_store.load()
+        if not loaded:
+            vector_store = LocalVectorStore()
+            loaded = vector_store.load()
+
         if loaded:
-            print(f"✅ Base RAG chargée : {vector_store.count} extraits pédagogiques prêts.")
+            print(f"✅ Base RAG chargée ({type(vector_store).__name__}) : {vector_store.count} extraits pédagogiques prêts.")
         else:
             print("⚠️ Aucun index vectoriel trouvé. Mode sans RAG actif.")
 

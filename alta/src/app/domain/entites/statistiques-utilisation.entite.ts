@@ -2,7 +2,7 @@ import { Matiere } from '../../core/enums';
 
 export interface StatistiquesUtilisation {
   etablissementId: string;
-  periode: 'jour' | 'semaine' | 'mois';
+  periode: 'jour' | 'semaine' | 'mois' | 'trimestre';
   totalQuestionsIA: number;
   tempsTotal: number; // minutes
   apprenantActifs: number;

@@ -17,8 +17,9 @@ from alternia.ingestion.chunking.pedagogical_chunker import (
     PedagogicalChunker,
 )
 from alternia.rag.embeddings import EmbeddingService
+from alternia.rag.embeddings import EmbeddingService
 from alternia.rag.indexer import KnowledgeIndexer
-from alternia.rag.vector_store import LocalVectorStore
+from alternia.rag.qdrant_vector_store import QdrantVectorStore
 
 
 KNOWLEDGE_BASE = (
@@ -30,6 +31,13 @@ INDEX_DIRECTORY = (
     / "ai-engine"
     / "data"
     / "index"
+)
+
+QDRANT_STORAGE_PATH = (
+    PROJECT_ROOT
+    / "ai-engine"
+    / "data"
+    / "qdrant"
 )
 
 VECTOR_STORE_PATH = (
@@ -55,15 +63,15 @@ def detect_series(
     """
     Détecte la filière / série d'après le chemin ou le nom du fichier PDF.
     Exemples :
-    10ème : 'generale' (Tronc Commun)
+    Fondamental (6e-9e) & 10ème : 'generale' (Tronc Commun)
     11ème : '11s' (Sciences), '11l' (Lettres), '11seco' (Économie/Tertiaire), 'generale'
     12ème : 'tse' (Sciences Exactes), 'tsexp' (Sciences Expérimentales), 'tseco' (Sciences Éco), 'tss' (Sciences Sociales), 'tll' (Lettres), 'generale'
     """
     path_str = str(path).lower()
     stem = path.stem.lower()
 
-    # 10ème -> Tronc Commun
-    if "10eme" in path_str or "10e" in path_str:
+    # Fondamental (6e, 7e, 8e, 9e) & 10ème -> Tronc Commun / Général
+    if any(k in path_str for k in ["fondamental", "6eme", "6e", "7eme", "7e", "8eme", "8e", "9eme", "9e", "10eme", "10e", "def"]):
         return "generale"
 
     # 12ème / Terminale
@@ -103,22 +111,33 @@ def detect_class(
     path: Path,
 ) -> StudentClass:
     """
-    Détecte la classe depuis le chemin du PDF.
+    Détecte la classe depuis le chemin ou nom du PDF.
+    Supporte 6ème à 9ème (fondamental) et 10ème à 12ème (lycée).
     """
+    stem = path.stem.lower()
 
-    for part in path.parts:
+    # 1. Vérification dans les parties du chemin (du plus spécifique au plus général)
+    for part in reversed(path.parts[:-1]):
+        normalized = part.lower().strip()
+        c = StudentClass.from_str(normalized)
+        if c:
+            return c
 
-        normalized = (
-            part.lower().strip()
-        )
-
-        try:
-            return StudentClass(
-                normalized
-            )
-
-        except ValueError:
-            continue
+    # 2. Vérification dans le nom de fichier (stem)
+    if re.search(r"\b6[-_]?e(me)?\b", stem) or "6-eme" in stem or "6eme" in stem:
+        return StudentClass.SIX
+    if re.search(r"\b7[-_]?e(me)?\b", stem) or "7-eme" in stem or "7eme" in stem:
+        return StudentClass.SEVEN
+    if re.search(r"\b8[-_]?e(me)?\b", stem) or "8-eme" in stem or "8eme" in stem:
+        return StudentClass.EIGHT
+    if re.search(r"\b9[-_]?e(me)?\b", stem) or "9-eme" in stem or "9eme" in stem or "9e-annee" in stem or "def" in stem:
+        return StudentClass.NINE
+    if re.search(r"\b10[-_]?e(me)?\b", stem) or "10-eme" in stem or "10eme" in stem:
+        return StudentClass.TEN
+    if re.search(r"\b11[-_]?e(me)?\b", stem) or "11-eme" in stem or "11eme" in stem:
+        return StudentClass.ELEVEN
+    if re.search(r"\b12[-_]?e(me)?\b", stem) or "12-eme" in stem or "12eme" in stem or "terminale" in stem or "bac" in stem:
+        return StudentClass.TWELVE
 
     raise ValueError(
         f"Classe impossible à déterminer : {path}"
@@ -129,13 +148,75 @@ def detect_subject(
     path: Path,
 ) -> Subject:
     """
-    Détecte la matière depuis le chemin du PDF.
+    Détecte la matière depuis le chemin ou le nom du PDF.
+    Gère les dossiers explicites (10eme/sciences) ainsi que
+    les annales et manuels fondamentaux sans sous-dossier de matière.
     """
-    for part in path.parts:
+    path_str = str(path).lower()
+    stem = path.stem.lower()
+
+    # 1. Recherche par dossiers (chemin)
+    for part in reversed(path.parts[:-1]):
         normalized = part.lower().strip()
-        subject = Subject.from_str(normalized)
-        if subject and subject != Subject.AUTRE:
-            return subject
+        if normalized in {"pdf", "fondamental", "raw", "processed", "index"}:
+            continue
+        subj = Subject.from_str(normalized)
+        if subj and subj not in {Subject.AUTRE, Subject.SCIENCES}:
+            return subj
+
+    # 2. Analyse ciblée du nom de fichier (stem) avec expressions régulières
+    text = f"{stem} {path_str}".replace("-", " ").replace("_", " ")
+
+    if re.search(r"\bagriculture\b|\bagri\b", text):
+        return Subject.AGRICULTURE
+
+    if re.search(r"\becm\b|\becms\b|\bcivique\b|\bmorale\b", text):
+        return Subject.ECM
+
+    if re.search(r"\bdessin\b|\barts?\b", text):
+        return Subject.DESSIN
+
+    if re.search(r"\bmaths?\b|\bmathematiques?\b|\bmahts\b|\bmathematics\b|\balgebre\b|\bgeometrie\b", text):
+        return Subject.MATHEMATIQUES
+
+    if re.search(r"\bphy chi\b|\bphysique chimie\b|\bsciences physiques\b|\bphysics chemistry\b|\bpc\b", text):
+        return Subject.PHYSIQUE
+
+    if re.search(r"\bphysique\b", text):
+        return Subject.PHYSIQUE
+
+    if re.search(r"\bchimie\b", text):
+        return Subject.CHIMIE
+
+    if re.search(r"\bbiologie\b|\bsvt\b|\bsciences naturelles\b|\bsc nat\b", text):
+        return Subject.BIOLOGIE
+
+    if re.search(r"\b(d)?anglais\b|\benglish\b|\bdictation\b", text):
+        return Subject.ANGLAIS
+
+    if re.search(r"\bdict(ee|ée)\b|\bredaction\b|\brédaction\b|\bdict quest\b|\bgrammaire\b|\bconjugaison\b|\bvocabulaire\b|\bfrancais\b|\bfrançais\b|\blettres\b", text):
+        return Subject.FRANCAIS
+
+    if re.search(r"\bhist(oire)? geo(graphie)?\b|\bhistory geography\b", text):
+        return Subject.HISTOIRE
+
+    if re.search(r"\bhistoire\b", text):
+        return Subject.HISTOIRE
+
+    if re.search(r"\bgeographie\b|\bgéographie\b", text):
+        return Subject.GEOGRAPHIE
+
+    if re.search(r"\bphilo(sophie)?\b", text):
+        return Subject.PHILOSOPHIE
+
+    if re.search(r"\beconomie\b|\béconomie\b|\bcomptabilite\b", text):
+        return Subject.ECONOMIE
+
+    # 3. Essai avec SubjectResolver
+    resolver = SubjectResolver()
+    resolved = resolver.resolve(text="", filename=path.name)
+    if resolved and resolved != Subject.AUTRE:
+        return resolved
 
     return Subject.SCIENCES
 
@@ -159,11 +240,11 @@ def main():
     )
 
     print(
-        f"Index   : {VECTOR_STORE_PATH}"
+        f"Index Qdrant: {QDRANT_STORAGE_PATH}"
     )
 
     print(
-        f"Registre: {DOCUMENT_REGISTRY_PATH}"
+        f"Registre    : {DOCUMENT_REGISTRY_PATH}"
     )
 
     print()
@@ -237,8 +318,8 @@ def main():
         EmbeddingService()
     )
 
-    vector_store = LocalVectorStore(
-        storage_path=VECTOR_STORE_PATH
+    vector_store = QdrantVectorStore(
+        storage_path=QDRANT_STORAGE_PATH
     )
 
     indexer = KnowledgeIndexer(
@@ -251,27 +332,37 @@ def main():
     )
 
     # =========================================================
-    # 3. CHARGEMENT INDEX EXISTANT
+    # 3. CHARGEMENT INDEX EXISTANT & MIGRATION
     # =========================================================
 
     print()
     print(
-        "[2/6] Chargement de l'index existant..."
+        "[2/6] Chargement de l'index Qdrant existant..."
     )
 
     loaded = indexer.load()
 
+    # Si Qdrant est vide et qu'un ancien vector_store.json existe, migrer automatiquement
+    if indexer.document_count == 0 and VECTOR_STORE_PATH.exists():
+        print(
+            "Index Qdrant vide détecté. "
+            "Migration des chunks existants depuis vector_store.json..."
+        )
+        migrated = vector_store.migrate_from_json(VECTOR_STORE_PATH)
+        if migrated > 0:
+            loaded = True
+
     if loaded:
 
         print(
-            f"Chunks déjà présents : "
+            f"Chunks déjà présents dans Qdrant : "
             f"{indexer.document_count}"
         )
 
     else:
 
         print(
-            "Aucun index existant."
+            "Aucun chunk dans Qdrant (nouvelle base)."
         )
 
     # =========================================================
@@ -551,8 +642,8 @@ def main():
     )
 
     print(
-        f"Fichier : "
-        f"{VECTOR_STORE_PATH}"
+        f"Stockage Qdrant : "
+        f"{QDRANT_STORAGE_PATH}"
     )
 
     print()

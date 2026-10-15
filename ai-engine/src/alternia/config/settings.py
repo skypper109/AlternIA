@@ -12,20 +12,24 @@ class Settings(BaseSettings):
     app_env: str = "development"
     debug: bool = True
 
-    llm_provider: str = ""
-    llm_model: str = ""
+    llm_provider: str = "gemini"
+    llm_model: str = "gemini-3.1-flash-lite"
     llm_api_key: str = ""
+    groq_api_key: str = ""
+    groq_model: str = "qwen/qwen3.8-27b"
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-3.1-flash-lite"
     
-    # Local LLM (Hiérarchie par puissance : 14B > 7B > 3B > 1.5B)
+    # Local LLM (Privilégie le modèle 1.5B en local pour rapidité et faible empreinte RAM)
     @staticmethod
     def _find_best_llm_model() -> Path:
         models_dir = PROJECT_ROOT / "ai-engine" / "models" / "llm"
         candidates = [
-            "qwen2.5-14b-instruct-q4_k_m.gguf",
-            "qwen2.5-7b-instruct-q5_k_m.gguf",
-            "qwen2.5-7b-instruct-q4_k_m.gguf",
-            "qwen2.5-3b-instruct-q4_k_m.gguf",
             "qwen2.5-1.5b-instruct-q4_k_m.gguf",
+            "qwen2.5-3b-instruct-q4_k_m.gguf",
+            "qwen2.5-7b-instruct-q4_k_m.gguf",
+            "qwen2.5-7b-instruct-q5_k_m.gguf",
+            "qwen2.5-14b-instruct-q4_k_m.gguf",
         ]
         for candidate in candidates:
             p = models_dir / candidate

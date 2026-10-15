@@ -1,0 +1,7 @@
+[Unit]
+Description=AlternIA Auto-Healing Watchdog Service
+After=alternia-backend.service
+
+[Service]
+Type=oneshot
+ExecStart=/home/ubuntu/AlternIA/aws-deployment/scripts/healthcheck.sh

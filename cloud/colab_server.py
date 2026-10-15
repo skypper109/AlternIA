@@ -4,12 +4,15 @@ AlternIA Cloud Server Runner pour Google Colab Pro / AWS GPU
 Lance l'API FastAPI et expose un tunnel public HTTPS sécurisé (Cloudflare Tunnel).
 """
 
-import tempfile
+from __future__ import annotations
+
+import json
 import os
 import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -18,6 +21,25 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 sys.path.insert(0, str(PROJECT_ROOT / "backend" / "src"))
 sys.path.insert(0, str(PROJECT_ROOT / "ai-engine" / "src"))
+
+CONFIG_PATH = PROJECT_ROOT / "data" / "tunnel_config.json"
+COLAB_DRIVE_CONFIG = Path("/content/drive/MyDrive/alternia_tunnel.json")
+
+# Chargement automatique des variables du fichier .env
+env_file = PROJECT_ROOT / ".env"
+if env_file.exists():
+    try:
+        with open(env_file, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, v = line.split("=", 1)
+                    k = k.strip()
+                    v = v.strip().strip("\"'")
+                    if k not in os.environ:
+                        os.environ[k] = v
+    except Exception:
+        pass
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 os.environ["PYTHONUNBUFFERED"] = "1"
@@ -56,7 +78,9 @@ def detect_hardware():
             device_name = torch.cuda.get_device_name(0)
             total_mem = torch.cuda.get_device_properties(0).total_memory / (1024**3)
             print(f"✅ \033[1;32mGPU Détecté :\033[0m {device_name} ({total_mem:.1f} Go VRAM)")
-            print(f"⚡ PyTorch {torch.__version__} avec CUDA {torch.version.cuda}")
+            cuda_ver = getattr(torch, "version", None)
+            cuda_str = getattr(cuda_ver, "cuda", None) if cuda_ver else None
+            print(f"⚡ PyTorch {torch.__version__} avec CUDA {cuda_str}")
         else:
             print("⚠️ \033[1;33mAucun GPU CUDA actif. Exécution en mode CPU.\033[0m")
     except ImportError:
@@ -187,75 +211,339 @@ def ensure_environment():
         print(f"ℹ️ Note moteur vidéo : {e}")
 
 
+def load_tunnel_config() -> dict:
+    """Charge la configuration persistante du tunnel (local ou Google Drive)."""
+    if COLAB_DRIVE_CONFIG.exists():
+        try:
+            with open(COLAB_DRIVE_CONFIG, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+
+    if CONFIG_PATH.exists():
+        try:
+            with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+
+    return {}
+
+
+def save_tunnel_config(config: dict):
+    """Sauvegarde la configuration du tunnel pour qu'elle persiste aux prochains redémarrages."""
+    try:
+        CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+            json.dump(config, f, indent=2)
+    except Exception:
+        pass
+
+    if Path("/content/drive/MyDrive").exists():
+        try:
+            with open(COLAB_DRIVE_CONFIG, "w", encoding="utf-8") as f:
+                json.dump(config, f, indent=2)
+            print("💾 Configuration du tunnel sauvegardée sur Google Drive.")
+        except Exception:
+            pass
+
+
 def install_cloudflared() -> str:
     """Télécharge et installe le binaire cloudflared si absent."""
     cloudflared_path = shutil.which("cloudflared")
     if cloudflared_path:
         return cloudflared_path
 
-    print("📦 Installation de Cloudflare Tunnel (cloudflared)...")
     local_bin = Path("/tmp/cloudflared")
-    if not local_bin.exists():
-        import urllib.request
-        url = "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64"
-        urllib.request.urlretrieve(url, str(local_bin))
-        local_bin.chmod(0o755)
+    if local_bin.exists():
+        return str(local_bin)
+
+    print("📦 Installation de Cloudflare Tunnel (cloudflared)...")
+    import urllib.request
+    import tarfile
+    
+    # Détection architecture Linux / macOS
+    machine = os.uname().machine.lower()
+    if sys.platform == "darwin":
+        arch = "darwin-arm64" if "arm" in machine else "darwin-amd64"
+        url = f"https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-{arch}.tgz"
+        try:
+            tar_path = Path("/tmp/cloudflared.tgz")
+            urllib.request.urlretrieve(url, str(tar_path))
+            with tarfile.open(tar_path, "r:gz") as tar:
+                tar.extract("cloudflared", path="/tmp")
+            local_bin.chmod(0o755)
+            if tar_path.exists():
+                tar_path.unlink()
+            return str(local_bin)
+        except Exception as e:
+            print(f"⚠️ Erreur lors du téléchargement de cloudflared pour macOS ({e}).")
+    else:
+        arch = "linux-arm64" if "aarch" in machine or "arm" in machine else "linux-amd64"
+        url = f"https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-{arch}"
+        try:
+            urllib.request.urlretrieve(url, str(local_bin))
+            local_bin.chmod(0o755)
+            return str(local_bin)
+        except Exception as e:
+            print(f"⚠️ Erreur lors du téléchargement de cloudflared ({e}). Essai avec le binaire par défaut...")
+            url = "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64"
+            try:
+                urllib.request.urlretrieve(url, str(local_bin))
+                local_bin.chmod(0o755)
+                return str(local_bin)
+            except Exception:
+                pass
+
     return str(local_bin)
 
 
-def start_tunnel(port: int = 8000) -> tuple[subprocess.Popen, str]:
-    """Démarre cloudflared et extrait l'URL HTTPS publique."""
-    bin_path = install_cloudflared()
-    print(f"🌐 Démarrage du tunnel HTTPS vers le port {port}...")
+DEFAULT_DOMAIN = "alterniamali.com"
+DEFAULT_ADMIN_DOMAIN = "admin.alterniamali.com"
+DEFAULT_DEVICE_DOMAIN = "device.alterniamali.com"
+DEFAULT_API_DOMAIN = "api.alterniamali.com"
 
+
+def start_tunnel(
+    port: int = 8000,
+    cli_token: str | None = None,
+    cli_hostname: str | None = None,
+    force_quick: bool = False
+) -> tuple[subprocess.Popen | None, dict[str, str], bool]:
+    """
+    Démarre le tunnel Cloudflare.
+    - Si force_quick est True : Démarre le tunnel Quick Tunnel temporaire (trycloudflare.com).
+    - Si un Token (CLOUDFLARE_TUNNEL_TOKEN) est présent :
+      Démarre le tunnel permanent avec le nom de domaine officiel alterniamali.com et ses sous-domaines :
+        * admin.alterniamali.com  -> Backoffice Alta
+        * device.alterniamali.com -> Interface tactile/vocale Kiosk élève (/device)
+        * api.alterniamali.com    -> Endpoints API & Mobile Sync
+        * alterniamali.com        -> Domaine racine
+    - Sinon :
+      Démarre un tunnel Quick Tunnel temporaire gratuit (trycloudflare.com).
+    Retourne : (processus, domain_urls_dict, is_fixed_url)
+    """
+    bin_path = install_cloudflared()
+    cfg = load_tunnel_config()
+
+    # 1. Vérification automatique dans les Secrets Google Colab si présent
+    colab_token = None
+    colab_hostname = None
+    try:
+        from google.colab import userdata  # pyright: ignore[reportMissingImports]  # type: ignore
+        colab_token = userdata.get("CLOUDFLARE_TUNNEL_TOKEN")
+        colab_hostname = userdata.get("CLOUDFLARE_HOSTNAME")
+    except Exception:
+        pass
+
+    # Priorités : Arguments CLI > Variables d'environnement > Colab Secrets > Configuration persistante > Défaut
+    tunnel_token = (
+        cli_token
+        or os.environ.get("CLOUDFLARE_TUNNEL_TOKEN")
+        or os.environ.get("TUNNEL_TOKEN")
+        or colab_token
+        or cfg.get("tunnel_token", "").strip()
+    )
+    raw_hostname = (
+        cli_hostname
+        or os.environ.get("CLOUDFLARE_HOSTNAME")
+        or os.environ.get("TUNNEL_HOSTNAME")
+        or colab_hostname
+        or cfg.get("fixed_hostname", "").strip()
+    )
+    fixed_hostname = raw_hostname.strip() if (raw_hostname and "[Votre-Domaine" not in raw_hostname) else DEFAULT_DOMAIN
+
+    admin_domain = os.environ.get("CLOUDFLARE_ADMIN_HOSTNAME") or f"admin.{fixed_hostname}"
+    device_domain = os.environ.get("CLOUDFLARE_DEVICE_HOSTNAME") or f"device.{fixed_hostname}"
+    api_domain = os.environ.get("CLOUDFLARE_API_HOSTNAME") or f"api.{fixed_hostname}"
+
+    log_path = Path(tempfile.gettempdir()) / "cloudflared.log"
+
+    # =========================================================================
+    # OPTION A : TUNNEL NOMMÉ FIXE (URL PERMANENTE SUR alterniamali.com)
+    # =========================================================================
+    if tunnel_token and not force_quick:
+        print("\n" + "─" * 78)
+        print("🌐 \033[1;32mDémarrage du tunnel FIXE Cloudflare (Domaine Officiel : alterniamali.com)...\033[0m")
+        print(f"🔑 Token détecté : {tunnel_token[:10]}...{tunnel_token[-8:]}")
+        print(f"🌍 Domaine cible : {fixed_hostname}")
+        print("─" * 78)
+
+        if log_path.exists():
+            try:
+                log_path.unlink()
+            except Exception:
+                pass
+
+        log_file = open(log_path, "w", encoding="utf-8")
+        cmd = [bin_path, "tunnel", "run", "--token", tunnel_token]
+        proc = subprocess.Popen(
+            cmd,
+            stdout=log_file,
+            stderr=log_file,
+            text=True,
+        )
+
+        time.sleep(3)
+        if proc.poll() is not None:
+            log_file.close()
+            err = ""
+            if log_path.exists():
+                with open(log_path, "r", encoding="utf-8", errors="ignore") as f:
+                    err = f.read()
+            print(f"⚠️ Échec du tunnel fixe avec le token : {err.strip()[:300]}")
+            print("🔄 Basculement automatique sur le tunnel temporaire trycloudflare.com...")
+        else:
+            log_file.close()
+            domain_urls = {
+                "root": f"https://{fixed_hostname}",
+                "admin": f"https://{admin_domain}",
+                "device": f"https://{device_domain}",
+                "api": f"https://{api_domain}",
+            }
+            save_tunnel_config({
+                "tunnel_token": tunnel_token,
+                "fixed_hostname": fixed_hostname,
+                "admin_domain": admin_domain,
+                "device_domain": device_domain,
+                "api_domain": api_domain,
+            })
+            return proc, domain_urls, True
+
+    # =========================================================================
+    # OPTION B : QUICK TUNNEL TEMPORAIRE (trycloudflare.com)
+    # =========================================================================
+    print(f"🌐 Démarrage du tunnel temporaire Cloudflare vers le port {port}...")
+    if log_path.exists():
+        try:
+            log_path.unlink()
+        except Exception:
+            pass
+
+    log_file = open(log_path, "w", encoding="utf-8")
     cmd = [bin_path, "tunnel", "--url", f"http://127.0.0.1:{port}"]
     proc = subprocess.Popen(
         cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        stdout=log_file,
+        stderr=log_file,
         text=True,
-        bufsize=1,
     )
 
     public_url = ""
     start_time = time.time()
 
-    # Lecture des logs pour extraire l'URL trycloudflare.com
-    if proc.stderr:
-        while time.time() - start_time < 30:
-            line = proc.stderr.readline()
-            if not line and proc.poll() is not None:
-                break
-            match = re.search(r"(https://[a-zA-Z0-9-]+\.trycloudflare\.com)", line)
-            if match:
-                public_url = match.group(1)
-                break
+    while time.time() - start_time < 35:
+        if proc.poll() is not None:
+            break
+        if log_path.exists():
+            with open(log_path, "r", encoding="utf-8", errors="ignore") as f:
+                content = f.read()
+                matches = re.findall(r"(https://[a-zA-Z0-9-]+\.trycloudflare\.com)", content)
+                if matches:
+                    public_url = matches[-1]
+                    break
+        time.sleep(0.5)
 
-    if not public_url:
-        print("⚠️ Impossible d'obtenir l'URL Cloudflare automatiquement. Vérifiez les logs.")
-    return proc, public_url
+    if not public_url and log_path.exists():
+        with open(log_path, "r", encoding="utf-8", errors="ignore") as f:
+            content = f.read()
+            matches = re.findall(r"(https://[a-zA-Z0-9-]+\.trycloudflare\.com)", content)
+            if matches:
+                public_url = matches[-1]
+
+    domain_urls = {
+        "root": public_url,
+        "admin": f"{public_url}/etablissement/tableau-de-bord" if public_url else "",
+        "device": f"{public_url}/device/" if public_url else "",
+        "api": public_url,
+    }
+    return proc, domain_urls, False
+
+
+def free_port(port: int):
+    """Libère le port s'il est déjà occupé par un ancien processus uvicorn/python."""
+    import socket
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        s.bind(("0.0.0.0", port))
+        s.close()
+        return
+    except OSError:
+        pass
+    finally:
+        try:
+            s.close()
+        except Exception:
+            pass
+
+    print(f"⚠️ \033[1;33mPort {port} déjà utilisé. Libération automatique en cours...\033[0m")
+    try:
+        subprocess.run(["fuser", "-k", f"{port}/tcp"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except Exception:
+        pass
+    try:
+        res = subprocess.run(["lsof", "-t", f"-i:{port}"], stdout=subprocess.PIPE, text=True)
+        pids = res.stdout.strip().split()
+        current_pid = os.getpid()
+        for pid in pids:
+            if pid and int(pid) != current_pid:
+                try:
+                    os.kill(int(pid), 9)
+                except Exception:
+                    pass
+    except Exception:
+        pass
+    time.sleep(1)
 
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser(description="AlternIA Cloud Server Runner")
+    parser.add_argument("--port", type=int, default=int(os.environ.get("PORT", 8000)), help="Port d'écoute local")
+    parser.add_argument("--token", type=str, default=None, help="Token Cloudflare Tunnel pour URL fixe permanente")
+    parser.add_argument("--hostname", type=str, default=None, help="Nom de domaine public associé au tunnel fixe")
+    parser.add_argument("--quick", action="store_true", help="Forcer l'utilisation du tunnel temporaire gratuit (trycloudflare.com)")
+    args, _ = parser.parse_known_args()
+
+    port = args.port
+    free_port(port)
+
     print_banner()
     ensure_environment()
     detect_hardware()
 
-    port = int(os.environ.get("PORT", 8000))
+    # Démarrer le tunnel Cloudflare (fixe ou temporaire)
+    tunnel_proc, domain_urls, is_fixed = start_tunnel(
+        port=port,
+        cli_token=args.token,
+        cli_hostname=args.hostname,
+        force_quick=args.quick
+    )
 
-    # 1. Démarrer le tunnel Cloudflare
-    tunnel_proc, public_url = start_tunnel(port=port)
-
-    print("\n" + "=" * 76)
-    if public_url:
-        print(f"🌟 \033[1;32mAlternIA Cloud Server est PRÊT ET EN LIGNE !\033[0m")
-        print(f"🔗 \033[1;36mURL PUBLIQUE HTTPS :\033[0m \033[1;4m{public_url}\033[0m")
-        print(f"📱 Pour connecter votre boîtier ou le web, utilisez : \033[1m{public_url}/device\033[0m")
+    print("\n" + "=" * 80)
+    if is_fixed:
+        print("🌟 \033[1;32mAlternIA Cloud Server est EN LIGNE avec votre DOMAINE OFFICIEL !\033[0m")
+        print("🔒 \033[1;33mURLs FIXES & PERMANENTES — Aucun changement de lien de base requis :\033[0m\n")
+        print(f"   👑 \033[1;36mDomaine Principal       :\033[0m \033[1;4m{domain_urls['root']}\033[0m")
+        print(f"   💼 \033[1;35mBackoffice Admin (Alta) :\033[0m \033[1;4m{domain_urls['admin']}\033[0m")
+        print(f"   📟 \033[1;32mKiosk Boîtier / Élève   :\033[0m \033[1;4m{domain_urls['device']}\033[0m (ou {domain_urls['root']}/device)")
+        print(f"   📱 \033[1;34mAPI Mobile & Synchro    :\033[0m \033[1;4m{domain_urls['api']}\033[0m")
+        print(f"   📚 Documentation Swagger    : {domain_urls['api']}/docs")
+        print("\n✅ \033[1;32mConnexion Mobile Garantie :\033[0m L'application mobile communique désormais en direct")
+        print(f"   avec \033[1m{domain_urls['api']}\033[0m à tout moment sans jamais perdre le lien !")
+    elif domain_urls.get("root"):
+        print("🌟 \033[1;32mAlternIA Cloud Server est EN LIGNE (Mode Temporaire Quick Tunnel) :\033[0m\n")
+        print(f"   🔗 URL Publique Temporaire  : \033[1;4m{domain_urls['root']}\033[0m")
+        print(f"   📱 Kiosk Boîtier / Élève    : {domain_urls['device']}")
+        print(f"   💼 Backoffice Admin Alta    : {domain_urls['admin']}")
+        print(f"   ⚡ API & Swagger            : {domain_urls['api']}/docs")
+        print("\nℹ️  Pour activer votre nom de domaine fixe alterniamali.com,")
+        print("   vérifiez votre token CLOUDFLARE_TUNNEL_TOKEN dans le fichier .env.")
     else:
         print(f"🌟 AlternIA Server démarré localement sur : http://127.0.0.1:{port}")
-    print("=" * 76 + "\n")
+    print("=" * 80 + "\n")
 
-    # 2. Démarrer FastAPI avec Uvicorn
+    # Démarrer FastAPI avec Uvicorn
     import uvicorn
     from backend.src.main import app
 

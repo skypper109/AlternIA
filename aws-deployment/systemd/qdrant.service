@@ -1,0 +1,23 @@
+[Unit]
+Description=Qdrant Vector Database Engine (RAG Curriculaire AlternIA)
+After=network.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=qdrant
+Group=qdrant
+WorkingDirectory=/var/lib/qdrant
+ExecStart=/usr/local/bin/qdrant --config-path /etc/qdrant/config.yaml
+
+Restart=always
+RestartSec=5
+LimitNOFILE=65536
+LimitNPROC=65536
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=qdrant
+
+[Install]
+WantedBy=multi-user.target

@@ -54,6 +54,7 @@ export class AlternIAApp {
     this.avatarTranscription = document.getElementById('avatar-fullscreen-transcription');
     this.btnCloseAvatar = document.getElementById('btn-close-avatar');
     this.btnMicModal = document.getElementById('btn-mic-modal');
+    this.modalMicLabel = document.getElementById('modal-mic-label');
   }
 
   initModules() {
@@ -66,14 +67,15 @@ export class AlternIAApp {
       isLogoMode: true
     });
 
-    // Modal Vortex si présent
+    // Modal Vortex si présent (en mode carré immersif plein cadre)
     if (this.modalAvatarCanvas) {
       this.modalVortex = new VortexUI({
         canvasId: 'modal-avatar-canvas',
         statusTextId: 'modal-status-text',
         statusDotId: 'modal-status-dot',
         defaultImageUrl: 'assets/Alternia.svg',
-        isLogoMode: false
+        isLogoMode: false,
+        isSquareMode: true
       });
     } else {
       this.modalVortex = null;
@@ -98,6 +100,8 @@ export class AlternIAApp {
           this.vortex.setState('IDLE', 'Prêt à répondre');
           if (this.modalVortex) this.modalVortex.setState('IDLE', 'Prêt à répondre');
         }
+        // Synchronisation temps réel avec l'ESP32 : LED Blanche clignotante pendant le TTS
+        fetch(`/api/esp32/tts-speaking?speaking=${isSpeaking ? 'true' : 'false'}`, { method: 'POST' }).catch(() => {});
       },
       onAnalyserReady: (analyser) => {
         this.vortex.setAudioAnalyser(analyser);
@@ -105,28 +109,89 @@ export class AlternIAApp {
       }
     });
 
-    // 4. Moteur Speech-To-Text (Microphone Push-To-Talk)
+    // 4. Moteur Speech-To-Text (Microphone 1-clic enregistre, 1-clic coupe et envoie directement)
     this.speech = new SpeechService({
       onStart: () => {
         if (this.micBtn) this.micBtn.classList.add('is-recording');
-        if (this.btnMicModal) this.btnMicModal.classList.add('animate-pulse', 'ring-4', 'ring-amber-300');
+        if (this.btnMicModal) {
+          this.btnMicModal.classList.remove('from-[#314999]', 'via-[#0284C7]', 'to-[#314999]', 'ring-[#314999]/20');
+          this.btnMicModal.classList.add('bg-rose-600', 'from-rose-600', 'to-red-600', 'animate-pulse', 'ring-4', 'ring-rose-400');
+          this.btnMicModal.innerHTML = `
+            <svg class="w-8 h-8" viewBox="0 0 24 24" fill="currentColor">
+              <rect x="6" y="6" width="12" height="12" rx="2"></rect>
+            </svg>
+          `;
+          this.btnMicModal.title = "Toucher pour couper et envoyer";
+        }
+        if (this.modalMicLabel) {
+          this.modalMicLabel.textContent = "Écoute en direct... Touchez pour envoyer";
+          this.modalMicLabel.classList.add('text-rose-600', 'font-semibold');
+          this.modalMicLabel.classList.remove('text-slate-500');
+        }
         this.vortex.setState('LISTENING', 'Écoute en cours...');
         if (this.modalVortex) this.modalVortex.setState('LISTENING', 'Écoute en cours...');
         this.audio.stop();
+
+        // Afficher immédiatement l'indicateur d'enregistrement dans la boîte de transcription
+        if (this.avatarTranscription) {
+          this.avatarTranscription.innerHTML = `
+            <div class="p-5 bg-rose-50/70 border-2 border-dashed border-rose-300 rounded-2xl flex flex-col gap-2 shadow-sm animate-fade-in">
+              <div class="flex items-center gap-2 text-rose-600 text-xs font-bold uppercase tracking-wider">
+                <span class="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping"></span>
+                Microphone actif — Parlez maintenant
+              </div>
+              <div id="modal-live-transcript-text" class="text-slate-800 text-base sm:text-lg font-medium italic min-h-[36px]">
+                « En écoute de votre question... »
+              </div>
+            </div>
+          `;
+        }
       },
       onTranscript: (transcript) => {
         if (this.questionInput) {
           this.questionInput.value = transcript;
         }
-        if (this.avatarTranscription) {
-          this.avatarTranscription.textContent = transcript;
+        const liveElem = document.getElementById('modal-live-transcript-text');
+        if (liveElem) {
+          liveElem.textContent = `« ${transcript} »`;
+          liveElem.classList.remove('italic');
+        } else if (this.avatarTranscription) {
+          this.avatarTranscription.innerHTML = `
+            <div class="p-5 bg-rose-50/70 border-2 border-dashed border-rose-300 rounded-2xl flex flex-col gap-2 shadow-sm">
+              <div class="flex items-center gap-2 text-rose-600 text-xs font-bold uppercase tracking-wider">
+                <span class="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping"></span>
+                Microphone actif — En direct
+              </div>
+              <div id="modal-live-transcript-text" class="text-slate-800 text-base sm:text-lg font-medium">
+                « ${transcript} »
+              </div>
+            </div>
+          `;
         }
       },
       onEnd: (finalTranscript) => {
         if (this.micBtn) this.micBtn.classList.remove('is-recording');
-        if (this.btnMicModal) this.btnMicModal.classList.remove('animate-pulse', 'ring-4', 'ring-amber-300');
-        if (finalTranscript && finalTranscript.trim().length > 1) {
-          this.submitQuestion(finalTranscript.trim());
+        if (this.btnMicModal) {
+          this.btnMicModal.classList.remove('bg-rose-600', 'from-rose-600', 'to-red-600', 'animate-pulse', 'ring-4', 'ring-rose-400');
+          this.btnMicModal.classList.add('from-[#314999]', 'via-[#0284C7]', 'to-[#314999]', 'ring-[#314999]/20');
+          this.btnMicModal.innerHTML = `
+            <svg class="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+              <line x1="12" y1="19" x2="12" y2="22"></line>
+            </svg>
+          `;
+          this.btnMicModal.title = "Toucher pour parler";
+        }
+        if (this.modalMicLabel) {
+          this.modalMicLabel.textContent = "Touchez pour parler";
+          this.modalMicLabel.classList.remove('text-rose-600', 'font-semibold');
+          this.modalMicLabel.classList.add('text-slate-500');
+        }
+
+        const query = (finalTranscript || (this.questionInput ? this.questionInput.value : '')).trim();
+        if (query && query.length > 1) {
+          this.submitQuestion(query);
         } else {
           this.vortex.setState('IDLE', 'Prêt à répondre');
           if (this.modalVortex) this.modalVortex.setState('IDLE', 'Prêt à répondre');
@@ -134,7 +199,23 @@ export class AlternIAApp {
       },
       onError: (err) => {
         if (this.micBtn) this.micBtn.classList.remove('is-recording');
-        if (this.btnMicModal) this.btnMicModal.classList.remove('animate-pulse', 'ring-4', 'ring-amber-300');
+        if (this.btnMicModal) {
+          this.btnMicModal.classList.remove('bg-rose-600', 'from-rose-600', 'to-red-600', 'animate-pulse', 'ring-4', 'ring-rose-400');
+          this.btnMicModal.classList.add('from-[#314999]', 'via-[#0284C7]', 'to-[#314999]', 'ring-[#314999]/20');
+          this.btnMicModal.innerHTML = `
+            <svg class="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+              <line x1="12" y1="19" x2="12" y2="22"></line>
+            </svg>
+          `;
+          this.btnMicModal.title = "Toucher pour parler";
+        }
+        if (this.modalMicLabel) {
+          this.modalMicLabel.textContent = "Touchez pour parler";
+          this.modalMicLabel.classList.remove('text-rose-600', 'font-semibold');
+          this.modalMicLabel.classList.add('text-slate-500');
+        }
         this.vortex.setState('IDLE', 'Prêt à répondre');
         if (this.modalVortex) this.modalVortex.setState('IDLE', 'Prêt à répondre');
         console.warn("Erreur reconnaissance vocale :", err);
@@ -178,9 +259,12 @@ export class AlternIAApp {
             const style = data.stylePedagogique ? ` • Style ${data.stylePedagogique}` : '';
             this.modalAvatarSubtitle.textContent = `${subject}${style}`;
           }
-          // Initialisation proactive du flux Simli WebRTC (avec Face ID)
-          if (this.audio && this.audio.simli) {
-            this.audio.simli.init(data.face_id || data.faceId || null);
+          // Configuration de la voix TTS de l'avatar actif (Simli ne sera initialisé QUE si on ouvre le modal avatar)
+          if (this.audio) {
+            const chosenVoice = data.voixTts || data.voix_tts || data.voixId || 'vivienne';
+            this.audio.setVoice(chosenVoice);
+            const faceId = data.face_id || data.faceId || null;
+            console.log(`🎬 [AlternIA Kiosk] Avatar actif: "${data.nom}" | Voix TTS: "${chosenVoice}" | Face ID: "${faceId}"`);
           }
         }
       }
@@ -208,7 +292,11 @@ export class AlternIAApp {
     }
 
     if (this.avatarTranscription) {
-      this.avatarTranscription.textContent = presentationText;
+      this.avatarTranscription.innerHTML = `
+        <div class="p-4 bg-slate-50 border border-slate-200/80 rounded-2xl text-slate-800 leading-relaxed text-base sm:text-lg font-normal">
+          ${presentationText}
+        </div>
+      `;
     }
 
     if (this.avatarCanvas) this.avatarCanvas.classList.remove('hidden');
@@ -218,17 +306,37 @@ export class AlternIAApp {
   openAvatarModal() {
     if (!this.avatarModal) return;
     this.avatarModal.classList.remove('hidden');
-    if (this.audio && this.audio.simli) {
-      this.audio.simli.init();
+
+    // 1. Stopper immédiatement tout audio en cours pour éviter tout doublon
+    if (this.audio) {
+      this.audio.stop();
+      this.audio.setSimliActive(true);
+      const faceId = this.activeAvatar?.face_id || this.activeAvatar?.faceId || null;
+      if (this.audio.simli) {
+        this.audio.simli.init(faceId);
+      }
     }
-    this.playAvatarPresentation();
+
+    // 2. Jouer la présentation d'accueil uniquement si aucune conversation n'est affichée
+    const currentText = this.avatarTranscription ? this.avatarTranscription.textContent.trim() : '';
+    if (!currentText || currentText.length < 5) {
+      this.playAvatarPresentation();
+    }
   }
 
   closeAvatarModal() {
     if (!this.avatarModal) return;
     this.avatarModal.classList.add('hidden');
     if (this.modalAvatarVideo) {
-      this.modalAvatarVideo.pause();
+      try { this.modalAvatarVideo.pause(); } catch (_) {}
+    }
+    // Fermer et déconnecter immédiatement Simli et couper l'audio à la fermeture
+    if (this.audio) {
+      this.audio.stop();
+      this.audio.setSimliActive(false);
+    }
+    if (this.speech && this.speech.isListening()) {
+      this.speech.stop();
     }
   }
 
@@ -282,14 +390,18 @@ export class AlternIAApp {
     if (this.modalAvatarCanvas) {
       this.modalAvatarCanvas.onclick = () => {
         if (this.audio && this.audio.simli) {
-          this.audio.simli.init();
+          const faceId = this.activeAvatar?.face_id || this.activeAvatar?.faceId || null;
+          this.audio.setSimliActive(true);
+          this.audio.simli.init(faceId);
         }
       };
     }
     if (this.modalAvatarVideo) {
       this.modalAvatarVideo.onclick = () => {
         if (this.audio && this.audio.simli) {
-          this.audio.simli.init();
+          const faceId = this.activeAvatar?.face_id || this.activeAvatar?.faceId || null;
+          this.audio.setSimliActive(true);
+          this.audio.simli.init(faceId);
         }
       };
     }
@@ -372,7 +484,14 @@ export class AlternIAApp {
     if (vocalLabels[classId]) {
       this.audio.speakText(`Tu as sélectionné la ${vocalLabels[classId]}.`);
     }
+
+    // Synchronisation immédiate sur le canal ESP32 : 10ème -> BLEU, 11ème -> ROUGE, 12ème -> JAUNE
+    // Canal 1 : Via l'API Cloud (WebSocket /ws/esp32)
+    fetch(`/api/esp32/select-class?classe=${encodeURIComponent(classId)}&mic_connected=true`, { method: 'POST' }).catch(() => {});
+    // Canal 2 : Directement sur l'ESP32 en local (192.168.4.1) si connecté à son Wi-Fi SoftAP
+    fetch(`http://192.168.4.1/api/select-class?classe=${encodeURIComponent(classId)}`, { mode: 'no-cors' }).catch(() => {});
   }
+
 
   async submitQuestion(questionText) {
     const question = questionText || (this.questionInput ? this.questionInput.value.trim() : '');
@@ -403,7 +522,15 @@ export class AlternIAApp {
     }
 
     if (this.avatarTranscription) {
-      this.avatarTranscription.textContent = "Recherche dans le programme officiel...";
+      this.avatarTranscription.innerHTML = `
+        <div class="p-4 bg-slate-100 border border-slate-200/80 rounded-2xl text-slate-900 font-medium mb-4 text-base sm:text-lg">
+          ${question}
+        </div>
+        <div class="flex items-center gap-3 text-slate-500 py-3">
+          <div class="w-4 h-4 border-2 border-[#314999] border-t-transparent rounded-full animate-spin"></div>
+          <span class="text-sm font-medium">Recherche et formulation de la réponse...</span>
+        </div>
+      `;
     }
 
     let fullText = "";
@@ -424,8 +551,18 @@ export class AlternIAApp {
           this.katex.renderFormulasInElement(this.speechContentArea);
         }
         if (this.avatarTranscription) {
-          this.avatarTranscription.innerHTML = this.formatMarkdownText(fullText);
+          this.avatarTranscription.innerHTML = `
+            <div class="p-4 bg-slate-100 border border-slate-200/80 rounded-2xl text-slate-900 font-medium mb-4 text-base sm:text-lg">
+              ${question}
+            </div>
+            <div class="text-slate-800 text-base sm:text-lg leading-relaxed space-y-3 font-normal">
+              ${this.formatMarkdownText(fullText)}
+            </div>
+          `;
           this.katex.renderFormulasInElement(this.avatarTranscription);
+          if (this.avatarTranscription.parentElement) {
+            this.avatarTranscription.parentElement.scrollTop = this.avatarTranscription.parentElement.scrollHeight;
+          }
         }
 
         sentenceBuffer += chunk;
@@ -453,8 +590,18 @@ export class AlternIAApp {
           this.katex.renderFormulasInElement(this.speechContentArea);
         }
         if (this.avatarTranscription) {
-          this.avatarTranscription.innerHTML = this.formatMarkdownText(fullText);
+          this.avatarTranscription.innerHTML = `
+            <div class="p-4 bg-slate-100 border border-slate-200/80 rounded-2xl text-slate-900 font-medium mb-4 text-base sm:text-lg">
+              ${question}
+            </div>
+            <div class="text-slate-800 text-base sm:text-lg leading-relaxed space-y-3 font-normal">
+              ${this.formatMarkdownText(fullText)}
+            </div>
+          `;
           this.katex.renderFormulasInElement(this.avatarTranscription);
+          if (this.avatarTranscription.parentElement) {
+            this.avatarTranscription.parentElement.scrollTop = this.avatarTranscription.parentElement.scrollHeight;
+          }
         }
 
         // Si le buffer contient encore du texte restant

@@ -15,7 +15,7 @@ export class SimliService {
     this.isConnected = false;
     this.isConnecting = false;
     this.apiKey = "1e1ikibdppliekw9mt04nf";
-    this.faceId = "b9e5fba3-071a-4e35-896e-211c4d6eaa7b";
+    this.faceId = "bb1212ec-2cc5-4ca0-ad32-4a4427600345";
   }
 
   getVideoElement() {
@@ -44,14 +44,17 @@ export class SimliService {
 
     const videoEl = this.getVideoElement();
     const audioEl = this.getAudioElement();
+    if (audioEl) {
+      audioEl.muted = true; // Mute le flux audio Simli pour que le TTS local souverain gère le son sans écho
+    }
 
     const statusText = document.getElementById('modal-status-text');
     const statusDot = document.getElementById('modal-status-dot');
-    if (statusText) statusText.textContent = "Connexion à l'avatar Simli...";
+    if (statusText) statusText.textContent = "Connexion avec le professeur...";
     if (statusDot) statusDot.className = "w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse";
 
     try {
-      console.log(`🚀 [SimliService] Connexion WebRTC Simli v3 (Face ID: ${this.faceId})...`);
+      console.log(`[SimliService] Connexion WebRTC Simli v3 (Face ID: ${this.faceId})...`);
 
       if (!SimliClient) {
         throw new Error("Classe SimliClient introuvable.");
@@ -86,7 +89,7 @@ export class SimliService {
         });
         const tokenData = await tokenRes.json();
         sessionToken = tokenData.session_token;
-        console.log("🔑 [SimliService] Session token obtenu via API directe.");
+        console.log("[SimliService] Session token obtenu via API directe.");
       }
 
       if (!sessionToken) {
@@ -104,31 +107,37 @@ export class SimliService {
 
       // Étape 3 : Écouter les événements v3.x.x
       this.client.on("start", () => {
-        console.log("✅ [SimliService] Avatar Simli connecté et rendu vidéo actif !");
+        console.log(" [SimliService] Avatar Simli connecté et rendu vidéo actif !");
         this.isConnected = true;
         this.isConnecting = false;
         if (videoEl) {
           videoEl.classList.remove('opacity-0');
           videoEl.classList.add('opacity-100');
-          videoEl.play().catch(() => {});
+          videoEl.muted = true; // IMPORTANT : La balise vidéo DOIT rester muette pour éviter le doublon avec audioEl
+          videoEl.play().catch(() => { });
         }
-        if (statusText) statusText.textContent = "Prof Hamza est en direct !";
+        if (audioEl) {
+          audioEl.muted = false; // L'audio WebRTC de Simli sort UNIQUEMENT par audioEl
+          audioEl.volume = 1.0;
+          audioEl.play().catch(() => { });
+        }
+        if (statusText) statusText.textContent = "Professeur est en direct !";
         if (statusDot) statusDot.className = "w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse";
       });
 
       this.client.on("stop", (reason) => {
-        console.log("ℹ️ [SimliService] Session Simli terminée :", reason);
-        this._cleanup(videoEl, statusText, statusDot);
+        console.log(" [SimliService] Session Simli terminée :", reason);
+        this._cleanup(videoEl, audioEl, statusText, statusDot);
       });
 
       this.client.on("error", (reason) => {
-        console.warn("⚠️ [SimliService] Erreur WebRTC Simli :", reason);
-        this._cleanup(videoEl, statusText, statusDot);
+        console.warn("[SimliService] Erreur WebRTC Simli :", reason);
+        this._cleanup(videoEl, audioEl, statusText, statusDot);
       });
 
       this.client.on("startup_error", (reason) => {
-        console.warn("⚠️ [SimliService] Erreur de démarrage Simli :", reason);
-        this._cleanup(videoEl, statusText, statusDot);
+        console.warn("[SimliService] Erreur de démarrage Simli :", reason);
+        this._cleanup(videoEl, audioEl, statusText, statusDot);
       });
 
       // Étape 4 : Démarrer la connexion WebRTC
@@ -137,19 +146,35 @@ export class SimliService {
     } catch (err) {
       this.isConnecting = false;
       this.isConnected = false;
-      console.warn("⚠️ [SimliService] Échec initialisation SimliClient (mode vocal local sécurisé) :", err.message || err);
+      console.warn(" [SimliService] Échec initialisation SimliClient (mode vocal local sécurisé) :", err.message || err);
       if (statusText) statusText.textContent = "Prêt à répondre";
       if (statusDot) statusDot.className = "w-2.5 h-2.5 rounded-full bg-emerald-400";
     }
   }
 
-  _cleanup(videoEl, statusText, statusDot) {
+  async waitForConnection(timeoutMs = 3500) {
+    if (this.isConnected) return true;
+    if (!this.isConnecting) return false;
+    const start = Date.now();
+    while (this.isConnecting && !this.isConnected && (Date.now() - start < timeoutMs)) {
+      await new Promise(r => setTimeout(r, 100));
+    }
+    return this.isConnected;
+  }
+
+  _cleanup(videoEl, audioEl, statusText, statusDot) {
     this.isConnected = false;
     this.isConnecting = false;
     this.client = null;
     if (videoEl) {
       videoEl.classList.remove('opacity-100');
       videoEl.classList.add('opacity-0');
+      videoEl.muted = true;
+      try { videoEl.pause(); } catch (_) {}
+    }
+    if (audioEl) {
+      audioEl.muted = true;
+      try { audioEl.pause(); } catch (_) {}
     }
     if (statusText) statusText.textContent = "Prêt à répondre";
     if (statusDot) statusDot.className = "w-2.5 h-2.5 rounded-full bg-emerald-400";
@@ -170,7 +195,7 @@ export class SimliService {
       }
       return true;
     } catch (err) {
-      console.warn("⚠️ [SimliService] Erreur envoi audio Simli :", err);
+      console.warn(" [SimliService] Erreur envoi audio Simli :", err);
       return false;
     }
   }
@@ -179,10 +204,15 @@ export class SimliService {
     if (this.client) {
       try {
         this.client.stop();
-      } catch (e) {}
+      } catch (e) { }
       this.client = null;
       this.isConnected = false;
       this.isConnecting = false;
     }
+    const videoEl = this.getVideoElement();
+    const audioEl = this.getAudioElement();
+    const statusText = document.getElementById('modal-status-text');
+    const statusDot = document.getElementById('modal-status-dot');
+    this._cleanup(videoEl, audioEl, statusText, statusDot);
   }
 }

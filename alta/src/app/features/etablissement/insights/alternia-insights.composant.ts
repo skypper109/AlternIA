@@ -60,12 +60,15 @@ import { NotificationService } from '../../../core/services/notification.service
     <div class="skeleton" style="height:320px;border-radius:16px;margin-top:24px;"></div>
   } @else {
 
-    <!-- Section Top 10 Questions Frequentes -->
+    <!-- Section Questions Frequentes avec Pagination -->
     <div class="card" style="margin-top:24px;">
       <div class="card__header" style="flex-wrap:wrap;gap:12px;">
         <div>
-          <h2 class="card__title">Top 10 des Questions les Plus Fréquentes</h2>
-          <p class="text-xs text-secondary" style="margin-top:2px;">Données anonymisées et agrégées issues des interactions des apprenants avec l'IA Alternia</p>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <h2 class="card__title">Questions les Plus Fréquentes Posées à l'IA</h2>
+            <span class="badge badge-primary">{{ questionsFiltrees().length }} au total</span>
+          </div>
+          <p class="text-xs text-secondary" style="margin-top:2px;">Données réelles et agrégées issues des interactions des apprenants avec l'IA AlternIA</p>
         </div>
 
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
@@ -97,9 +100,9 @@ import { NotificationService } from '../../../core/services/notification.service
             </tr>
           </thead>
           <tbody>
-            @for (q of questionsFiltrees(); track q.id; let idx = $index) {
+            @for (q of questionsPaginees(); track q.id; let idx = $index) {
               <tr>
-                <td class="fw-bold text-secondary text-sm" style="width:40px;">{{ idx + 1 }}</td>
+                <td class="fw-bold text-secondary text-sm" style="width:40px;">{{ indexDebut() + idx }}</td>
                 <td>
                   <div class="fw-semibold text-sm" style="color:var(--color-text-primary);">"{{ q.question }}"</div>
                 </td>
@@ -135,6 +138,47 @@ import { NotificationService } from '../../../core/services/notification.service
           </tbody>
         </table>
       </div>
+
+      <!-- Pagination Footer -->
+      @if (questionsFiltrees().length > 0) {
+        <div class="pagination-bar">
+          <div class="text-xs text-secondary">
+            Affichage de <span class="fw-semibold" style="color:var(--color-text-primary);">{{ indexDebut() }}</span> à <span class="fw-semibold" style="color:var(--color-text-primary);">{{ indexFin() }}</span> sur <span class="fw-semibold">{{ questionsFiltrees().length }}</span> questions
+          </div>
+
+          <div class="pagination-actions">
+            <button
+              class="btn btn-outline btn-xs"
+              [disabled]="pageActuelle() <= 1"
+              (click)="pagePrecedente()"
+              id="btn-prev-page"
+            >
+              ← Précédent
+            </button>
+
+            <div class="page-pills">
+              @for (p of pagesList(); track p) {
+                <button
+                  class="btn btn-xs page-pill-btn"
+                  [class.page-pill-btn--active]="pageActuelle() === p"
+                  (click)="allerPage(p)"
+                >
+                  {{ p }}
+                </button>
+              }
+            </div>
+
+            <button
+              class="btn btn-outline btn-xs"
+              [disabled]="pageActuelle() >= totalPages()"
+              (click)="pageSuivante()"
+              id="btn-next-page"
+            >
+              Suivant →
+            </button>
+          </div>
+        </div>
+      }
     </div>
 
     <!-- Section Notions à renforcer -->
@@ -205,6 +249,12 @@ import { NotificationService } from '../../../core/services/notification.service
     .notion-item-title { font-size: 15px; font-weight: 700; color: var(--color-text-primary); margin: 2px 0; }
     .notion-item-action { font-size: 13px; color: var(--color-text-secondary); background: var(--color-bg-surface); padding: 10px; border-radius: var(--radius-md); border: 1px solid var(--color-border); line-height: 1.4; }
     .notion-item-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
+    .pagination-bar { display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; border-top: 1px solid var(--color-border); flex-wrap: wrap; gap: 12px; background: var(--color-bg-surface); }
+    .pagination-actions { display: flex; align-items: center; gap: 8px; }
+    .page-pills { display: flex; gap: 4px; align-items: center; }
+    .page-pill-btn { min-width: 28px; height: 28px; padding: 0 6px; font-size: 11px; font-weight: 600; border-radius: var(--radius-sm); border: 1px solid var(--color-border); background: var(--color-bg-surface-2); color: var(--color-text-secondary); cursor: pointer; transition: all var(--transition-fast); }
+    .page-pill-btn:hover { border-color: var(--color-primaire); color: var(--color-text-primary); }
+    .page-pill-btn--active { background: var(--color-primaire) !important; color: #fff !important; border-color: var(--color-primaire) !important; }
   `],
 })
 export class AlternIAInsightsComposant implements OnInit {
@@ -222,8 +272,44 @@ export class AlternIAInsightsComposant implements OnInit {
   questionsFiltrees = signal<QuestionFrequente[]>([]);
   notions = signal<NotionRenforcer[]>([]);
 
+  pageActuelle = signal(1);
+  lignesParPage = signal(6);
+
   rechercheQuestion = '';
   matiereFiltre = 'toutes';
+
+  readonly totalPages = computed(() => {
+    const total = this.questionsFiltrees().length;
+    return Math.max(1, Math.ceil(total / this.lignesParPage()));
+  });
+
+  readonly pagesList = computed(() => {
+    const total = this.totalPages();
+    const current = this.pageActuelle();
+    const pages: number[] = [];
+    for (let i = 1; i <= total; i++) {
+      if (i === 1 || i === total || (i >= current - 2 && i <= current + 2)) {
+        pages.push(i);
+      }
+    }
+    return pages;
+  });
+
+  readonly questionsPaginees = computed(() => {
+    const list = this.questionsFiltrees();
+    const debut = (this.pageActuelle() - 1) * this.lignesParPage();
+    return list.slice(debut, debut + this.lignesParPage());
+  });
+
+  readonly indexDebut = computed(() => {
+    if (this.questionsFiltrees().length === 0) return 0;
+    return (this.pageActuelle() - 1) * this.lignesParPage() + 1;
+  });
+
+  readonly indexFin = computed(() => {
+    const fin = this.pageActuelle() * this.lignesParPage();
+    return Math.min(fin, this.questionsFiltrees().length);
+  });
 
   readonly maxOccurrences = computed(() => {
     const list = this.questions();
@@ -254,6 +340,25 @@ export class AlternIAInsightsComposant implements OnInit {
       list = list.filter(q => q.question.toLowerCase().includes(term) || q.chapitre.toLowerCase().includes(term));
     }
     this.questionsFiltrees.set(list);
+    this.pageActuelle.set(1);
+  }
+
+  allerPage(page: number): void {
+    if (page >= 1 && page <= this.totalPages()) {
+      this.pageActuelle.set(page);
+    }
+  }
+
+  pageSuivante(): void {
+    if (this.pageActuelle() < this.totalPages()) {
+      this.pageActuelle.set(this.pageActuelle() + 1);
+    }
+  }
+
+  pagePrecedente(): void {
+    if (this.pageActuelle() > 1) {
+      this.pageActuelle.set(this.pageActuelle() - 1);
+    }
   }
 
   generateSparklinePath(points: number[]): string {

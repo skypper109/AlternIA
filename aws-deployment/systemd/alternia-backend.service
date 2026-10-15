@@ -1,0 +1,36 @@
+[Unit]
+Description=AlternIA Backend API - Tuteur Pedagogique Intelligent (FastAPI 4-Workers)
+After=network.target network-online.target qdrant.service mysql.service mariadb.service
+Wants=network-online.target qdrant.service
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/AlternIA
+Environment="PATH=/home/ubuntu/AlternIA/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+EnvironmentFile=-/home/ubuntu/AlternIA/.env
+Environment="PYTHONUNBUFFERED=1"
+Environment="PYTHONPATH=/home/ubuntu/AlternIA:/home/ubuntu/AlternIA/backend/src:/home/ubuntu/AlternIA/ai-engine/src"
+Environment="OMP_NUM_THREADS=4"
+Environment="MKL_NUM_THREADS=4"
+
+# Démarrage avec 4 workers Uvicorn tirant parti des 4 vCPUs du t3.xlarge
+ExecStart=/home/ubuntu/AlternIA/.venv/bin/uvicorn backend.src.main:app --host 0.0.0.0 --port 8000 --workers 4 --proxy-headers --forwarded-allow-ips=* --timeout-keep-alive 65
+
+# Redémarrage automatique garanti en cas de crash ou reboot
+Restart=always
+RestartSec=5
+KillMode=mixed
+TimeoutStopSec=30
+
+# Limites de fichiers pour fortes charges concurrentes
+LimitNOFILE=65536
+
+# Journalisation systemd
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=alternia-backend
+
+[Install]
+WantedBy=multi-user.target

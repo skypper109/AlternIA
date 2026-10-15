@@ -11,7 +11,8 @@ export class VortexUI {
     statusDotId = 'status-dot',
     canvasId = 'alta-avatar-canvas',
     defaultImageUrl = null,
-    isLogoMode = false
+    isLogoMode = false,
+    isSquareMode = false
   } = {}) {
     this.coreWrapper = document.getElementById(coreWrapperId);
     this.statusText = document.getElementById(statusTextId);
@@ -24,7 +25,8 @@ export class VortexUI {
       this.animator = new DeviceAvatarAnimator(canvas, {
         themeColor: '#0284C7',
         enableMouseTracking: false,
-        isLogoMode: isLogoMode
+        isLogoMode: isLogoMode,
+        isSquareMode: isSquareMode
       });
       if (defaultImageUrl) {
         this.animator.setImage(defaultImageUrl);

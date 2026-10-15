@@ -103,6 +103,7 @@ export class GestionAvatarsComposant implements OnInit, OnDestroy {
     description: 'Bienveillant, rigoureux et interactif',
     matiere: Matiere.SVT,
     voixId: 'vivienne',
+    faceId: 'bb1212ec-2cc5-4ca0-ad32-4a4427600345',
     parDefaut: true,
   };
   formImageUrl = signal<string | null>(null);
@@ -378,6 +379,7 @@ export class GestionAvatarsComposant implements OnInit, OnDestroy {
       description: 'Bienveillant, rigoureux et interactif',
       matiere: Matiere.SVT,
       voixId: 'vivienne',
+      faceId: 'bb1212ec-2cc5-4ca0-ad32-4a4427600345',
       parDefaut: true,
     };
     this.formImageUrl.set(null);
@@ -506,6 +508,7 @@ export class GestionAvatarsComposant implements OnInit, OnDestroy {
       matiere: this.avatarForm.matiere,
       stylePedagogique: this.avatarForm.description,
       voixTts: this.avatarForm.voixId,
+      faceId: this.avatarForm.faceId,
       photoUrl: this.formImageUrl() || (hasVisemes ? visemes['REST'] : undefined),
       videoUrl: this.formVideoUrl() || undefined,
       parDefaut: this.avatarForm.parDefaut,

@@ -1,0 +1,17 @@
+[Unit]
+Description=Alta-Box LED Indicator Daemon (Pi 5 Native & GPIO)
+After=multi-user.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/home/ubuntu/AlternIA/raspberry-pi
+ExecStart=/usr/bin/python3 /home/ubuntu/AlternIA/raspberry-pi/agent/led_indicator.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=alta-led
+
+[Install]
+WantedBy=multi-user.target

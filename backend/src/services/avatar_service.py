@@ -187,6 +187,7 @@ def map_avatar_to_dict(av: AvatarPedagogique) -> Dict[str, Any]:
         "matiere": av.matiere,
         "stylePedagogique": av.style_pedagogique,
         "voixTts": av.voix_tts,
+        "faceId": av.face_id,
         "photoUrl": av.photo_url,
         "videoUrl": video_url,
         "audioUrl": av.audio_sample_url,
@@ -307,6 +308,7 @@ def get_active_avatar(db: Session) -> Dict[str, Any]:
             matiere="SVT & Sciences Naturelles",
             style_pedagogique="Chaleureuse, bienveillante et explicite avec exemples concrets",
             voix_tts="vivienne",
+            face_id="bb1212ec-2cc5-4ca0-ad32-4a4427600345",
             photo_url="assets/avatars/vivienne.svg",
             actif=True,
             par_defaut=True,
@@ -349,6 +351,7 @@ def create_avatar(db: Session, req: AvatarCreateRequest) -> Dict[str, Any]:
         matiere=req.matiere.strip(),
         style_pedagogique=req.style_pedagogique or "Bienveillant, rigoureux et interactif",
         voix_tts=req.voix_tts or "vivienne",
+        face_id=req.face_id or "bb1212ec-2cc5-4ca0-ad32-4a4427600345",
         photo_url=req.photo_url or "assets/avatars/vivienne.svg",
         video_url=req.video_url,
         audio_sample_url=req.audio_sample_url,
@@ -378,6 +381,8 @@ def update_avatar(db: Session, avatar_id: str, req: AvatarUpdateRequest) -> Dict
         av.style_pedagogique = req.style_pedagogique
     if req.voix_tts is not None:
         av.voix_tts = req.voix_tts
+    if req.face_id is not None:
+        av.face_id = req.face_id
     if req.video_url is not None:
         av.video_url = req.video_url
     if req.photo_url is not None:
@@ -489,7 +494,7 @@ async def save_viseme_photo(file: UploadFile, viseme_id: str) -> Dict[str, Any]:
 async def test_voice_audio(req: StudioVocalTestRequest) -> Response:
     """Génère un test audio pour le Studio Vocal (voix neurale haute fidélité)."""
     phrase = req.phrase or "Bonjour ! Je suis ton enseignant virtuel AlternIA. Quelle notion souhaites-tu réviser aujourd'hui ?"
-    tts_engine = TTSEngine(voice=req.voix or "vivienne")
+    tts_engine = TTSEngine(voice=req.voix or "henri")
     try:
         audio_bytes = await tts_engine.synthesize_to_bytes(phrase)
         if not audio_bytes:
@@ -541,7 +546,7 @@ async def generate_avatar_video(
 
     nom_prof = (nom or (avatar.nom if avatar else "ton professeur")).strip()
     matiere_nom = (matiere or (avatar.matiere if avatar else "SVT & Sciences Naturelles")).strip()
-    chosen_voice = (voice or (avatar.voix_tts if avatar else "vivienne")).strip().lower()
+    chosen_voice = (voice or (avatar.voix_tts if avatar else "henri")).strip().lower()
 
     # Discours de présentation officiel de l'enseignant
     text_to_speak = phrase or f"Bonjour ! Je suis {nom_prof}. Je suis prêt à t'expliquer toutes les notions de {matiere_nom}. Pose-moi toutes tes questions !"
@@ -628,7 +633,20 @@ async def generate_avatar_video(
             is_gpu_accelerated = service.is_available()
 
         if not generated_video:
-            raise HTTPException(status_code=500, detail="Échec de la génération vidéo de l'avatar.")
+            logger.warning("[AvatarService] Génération vidéo Simli non disponible, bascule automatique sur fallback audio.")
+            audio_filename = f"audio_fallback_{int(asyncio.get_event_loop().time())}.mp3"
+            local_target_audio = LOCAL_VIDEOS_DIR / audio_filename
+            shutil.copy2(str(temp_audio_path), str(local_target_audio))
+            return {
+                "status": "fallback_audio",
+                "video_url": None,
+                "audio_url": f"/api/avatars/videos/{audio_filename}",
+                "phrase": text_to_speak,
+                "voice": chosen_voice,
+                "nom": nom_prof,
+                "matiere": matiere_nom,
+                "message": "Vidéo Simli temporairement indisponible, rendu vocal instantané.",
+            }
 
         video_path = Path(generated_video)
         video_filename = video_path.name

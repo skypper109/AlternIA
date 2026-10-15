@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import math
 import re
 import time
@@ -7,7 +9,7 @@ from alternia.core.models import (
     StudentQuestion,
 )
 from alternia.rag.embeddings import EmbeddingService
-from alternia.rag.vector_store import LocalVectorStore
+from alternia.rag.vector_store import LocalVectorStore, VectorStore
 
 
 class SemanticRetriever:
@@ -31,7 +33,7 @@ class SemanticRetriever:
     def __init__(
         self,
         embedding_service: EmbeddingService,
-        vector_store: LocalVectorStore,
+        vector_store: VectorStore,
     ):
         self.embedding_service = embedding_service
         self.vector_store = vector_store
