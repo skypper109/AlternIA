@@ -248,6 +248,18 @@ class GeminiLLMClient(LLMClient):
 
         models_to_try = [self.model] + [m for m in FALLBACK_GEMINI_MODELS if m != self.model]
 
+        if not self.api_key or not self.api_key.startswith("AIzaSy"):
+            print(f"\033[1;33m⚠️ [GeminiLLMClient] Clé API Gemini manquante ou invalide (doit débuter par 'AIzaSy'). Bascule immédiate sur le secours...\033[0m")
+            if self.fallback_client is not None:
+                return self.fallback_client.generate(
+                    prompt=prompt,
+                    messages=messages,
+                    system_prompt=system_prompt,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                )
+            raise RuntimeError("Clé Gemini invalide et aucun client de secours disponible.")
+
         for model_candidate in models_to_try:
             try:
                 # 1. Essai via SDK genai si disponible
@@ -357,6 +369,19 @@ class GeminiLLMClient(LLMClient):
         print(f"\033[1;36m│ 🎙️ [Stream Gemini en direct] :\033[0m\n", flush=True)
 
         models_to_try = [self.model] + [m for m in FALLBACK_GEMINI_MODELS if m != self.model]
+
+        if not self.api_key or not self.api_key.startswith("AIzaSy"):
+            print(f"\033[1;33m⚠️ [GeminiLLMClient] Clé API Gemini manquante ou invalide (doit débuter par 'AIzaSy'). Bascule stream immédiate sur le secours...\033[0m")
+            if self.fallback_client is not None:
+                yield from self.fallback_client.generate_stream(
+                    prompt=prompt,
+                    messages=messages,
+                    system_prompt=system_prompt,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                )
+                return
+            raise RuntimeError("Clé Gemini invalide et aucun client de secours disponible.")
 
         for model_candidate in models_to_try:
             # 1. Essai via SDK genai
