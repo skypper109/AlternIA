@@ -19,10 +19,7 @@ import socket
 import subprocess
 from pathlib import Path
 
-try:
-    import urllib.request
-except ImportError:
-    pass
+import urllib.request
 
 SERVER_URL = os.environ.get("ALTERNIA_API_URL", "https://api.alterniamali.com")
 BOITIER_ID = os.environ.get("BOITIER_ID", "Alta-box1")

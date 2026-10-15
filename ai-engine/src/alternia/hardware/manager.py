@@ -77,7 +77,7 @@ class HardwareManager:
             return
 
         try:
-            import RPi.GPIO as GPIO  # pyrefly: ignore
+            import RPi.GPIO as GPIO  # type: ignore
             GPIO.setmode(GPIO.BCM)
             GPIO.setwarnings(False)
 
@@ -113,7 +113,7 @@ class HardwareManager:
             return
 
         try:
-            import RPi.GPIO as GPIO  # pyrefly: ignore
+            import RPi.GPIO as GPIO  # type: ignore
             if status in {"ready", "idle"}:
                 GPIO.output(self.PIN_LED_GREEN, GPIO.HIGH)
                 GPIO.output(self.PIN_LED_BLUE, GPIO.LOW)
@@ -136,7 +136,7 @@ class HardwareManager:
     def _start_button_listener(self) -> None:
         """Surveille les 4 boutons en tâche de fond avec anti-rebond."""
         def listener():
-            import RPi.GPIO as GPIO  # pyrefly: ignore
+            import RPi.GPIO as GPIO  # type: ignore
             last_b1 = GPIO.HIGH
             last_b2 = GPIO.HIGH
             last_b3 = GPIO.HIGH
@@ -200,7 +200,7 @@ class HardwareManager:
         self._stop_event.set()
         if self._gpio_available:
             try:
-                import RPi.GPIO as GPIO  # pyrefly: ignore
+                import RPi.GPIO as GPIO  # type: ignore
                 GPIO.cleanup()
             except Exception:
                 pass

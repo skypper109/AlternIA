@@ -47,6 +47,12 @@ class ESP32Simulator:
         self.mic_plugged = True
         self.battery = 96
 
+    @property
+    def is_connected(self) -> bool:
+        if not self.ws:
+            return False
+        return not getattr(self.ws, "closed", getattr(self.ws, "close_code", None) is not None)
+
     def print_led_display(self):
         """Affiche graphiquement l'état des LEDs physiques de l'ESP32."""
         g_led = f"{GREEN}● VERT (PIN 27) [ON]{RESET}" if self.current_led == "GREEN" else f"{RED}○ VERT (PIN 27) [OFF]{RESET}"
@@ -65,7 +71,7 @@ class ESP32Simulator:
         """Envoie périodiquement des données de télémétrie au serveur."""
         while self.running:
             try:
-                if self.ws and not self.ws.closed:
+                if self.is_connected and self.ws:
                     payload = {
                         "type": "telemetry",
                         "device_id": self.device_id,
@@ -85,6 +91,9 @@ class ESP32Simulator:
         """Écoute les commandes envoyées par le serveur AlternIA."""
         while self.running:
             try:
+                if not self.ws:
+                    await asyncio.sleep(0.5)
+                    continue
                 msg_str = await self.ws.recv()
                 data = json.loads(msg_str)
                 msg_type = data.get("type", "")
@@ -143,7 +152,7 @@ class ESP32Simulator:
             elif choice == "4":
                 self.mic_plugged = not self.mic_plugged
                 print(f"🎤 Micro désormais {'Branché' if self.mic_plugged else 'Débranché'}")
-                if self.ws and not self.ws.closed:
+                if self.is_connected and self.ws:
                     await self.ws.send(json.dumps({"type": "mic_status", "plugged": self.mic_plugged}))
                 # Si classe sélectionnée et micro branché -> BLANC
                 if self.mic_plugged and self.selected_class:
@@ -153,7 +162,7 @@ class ESP32Simulator:
                 self.print_led_display()
             elif choice == "5":
                 print(f"🔘 {YELLOW}Appui sur le bouton BOOT (Demande de parole de l'élève)...{RESET}")
-                if self.ws and not self.ws.closed:
+                if self.is_connected and self.ws:
                     await self.ws.send(json.dumps({
                         "type": "button_press",
                         "button": "boot",
@@ -170,7 +179,7 @@ class ESP32Simulator:
 
     async def send_class_selected(self, class_name: str):
         print(f"🎓 Notification sélection classe : {class_name}")
-        if self.ws and not self.ws.closed:
+        if self.is_connected and self.ws:
             await self.ws.send(json.dumps({
                 "type": "class_change",
                 "class": class_name,

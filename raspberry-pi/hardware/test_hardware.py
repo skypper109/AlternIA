@@ -44,7 +44,7 @@ print("\n[3/3] Test des 4 Boutons GPIO (GPIO 5, 6, 13, 19)...")
 print("Appuyez sur n'importe quel bouton. Appuyez sur Ctrl+C pour quitter.")
 
 try:
-    from gpiozero import Button
+    from gpiozero import Button  # type: ignore
     b1 = Button(5, pull_up=True)
     b2 = Button(6, pull_up=True)
     b3 = Button(13, pull_up=True)

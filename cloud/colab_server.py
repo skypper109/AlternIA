@@ -165,7 +165,7 @@ def ensure_environment():
     # 5. Vérification du support GPU CUDA dans llama-cpp-python
     is_llama_ready = False
     try:
-        import llama_cpp
+        import llama_cpp  # type: ignore
         is_llama_ready = True
     except Exception:
         is_llama_ready = False
@@ -262,8 +262,8 @@ def install_cloudflared() -> str:
     import urllib.request
     import tarfile
     
-    # Détection architecture Linux / macOS
-    machine = os.uname().machine.lower()
+    import platform
+    machine = platform.machine().lower()
     if sys.platform == "darwin":
         arch = "darwin-arm64" if "arm" in machine else "darwin-amd64"
         url = f"https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-{arch}.tgz"

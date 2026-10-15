@@ -672,10 +672,11 @@ async def generate_ai_duel_questions(
 
         # ── INTERROGATION DU MOTEUR RAG LOCAL POUR LE PROGRAMME MALIEN ──
         rag_context = ""
-        if getattr(orch, "rag_service", None) is not None:
+        rag_svc = getattr(orch, "rag_service", None)
+        if rag_svc is not None:
             try:
                 rag_query = f"{subject} leçons cours notions {period_key}"
-                ctx = orch.rag_service.retrieve(
+                ctx = rag_svc.retrieve(
                     question=rag_query,
                     student_class=norm_class,
                     subject=subject,

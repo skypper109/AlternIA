@@ -13,6 +13,7 @@ except Exception:
     pass
 
 
+
 PROJECT_ROOT = Path(__file__).resolve().parents[4]
 
 MULTILINGUAL_MODEL_PATH = (

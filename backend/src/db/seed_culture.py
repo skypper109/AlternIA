@@ -1232,9 +1232,10 @@ def seed_culture_data(db: Session, force: bool = False):
         from backend.src.db.sync_culture_database import sync_database
         sync_database(db)
         return
-    except Exception as exc:
-        logger.error(f"Erreur lors du peuplement CultureLens : {exc}")
-        print(f"⚠️ Erreur peuplement CultureLens : {exc}")
+    except Exception as sync_exc:
+        logger.debug(f"Sync automatique ignoré, passage au peuplement direct : {sync_exc}")
+
+    try:
 
         # 1. Insertion des Monuments (Bamako & National)
         for m in MONUMENTS_DATA:
@@ -1377,9 +1378,9 @@ def seed_culture_data(db: Session, force: bool = False):
                 ))
 
         db.commit()
-        print(f"✅ CultureLens peuplé avec succès : {len(MONUMENTS_DATA)} monuments enregistrés (dont {len([m for m in MONUMENTS_DATA if m['ville'] == 'Bamako'])} à Bamako), {len(PERSONNAGES_DATA)} personnages, {len(LIEUX_DATA)} terroirs, {len(CONTES_DATA)} contes, {len(PROVERBES_DATA)} proverbes et {len(PACKS_DATA)} packs.")
+        print(f"[OK] CultureLens peuplé avec succès : {len(MONUMENTS_DATA)} monuments enregistrés (dont {len([m for m in MONUMENTS_DATA if m['ville'] == 'Bamako'])} à Bamako), {len(PERSONNAGES_DATA)} personnages, {len(LIEUX_DATA)} terroirs, {len(CONTES_DATA)} contes, {len(PROVERBES_DATA)} proverbes et {len(PACKS_DATA)} packs.")
 
     except Exception as exc:
         db.rollback()
         logger.error(f"Erreur lors du peuplement CultureLens : {exc}")
-        print(f"⚠️ Erreur peuplement CultureLens : {exc}")
+        print(f"[WARN] Erreur peuplement CultureLens : {exc}")

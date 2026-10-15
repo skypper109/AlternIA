@@ -112,11 +112,11 @@ def get_statut_abonnement_apprenant(db: Session, student_id: str) -> Dict[str, A
             AbonnementUtilisateur.statut == "ACTIF",
             AbonnementUtilisateur.date_expiration > now,
         )
-        .order_by(desc(AbonnementUtilisateur.date_expiration))
+        .order_by(AbonnementUtilisateur.date_expiration.desc())  # type: ignore
         .first()
     )
 
-    if not abo:
+    if not abo or not abo.date_expiration:
         return {
             "est_premium": False,
             "statut": "STANDARD",
@@ -164,7 +164,7 @@ def souscrire_abonnement(
         .first()
     )
 
-    if abo_actif:
+    if abo_actif and abo_actif.date_expiration:
         date_debut = abo_actif.date_debut
         date_expiration = abo_actif.date_expiration + timedelta(days=offre.duree_jours)
         abo_actif.date_expiration = date_expiration
