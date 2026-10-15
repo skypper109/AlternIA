@@ -22,10 +22,12 @@ def seed_initial_data(db: Session, force: bool = False):
     from backend.src.services.security import hash_password
 
     from backend.src.db.seed_culture import seed_culture_data
+    from backend.src.db.seed_noms import seed_noms_data
 
     try:
-        # Toujours garantir le peuplement du patrimoine culturel CultureLens
+        # Toujours garantir le peuplement du patrimoine culturel et des patronymes
         seed_culture_data(db, force=force)
+        seed_noms_data(db, force=force)
 
         # Vérification si les données utilisateurs existent déjà
         existing_users = db.query(Utilisateur).all()
@@ -36,7 +38,7 @@ def seed_initial_data(db: Session, force: bool = False):
             db.commit()
             return
 
-        print("🌱 Peuplement initial de la base alta_db...")
+        print("[INIT] Peuplement initial de la base alta_db...")
 
         # 1. Établissement de référence
         etablissement = Etablissement(
@@ -251,10 +253,10 @@ def seed_initial_data(db: Session, force: bool = False):
         db.add_all([stat_1, stat_2])
 
         db.commit()
-        print("✅ Base de données alta_db peuplée avec succès.")
+        print("[OK] Base de donnees alta_db peuplee avec succes.")
     except Exception as exc:
         db.rollback()
-        print(f"⚠️ Erreur lors du peuplement de alta_db : {exc}")
+        print(f"[WARN] Erreur lors du peuplement de alta_db : {exc}")
     finally:
         db.close()
 
@@ -270,7 +272,7 @@ if __name__ == "__main__":
 
     from backend.src.db.database import init_db, SessionLocal
 
-    print("🚀 Initialisation et peuplement de la base alta_db...")
+    print("[START] Initialisation et peuplement de la base alta_db...")
     init_db()
     session = SessionLocal()
     seed_initial_data(session)
