@@ -129,14 +129,14 @@ APP_NAME=AlternIA
 APP_ENV=production
 DEBUG=false
 
-# LLM Providers (Groq Qwen 27B / Gemini 3 Flash)
-LLM_PROVIDER=groq
-LLM_MODEL=qwen/qwen3.8-27b
-LLM_API_KEY=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
+# LLM Providers (Gemini 2.5 Flash / Groq Qwen 27B)
+LLM_PROVIDER=gemini
+LLM_MODEL=gemini-2.5-flash
+LLM_API_KEY=AQ.Ab8RN6JGzagbZCG-VcH1I4tTAUGUmN9bB9nwWLDUsP1xTs0r5w
+GEMINI_API_KEY=AQ.Ab8RN6JGzagbZCG-VcH1I4tTAUGUmN9bB9nwWLDUsP1xTs0r5w
+GEMINI_MODEL=gemini-2.5-flash
 GROQ_API_KEY=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
 GROQ_MODEL=qwen/qwen3.8-27b
-GEMINI_API_KEY=AQ.Ab8RN6JGzagbZCG-VcH1I4tTAUGUmN9bB9nwWLDUsP1xTs0r5w
-GEMINI_MODEL=gemini-3-flash-preview
 
 # Backend & Base Vectorielle & MySQL
 BACKEND_HOST=0.0.0.0
@@ -174,7 +174,7 @@ fi
 
 sudo -u "$REAL_USER" .venv/bin/pip install --upgrade pip
 sudo -u "$REAL_USER" .venv/bin/pip install -r requirements.txt
-sudo -u "$REAL_USER" .venv/bin/pip install gunicorn python-multipart
+sudo -u "$REAL_USER" .venv/bin/pip install gunicorn python-multipart google-genai groq
 
 echo -e "\n${BLUE}[6/8] Compilation des applications frontends (Device Kiosk & Alta)...${NC}"
 if which npm > /dev/null 2>&1; then

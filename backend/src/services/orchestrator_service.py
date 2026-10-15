@@ -57,7 +57,7 @@ def get_orchestrator() -> AlterniaOrchestrator:
             n_batch=512,
         )
 
-    # 2. Client Gemini Cloud (Gemini 3 Flash / 2.5 Flash - Inférence illimitée)
+    # 2. Client Gemini Cloud (Gemini 2.5 Flash / Gemini 3.8 Flash - Haute cadence)
     gemini_api_key = (
         getattr(settings, "gemini_api_key", None)
         or os.getenv("GEMINI_API_KEY")
@@ -66,7 +66,7 @@ def get_orchestrator() -> AlterniaOrchestrator:
     gemini_model = (
         getattr(settings, "gemini_model", None)
         or os.getenv("GEMINI_MODEL")
-        or "gemini-3-flash-preview"
+        or "gemini-2.5-flash"
     )
     gemini_client = GeminiLLMClient(
         api_key=gemini_api_key,
@@ -92,22 +92,25 @@ def get_orchestrator() -> AlterniaOrchestrator:
     groq_client = GroqLLMClient(
         api_key=groq_api_key,
         model=groq_model,
-        fallback_client=gemini_client,
+        fallback_client=local_fallback,
     )
 
     # Chaîne de priorité intelligente :
-    # Si LLM_PROVIDER=gemini -> Gemini 3 Flash en premier, avec secours Groq Qwen
-    # Sinon -> Groq Qwen 27B en premier, avec secours Gemini 3 Flash illimité
-    provider = (os.getenv("LLM_PROVIDER") or getattr(settings, "llm_provider", "groq")).lower().strip()
-    if provider == "gemini":
+    # Par défaut -> Gemini 2.5 Flash en premier (haute vitesse, pas de blocage), avec secours Groq Qwen
+    # Si LLM_PROVIDER=groq -> Groq Qwen 27B en premier, avec secours Gemini
+    provider = (os.getenv("LLM_PROVIDER") or getattr(settings, "llm_provider", "gemini")).lower().strip()
+    if provider == "groq":
+        groq_client.fallback_client = gemini_client
+        gemini_client.fallback_client = local_fallback
+        llm_client = groq_client
+        state.model_name = f"Groq Cloud [{groq_model}] (Secours: Gemini & Local)"
+        print(f"\033[1;32m🚀 [OrchestratorService] LLM Principal : Groq API ({groq_model}) | Secours : Gemini & Local\033[0m")
+    else:
         gemini_client.fallback_client = groq_client
+        groq_client.fallback_client = local_fallback
         llm_client = gemini_client
         state.model_name = f"Gemini Cloud [{gemini_model}] (Secours: Groq & Local)"
-        print(f"\033[1;36m✨ [OrchestratorService] LLM Principal : Gemini 3 Flash ({gemini_model}) | Secours : Groq Qwen & Local\033[0m")
-    else:
-        llm_client = groq_client
-        state.model_name = f"Groq Cloud [{groq_model}] (Secours: Gemini 3 Flash & Local)"
-        print(f"\033[1;32m🚀 [OrchestratorService] LLM Principal : Groq API ({groq_model}) | Secours : Gemini 3 Flash & Local\033[0m")
+        print(f"\033[1;36m✨ [OrchestratorService] LLM Principal : Gemini Flash ({gemini_model}) | Secours : Groq & Local\033[0m")
 
     embedding_service = EmbeddingService()
     from alternia.rag.vector_store import get_vector_store

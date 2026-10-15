@@ -12,13 +12,13 @@ class Settings(BaseSettings):
     app_env: str = "development"
     debug: bool = True
 
-    llm_provider: str = "groq"
-    llm_model: str = "qwen/qwen3.8-27b"
+    llm_provider: str = "gemini"
+    llm_model: str = "gemini-2.5-flash"
     llm_api_key: str = ""
     groq_api_key: str = ""
     groq_model: str = "qwen/qwen3.8-27b"
     gemini_api_key: str = ""
-    gemini_model: str = "gemini-3-flash-preview"
+    gemini_model: str = "gemini-2.5-flash"
     
     # Local LLM (Privilégie le modèle 1.5B en local pour rapidité et faible empreinte RAM)
     @staticmethod
