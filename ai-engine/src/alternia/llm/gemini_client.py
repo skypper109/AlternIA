@@ -157,7 +157,10 @@ class GeminiLLMClient(LLMClient):
         req = urllib.request.Request(
             url,
             data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
+            headers={
+                "Content-Type": "application/json",
+                "x-goog-api-key": self.api_key,
+            },
             method="POST",
         )
 
@@ -195,7 +198,10 @@ class GeminiLLMClient(LLMClient):
         req = urllib.request.Request(
             url,
             data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
+            headers={
+                "Content-Type": "application/json",
+                "x-goog-api-key": self.api_key,
+            },
             method="POST",
         )
 
@@ -248,8 +254,8 @@ class GeminiLLMClient(LLMClient):
 
         models_to_try = [self.model] + [m for m in FALLBACK_GEMINI_MODELS if m != self.model]
 
-        if not self.api_key or not self.api_key.startswith("AIzaSy"):
-            print(f"\033[1;33m⚠️ [GeminiLLMClient] Clé API Gemini manquante ou invalide (doit débuter par 'AIzaSy'). Bascule immédiate sur le secours...\033[0m")
+        if not self.api_key or not (self.api_key.startswith("AIzaSy") or self.api_key.startswith("AQ.")):
+            print(f"\033[1;33m⚠️ [GeminiLLMClient] Clé API Gemini manquante ou format non reconnu. Bascule immédiate sur le secours...\033[0m")
             if self.fallback_client is not None:
                 return self.fallback_client.generate(
                     prompt=prompt,
@@ -325,7 +331,11 @@ class GeminiLLMClient(LLMClient):
                     return full_text
 
             except Exception as e:
-                print(f"\n\033[1;33m│ ⚠️ [Gemini API] Échec sur {model_candidate} ({e}), essai du suivant...\033[0m")
+                is_auth_error = any(code in str(e) for code in ("401", "403", "UNAUTHENTICATED", "ACCOUNT_STATE_INVALID"))
+                print(f"\n\033[1;33m│ ⚠️ [Gemini API] Échec sur {model_candidate} ({e})\033[0m")
+                if is_auth_error:
+                    print(f"\033[1;31m│ ❌ [Gemini API] Clé API non autorisée (compte de service désactivé/supprimé). Bascule immédiate sur le secours...\033[0m")
+                    break
                 continue
 
         # Fallback automatique vers Groq ou Local
@@ -370,8 +380,8 @@ class GeminiLLMClient(LLMClient):
 
         models_to_try = [self.model] + [m for m in FALLBACK_GEMINI_MODELS if m != self.model]
 
-        if not self.api_key or not self.api_key.startswith("AIzaSy"):
-            print(f"\033[1;33m⚠️ [GeminiLLMClient] Clé API Gemini manquante ou invalide (doit débuter par 'AIzaSy'). Bascule stream immédiate sur le secours...\033[0m")
+        if not self.api_key or not (self.api_key.startswith("AIzaSy") or self.api_key.startswith("AQ.")):
+            print(f"\033[1;33m⚠️ [GeminiLLMClient] Clé API Gemini manquante ou format non reconnu. Bascule stream immédiate sur le secours...\033[0m")
             if self.fallback_client is not None:
                 yield from self.fallback_client.generate_stream(
                     prompt=prompt,
@@ -444,7 +454,11 @@ class GeminiLLMClient(LLMClient):
                     return
 
             except Exception as e_rest:
-                print(f"\n\033[1;33m│ ⚠️ [Gemini REST Stream] Échec sur {model_candidate} ({e_rest}), essai du suivant...\033[0m")
+                is_auth_error = any(code in str(e_rest) for code in ("401", "403", "UNAUTHENTICATED", "ACCOUNT_STATE_INVALID"))
+                print(f"\n\033[1;33m│ ⚠️ [Gemini REST Stream] Échec sur {model_candidate} ({e_rest})\033[0m")
+                if is_auth_error:
+                    print(f"\033[1;31m│ ❌ [Gemini REST Stream] Clé API non autorisée (compte de service désactivé/supprimé). Bascule immédiate sur le secours...\033[0m")
+                    break
                 continue
 
         # Fallback automatique vers Groq ou Local
