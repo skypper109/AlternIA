@@ -24,6 +24,9 @@ class SoumettreDefiRequest(BaseModel):
     apprenant_classe: str
     reponses: Dict[str, int] = Field(description="Ex: {'q1': 0, 'q2': 1}")
     temps_ecoule_sec: int = Field(ge=1, description="Temps total mis par l'élève en secondes")
+    adversaire_nom: Optional[str] = Field(None, description="Nom du rival malien (fictif ou réel)")
+    adversaire_score: Optional[int] = Field(None, description="Score simulé ou réel du rival")
+    adversaire_temps_sec: Optional[int] = Field(None, description="Temps en secondes du rival")
 
 
 @router.get("/actifs")
@@ -40,7 +43,8 @@ def get_defis(
 def api_soumettre(req: SoumettreDefiRequest, db: Session = Depends(get_db)):
     """
     Validation serveur des réponses d'un Défi National :
-    Calcule le score, empêche les soumissions multiples, et crédite les pièces.
+    Calcule le score, permet de rejouer pour faire grimper son score,
+    confronte l'élève à son rival et n'attribue des pièces qu'en cas de victoire.
     """
     try:
         return soumettre_reponses_defi(
@@ -51,6 +55,9 @@ def api_soumettre(req: SoumettreDefiRequest, db: Session = Depends(get_db)):
             apprenant_classe=req.apprenant_classe,
             reponses=req.reponses,
             temps_ecoule_sec=req.temps_ecoule_sec,
+            adversaire_nom=req.adversaire_nom,
+            adversaire_score=req.adversaire_score,
+            adversaire_temps_sec=req.adversaire_temps_sec,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
