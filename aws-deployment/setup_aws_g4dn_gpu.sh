@@ -118,10 +118,17 @@ else
     nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader || true
 fi
 
-# Configuration des variables d'environnement CUDA
+# Configuration des variables d'environnement CUDA et installation de nvcc si nécessaire
+if ! which nvcc > /dev/null 2>&1; then
+    echo "📦 Installation du compilateur CUDA Toolkit (nvcc)..."
+    apt-get install -y nvidia-cuda-toolkit || true
+fi
+
+NVCC_BIN=$(which nvcc || find /usr -name nvcc 2>/dev/null | head -n 1 || echo "")
 CUDA_PATH="/usr/local/cuda"
-if [ ! -d "$CUDA_PATH" ]; then
-    # Recherche d'une version CUDA existante
+if [ -n "$NVCC_BIN" ]; then
+    CUDA_PATH=$(dirname $(dirname "$NVCC_BIN"))
+elif [ ! -d "$CUDA_PATH" ]; then
     for d in /usr/local/cuda-*; do
         if [ -d "$d" ]; then
             CUDA_PATH="$d"
@@ -129,14 +136,17 @@ if [ ! -d "$CUDA_PATH" ]; then
         fi
     done
 fi
+export CUDAToolkit_ROOT="$CUDA_PATH"
+export CUDA_HOME="$CUDA_PATH"
+export PATH="${CUDA_PATH}/bin:$PATH"
+export LD_LIBRARY_PATH="${CUDA_PATH}/lib64:${CUDA_PATH}/lib:$LD_LIBRARY_PATH"
 
 cat << EOF > /etc/profile.d/cuda.sh
 export PATH=${CUDA_PATH}/bin:\$PATH
-export LD_LIBRARY_PATH=${CUDA_PATH}/lib64:\$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=${CUDA_PATH}/lib64:${CUDA_PATH}/lib:\$LD_LIBRARY_PATH
 export CUDA_HOME=${CUDA_PATH}
+export CUDAToolkit_ROOT=${CUDA_PATH}
 EOF
-export PATH=${CUDA_PATH}/bin:$PATH
-export LD_LIBRARY_PATH=${CUDA_PATH}/lib64:$LD_LIBRARY_PATH
 
 echo -e "\n${BLUE}[4/7] Installation de Cloudflare Tunnel (cloudflared)...${NC}"
 if ! which cloudflared > /dev/null 2>&1; then
@@ -178,13 +188,32 @@ echo "📦 Installation de PyTorch avec support CUDA 12..."
 sudo -u "$REAL_USER" .venv/bin/pip install --upgrade pip
 sudo -u "$REAL_USER" .venv/bin/pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 
-echo "⚡ Compilation de llama-cpp-python avec accélération NVIDIA CUDA (Turing/T4)..."
-sudo -u "$REAL_USER" bash -c "
-export PATH=${CUDA_PATH}/bin:\$PATH
-export LD_LIBRARY_PATH=${CUDA_PATH}/lib64:\$LD_LIBRARY_PATH
-export CMAKE_ARGS=\"-DGGML_CUDA=on -DGGML_AVX512=off\"
-.venv/bin/pip install --no-cache-dir --force-reinstall --no-binary llama-cpp-python llama-cpp-python
-"
+echo "⚡ Installation de llama-cpp-python avec accélération matérielle NVIDIA CUDA..."
+LLAMA_INSTALLED=false
+
+# 1. Tentative d'installation directe via wheel précompilé CUDA (rapide, fiable, sans besoin de compiler)
+for cu_ver in cu121 cu122 cu124 cu120; do
+    if sudo -u "$REAL_USER" .venv/bin/pip install llama-cpp-python \
+        --extra-index-url "https://abetlen.github.io/llama-cpp-python/whl/${cu_ver}" \
+        --no-cache-dir; then
+        echo "✅ llama-cpp-python installé avec succès via wheel précompilé ($cu_ver) !"
+        LLAMA_INSTALLED=true
+        break
+    fi
+done
+
+# 2. Si le wheel précompilé n'est pas disponible, compilation locale avec nvcc
+if [ "$LLAMA_INSTALLED" = false ]; then
+    echo "⚡ Compilation locale de llama-cpp-python avec nvcc (CUDA)..."
+    sudo -u "$REAL_USER" bash -c "
+    export PATH=${CUDA_PATH}/bin:\$PATH
+    export LD_LIBRARY_PATH=${CUDA_PATH}/lib64:${CUDA_PATH}/lib:\$LD_LIBRARY_PATH
+    export CUDA_HOME=${CUDA_PATH}
+    export CUDAToolkit_ROOT=${CUDA_PATH}
+    export CMAKE_ARGS=\"-DGGML_CUDA=on -DGGML_AVX512=off\"
+    .venv/bin/pip install --no-cache-dir --force-reinstall --no-binary llama-cpp-python llama-cpp-python
+    "
+fi
 
 echo "📦 Installation des dépendances du projet AlternIA..."
 sudo -u "$REAL_USER" .venv/bin/pip install -q \
