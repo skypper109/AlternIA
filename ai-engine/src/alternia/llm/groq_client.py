@@ -33,10 +33,19 @@ class LazyLocalLLMClient(LLMClient):
     Permet d'économiser plusieurs gigaoctets de RAM et 100% de CPU au démarrage normal.
     """
 
-    def __init__(self, model_path: str, n_ctx: int = 4096, n_batch: int = 512):
+    def __init__(
+        self,
+        model_path: str,
+        n_ctx: int = 4096,
+        n_batch: int = 512,
+        n_gpu_layers: int | None = None,
+        n_threads: int | None = None,
+    ):
         self.model_path = model_path
         self.n_ctx = n_ctx
         self.n_batch = n_batch
+        self.n_gpu_layers = n_gpu_layers
+        self.n_threads = n_threads
         self._real_client: LLMClient | None = None
 
     def _get_client(self) -> LLMClient:
@@ -47,6 +56,8 @@ class LazyLocalLLMClient(LLMClient):
                 model_path=self.model_path,
                 n_ctx=self.n_ctx,
                 n_batch=self.n_batch,
+                n_gpu_layers=self.n_gpu_layers,
+                n_threads=self.n_threads,
             )
             print(f"\033[1;32m✅ [LazyLocalLLMClient] Modèle local chargé en mémoire pour le secours.\033[0m\n")
         return self._real_client

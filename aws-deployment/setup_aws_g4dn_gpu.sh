@@ -1,0 +1,202 @@
+#!/bin/bash
+# ==============================================================================
+# Script d'Installation & Configuration Optimisée pour Serveur AWS EC2 g4dn.2xlarge
+# Spécifications : NVIDIA T4 (16 Go VRAM) | 8 vCPUs | 32 Go RAM | Ubuntu 22.04 LTS
+# Rôle : Remplace le serveur RunPod Ada pour l'inférence locale Qwen + LivePortrait
+# ==============================================================================
+
+set -e
+
+# Couleurs
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+PURPLE='\033[0;35m'
+NC='\033[0m'
+
+echo -e "${BLUE}==============================================================================${NC}"
+echo -e "${GREEN}   🚀  ALTERNIA — INSTALLATION SERVEUR AWS GPU g4dn.2xlarge (NVIDIA T4)  🚀${NC}"
+echo -e "${BLUE}==============================================================================${NC}"
+
+if [ "$EUID" -ne 0 ]; then
+    echo -e "${RED}❌ Veuillez exécuter ce script avec les droits root (sudo ./setup_aws_g4dn_gpu.sh)${NC}"
+    exit 1
+fi
+
+REAL_USER=${SUDO_USER:-ubuntu}
+USER_HOME=$(eval echo "~$REAL_USER")
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+APP_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+echo -e "\n${BLUE}[1/7] Optimisation du noyau Linux et configuration Swap (4 Go)...${NC}"
+if [ ! -f /swapfile ]; then
+    fallocate -l 4G /swapfile
+    chmod 600 /swapfile
+    mkswap /swapfile
+    swapon /swapfile
+    echo '/swapfile none swap sw 0 0' >> /etc/fstab
+    echo "✅ Swap 4 Go configuré pour sécuriser les 32 Go de RAM."
+fi
+
+cat << 'EOF' > /etc/sysctl.d/99-alternia-gpu.conf
+vm.max_map_count=262144
+vm.swappiness=10
+net.core.somaxconn=65535
+fs.file-max=2097152
+EOF
+sysctl --system > /dev/null
+echo "✅ Paramètres noyau appliqués."
+
+echo -e "\n${BLUE}[2/7] Installation des dépendances système & compilation...${NC}"
+apt-get update -y
+apt-get install -y \
+    build-essential \
+    cmake \
+    curl \
+    git \
+    wget \
+    tar \
+    unzip \
+    htop \
+    jq \
+    python3 \
+    python3-pip \
+    python3-venv \
+    python3-dev \
+    libportaudio2 \
+    libasound2-dev \
+    portaudio19-dev \
+    ffmpeg \
+    poppler-utils \
+    tesseract-ocr \
+    tesseract-ocr-fra
+
+echo -e "\n${BLUE}[3/7] Détection et configuration des pilotes NVIDIA CUDA (T4)...${NC}"
+if ! which nvidia-smi > /dev/null 2>&1; then
+    echo -e "${YELLOW}⚡ Pilote NVIDIA non détecté. Installation automatique du pilote propriétaire recommandé...${NC}"
+    apt-get install -y linux-headers-$(uname -r)
+    apt-get install -y nvidia-driver-535 nvidia-utils-535
+    echo -e "${YELLOW}⚠️ Pilote NVIDIA installé. Si nvidia-smi ne répond pas immédiatement, un redémarrage ('sudo reboot') peut être requis.${NC}"
+else
+    echo "✅ GPU NVIDIA détecté avec succès :"
+    nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader || true
+fi
+
+# Configuration des variables d'environnement CUDA
+CUDA_PATH="/usr/local/cuda"
+if [ ! -d "$CUDA_PATH" ]; then
+    # Recherche d'une version CUDA existante
+    for d in /usr/local/cuda-*; do
+        if [ -d "$d" ]; then
+            CUDA_PATH="$d"
+            break
+        fi
+    done
+fi
+
+cat << EOF > /etc/profile.d/cuda.sh
+export PATH=${CUDA_PATH}/bin:\$PATH
+export LD_LIBRARY_PATH=${CUDA_PATH}/lib64:\$LD_LIBRARY_PATH
+export CUDA_HOME=${CUDA_PATH}
+EOF
+export PATH=${CUDA_PATH}/bin:$PATH
+export LD_LIBRARY_PATH=${CUDA_PATH}/lib64:$LD_LIBRARY_PATH
+
+echo -e "\n${BLUE}[4/7] Installation de Cloudflare Tunnel (cloudflared)...${NC}"
+if ! which cloudflared > /dev/null 2>&1; then
+    curl -L --output /tmp/cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+    dpkg -i /tmp/cloudflared.deb
+    rm -f /tmp/cloudflared.deb
+    echo "✅ cloudflared binaire installé."
+else
+    echo "ℹ️ cloudflared déjà présent."
+fi
+
+echo -e "\n${BLUE}[5/7] Configuration de l'environnement Python & compilation llama-cpp CUDA...${NC}"
+cd "$APP_DIR"
+chown -R "$REAL_USER:$REAL_USER" "$APP_DIR"
+
+if [ ! -d ".venv" ]; then
+    sudo -u "$REAL_USER" python3 -m venv .venv
+    echo "✅ Environnement virtuel '.venv' créé."
+fi
+
+echo "📦 Installation de PyTorch avec support CUDA 12..."
+sudo -u "$REAL_USER" .venv/bin/pip install --upgrade pip
+sudo -u "$REAL_USER" .venv/bin/pip install -q torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+
+echo "⚡ Compilation de llama-cpp-python avec accélération NVIDIA CUDA (Turing/T4)..."
+sudo -u "$REAL_USER" bash -c "
+export PATH=${CUDA_PATH}/bin:\$PATH
+export LD_LIBRARY_PATH=${CUDA_PATH}/lib64:\$LD_LIBRARY_PATH
+export CMAKE_ARGS=\"-DGGML_CUDA=on -DGGML_AVX512=off\"
+.venv/bin/pip install --no-cache-dir --force-reinstall --no-binary llama-cpp-python llama-cpp-python
+"
+
+echo "📦 Installation des dépendances du projet AlternIA..."
+sudo -u "$REAL_USER" .venv/bin/pip install -q \
+    numpy==1.26.4 \
+    scipy==1.13.1 \
+    scikit-learn \
+    opencv-python-headless \
+    fastapi \
+    uvicorn[standard] \
+    pydantic-settings \
+    sentence-transformers \
+    edge-tts \
+    python-multipart \
+    faster-whisper \
+    simli-ai \
+    qdrant-client
+
+echo -e "\n${BLUE}[6/7] Téléchargement du modèle Qwen 2.5 embarqué (GGUF)...${NC}"
+MODELS_DIR="$APP_DIR/ai-engine/models/llm"
+sudo -u "$REAL_USER" mkdir -p "$MODELS_DIR"
+
+# Modèle recommandé pour g4dn (16 Go VRAM) : Qwen 2.5 7B Instruct (Q4_K_M ~4.5 Go)
+MODEL_7B="$MODELS_DIR/qwen2.5-7b-instruct-q4_k_m.gguf"
+MODEL_3B="$MODELS_DIR/qwen2.5-3b-instruct-q4_k_m.gguf"
+
+if [ ! -f "$MODEL_7B" ] && [ ! -f "$MODEL_3B" ]; then
+    echo -e "${YELLOW}📥 Téléchargement de Qwen 2.5 7B Instruct (Optimisé pour VRAM 16 Go T4)...${NC}"
+    sudo -u "$REAL_USER" curl -L -o "$MODEL_7B" \
+        "https://huggingface.co/Qwen/Qwen2.5-7B-Instruct-GGUF/resolve/main/qwen2.5-7b-instruct-q4_k_m.gguf"
+    echo "✅ Modèle Qwen 2.5 7B téléchargé avec succès."
+else
+    echo "ℹ️ Modèle local déjà présent dans $MODELS_DIR."
+fi
+
+echo -e "\n${BLUE}[7/7] Création des raccourcis de démarrage interactifs...${NC}"
+# 1. Raccourci GPU (T4 VRAM)
+cat << 'EOF' > "$APP_DIR/start_gpu.sh"
+#!/bin/bash
+cd "$(dirname "$0")"
+echo -e "\033[1;32m🚀 Démarrage d'AlternIA sur GPU NVIDIA T4 (16 Go VRAM) - Qwen Embarqué (Zéro API)\033[0m"
+.venv/bin/python3 cloud/colab_server.py --local --device gpu --quick "$@"
+EOF
+chmod +x "$APP_DIR/start_gpu.sh"
+chown "$REAL_USER:$REAL_USER" "$APP_DIR/start_gpu.sh"
+
+# 2. Raccourci CPU (8 vCPUs / 32 Go RAM)
+cat << 'EOF' > "$APP_DIR/start_cpu.sh"
+#!/bin/bash
+cd "$(dirname "$0")"
+echo -e "\033[1;33m⚙️ Démarrage d'AlternIA sur CPU (8 vCPUs) - VRAM 100% libre pour LivePortrait\033[0m"
+.venv/bin/python3 cloud/colab_server.py --local --device cpu --quick "$@"
+EOF
+chmod +x "$APP_DIR/start_cpu.sh"
+chown "$REAL_USER:$REAL_USER" "$APP_DIR/start_cpu.sh"
+
+echo -e "\n${GREEN}==============================================================================${NC}"
+echo -e "${GREEN}  🎉 SERVEUR AWS g4dn.2xlarge CONFIGURÉ AVEC SUCCÈS !                         ${NC}"
+echo -e "${GREEN}==============================================================================${NC}"
+echo -e "Deux commandes prêtes à l'emploi ont été créées dans votre dossier AlternIA :\n"
+echo -e "  1. ${PURPLE}./start_gpu.sh${NC}"
+echo -e "     -> Exécute Qwen 2.5 à 100% sur la carte GPU NVIDIA T4 (35 à 50 tokens/s)."
+echo -e "     -> ZÉRO appel vers Groq ou Gemini. 100% Hors-Ligne / Local."
+echo -e "     -> Génère un tunnel Cloudflare temporaire (ne perturbe pas votre serveur t3.xlarge).\n"
+echo -e "  2. ${YELLOW}./start_cpu.sh${NC}"
+echo -e "     -> Exécute Qwen 2.5 sur vos 8 vCPUs et 32 Go de RAM."
+echo -e "     -> Laisse 100% des 16 Go de VRAM libres pour la génération vidéo LivePortrait."
+echo -e "\nPour lancer immédiatement : ${BLUE}./start_gpu.sh${NC}"
