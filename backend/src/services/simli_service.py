@@ -154,8 +154,8 @@ class SimliBackendService:
         try:
             _patch_pyav_for_experimental_codecs()
 
-            from simli import SimliClient, SimliConfig
-            from simli.renderers.renderers import FileRenderer
+            from simli import SimliClient, SimliConfig  # type: ignore
+            from simli.renderers.renderers import FileRenderer  # type: ignore
 
             logger.info(f"[SimliBackendService] Lancement de la génération vidéo Simli (Face ID: {target_face_id})...")
             

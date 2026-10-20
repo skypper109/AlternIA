@@ -346,8 +346,10 @@ def verify_premium_code(db: Session, code: str) -> Dict[str, Any]:
             "simli_enabled": True,
         }
 
-    # 4. Vérification contre les matricules d'élèves inscrits
-    apprenant = db.query(Apprenant).filter(Apprenant.matricule.ilike(clean_code)).first()
+    # 4. Vérification contre les matricules ou identifiants d'élèves inscrits
+    apprenant = db.query(Apprenant).filter(
+        (Apprenant.matricule.ilike(clean_code)) | (Apprenant.id == clean_code)
+    ).first()
     if apprenant:
         return {
             "valide": True,
@@ -356,6 +358,28 @@ def verify_premium_code(db: Session, code: str) -> Dict[str, Any]:
             "type": "apprenant",
             "eleve": f"{apprenant.prenom} {apprenant.nom}",
             "plan": "AlterniA Élève Pro",
+            "simli_enabled": True,
+        }
+
+    # 5. Vérification contre les abonnements actifs
+    from backend.src.db.models import AbonnementUtilisateur
+    now = datetime.utcnow()
+    abo = (
+        db.query(AbonnementUtilisateur)
+        .filter(
+            AbonnementUtilisateur.apprenant_id == clean_code,
+            AbonnementUtilisateur.statut == "ACTIF",
+            AbonnementUtilisateur.date_expiration > now,
+        )
+        .first()
+    )
+    if abo:
+        return {
+            "valide": True,
+            "message": "Abonnement actif vérifié avec succès.",
+            "code": clean_code,
+            "type": "abonnement",
+            "plan": "AlterniA Pass Scolaire Actif",
             "simli_enabled": True,
         }
 

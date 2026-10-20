@@ -33,10 +33,19 @@ class LazyLocalLLMClient(LLMClient):
     Permet d'économiser plusieurs gigaoctets de RAM et 100% de CPU au démarrage normal.
     """
 
-    def __init__(self, model_path: str, n_ctx: int = 4096, n_batch: int = 512):
+    def __init__(
+        self,
+        model_path: str,
+        n_ctx: int = 4096,
+        n_batch: int = 512,
+        n_gpu_layers: int | None = None,
+        n_threads: int | None = None,
+    ):
         self.model_path = model_path
         self.n_ctx = n_ctx
         self.n_batch = n_batch
+        self.n_gpu_layers = n_gpu_layers
+        self.n_threads = n_threads
         self._real_client: LLMClient | None = None
 
     def _get_client(self) -> LLMClient:
@@ -47,6 +56,8 @@ class LazyLocalLLMClient(LLMClient):
                 model_path=self.model_path,
                 n_ctx=self.n_ctx,
                 n_batch=self.n_batch,
+                n_gpu_layers=self.n_gpu_layers,
+                n_threads=self.n_threads,
             )
             print(f"\033[1;32m✅ [LazyLocalLLMClient] Modèle local chargé en mémoire pour le secours.\033[0m\n")
         return self._real_client
@@ -150,6 +161,39 @@ class GroqLLMClient(LLMClient):
             res.append({"role": "user", "content": prompt})
         return res
 
+    def _call_via_rest(
+        self,
+        messages: list[dict[str, str]],
+        temperature: float,
+        max_tokens: int,
+        stream: bool = False,
+    ):
+        import json
+        import urllib.request
+
+        url = "https://api.groq.com/openai/v1/chat/completions"
+        payload = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": temperature,
+            "max_completion_tokens": max_tokens,
+            "top_p": self.top_p,
+            "stream": stream,
+        }
+        if "gpt-oss" in self.model.lower():
+            payload["reasoning_effort"] = "medium"
+
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json",
+                "User-Agent": "AlternIA-Engine/3.0 (Ubuntu; Linux x86_64)",
+            },
+        )
+        return urllib.request.urlopen(req, timeout=60)
+
     def generate(
         self,
         prompt: str | None = None,
@@ -185,7 +229,6 @@ class GroqLLMClient(LLMClient):
                     "top_p": self.top_p,
                     "stream": True,
                 }
-                # Support reasoning_effort si modèle de raisonnement spécifique
                 if "gpt-oss" in self.model.lower():
                     call_args["reasoning_effort"] = "medium"
 
@@ -205,13 +248,26 @@ class GroqLLMClient(LLMClient):
                 tps = token_count / max(elapsed, 0.001)
 
                 print(f"\n\n\033[1;35m├┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄\033[0m")
-                print(f"\033[1;35m│ ✅ [Groq API] Terminé avec succès en \033[1;33m{elapsed:.2f}s\033[0m (~{token_count} tokens | \033[1;32m{tps:.1f} tokens/s\033[0m)")
+                print(f"\033[1;35m│ ✅ [Groq API SDK] Terminé avec succès en \033[1;33m{elapsed:.2f}s\033[0m (~{token_count} tokens | \033[1;32m{tps:.1f} tokens/s\033[0m)")
                 print(f"\033[1;35m└─────────────────────────────────────────────────────────────────────────────────────────────\033[0m\n")
                 return full_text
 
             except Exception as e:
-                print(f"\n\033[1;31m│ ⚠️ [Groq API] Erreur lors de l'appel : {e}\033[0m")
-                print(f"\033[1;31m└─────────────────────────────────────────────────────────────────────────────────────────────\033[0m\n")
+                print(f"\n\033[1;31m│ ⚠️ [Groq API SDK] Erreur ({e}) -> essai REST direct...\033[0m")
+
+        # 2. Essai via REST direct si SDK indisponible ou en erreur
+        try:
+            import json
+            with self._call_via_rest(req_messages, eff_temp, eff_max, stream=False) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                full_text = data["choices"][0]["message"].get("content", "")
+                sys.stdout.write(full_text)
+                sys.stdout.flush()
+                elapsed = time.perf_counter() - start_time
+                print(f"\n\n\033[1;35m│ ✅ [Groq REST Direct] Terminé en \033[1;33m{elapsed:.2f}s\033[0m\n")
+                return full_text
+        except Exception as e_rest:
+            print(f"\n\033[1;31m│ ⚠️ [Groq REST Direct] Erreur : {e_rest}\033[0m")
 
         # Fallback automatique sur le client local ou secondaire si Groq échoue
         if self.fallback_client is not None:
@@ -277,13 +333,44 @@ class GroqLLMClient(LLMClient):
 
                 elapsed = time.perf_counter() - start_time
                 print(f"\n\n\033[1;35m├┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄\033[0m")
-                print(f"\033[1;35m│ ✅ [Groq Stream] Terminé en \033[1;33m{elapsed:.2f}s\033[0m ({chunk_count} morceaux)")
+                print(f"\033[1;35m│ ✅ [Groq SDK Stream] Terminé en \033[1;33m{elapsed:.2f}s\033[0m ({chunk_count} morceaux)")
                 print(f"\033[1;35m└─────────────────────────────────────────────────────────────────────────────────────────────\033[0m\n")
                 return
 
             except Exception as e:
-                print(f"\n\033[1;31m│ ⚠️ [Groq Stream] Erreur : {e}\033[0m")
-                print(f"\033[1;31m└─────────────────────────────────────────────────────────────────────────────────────────────\033[0m\n")
+                print(f"\n\033[1;31m│ ⚠️ [Groq SDK Stream] Erreur ({e}) -> essai REST direct...\033[0m")
+
+        # 2. Essai via REST direct (zéro dépendance externe)
+        try:
+            import json
+            chunk_count = 0
+            with self._call_via_rest(req_messages, eff_temp, eff_max, stream=True) as resp:
+                for raw_line in resp:
+                    line = raw_line.decode("utf-8").strip()
+                    if not line or not line.startswith("data:"):
+                        continue
+                    data_str = line[5:].strip()
+                    if data_str == "[DONE]":
+                        break
+                    try:
+                        data = json.loads(data_str)
+                        delta = data["choices"][0]["delta"].get("content", "")
+                        if delta:
+                            chunk_count += 1
+                            sys.stdout.write(delta)
+                            sys.stdout.flush()
+                            yield delta
+                    except Exception:
+                        continue
+
+            if chunk_count > 0:
+                elapsed = time.perf_counter() - start_time
+                print(f"\n\n\033[1;35m├┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄\033[0m")
+                print(f"\033[1;35m│ ✅ [Groq REST Stream] Terminé en \033[1;33m{elapsed:.2f}s\033[0m ({chunk_count} morceaux)")
+                print(f"\033[1;35m└─────────────────────────────────────────────────────────────────────────────────────────────\033[0m\n")
+                return
+        except Exception as e_rest:
+            print(f"\n\033[1;31m│ ⚠️ [Groq REST Stream] Erreur : {e_rest}\033[0m")
 
         # Fallback automatique
         if self.fallback_client is not None:

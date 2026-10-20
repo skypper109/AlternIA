@@ -169,7 +169,7 @@ def api_admin_audit_logs(
     q = db.query(JournalAuditSecurite)
     if action_type:
         q = q.filter(JournalAuditSecurite.action_type == action_type)
-    logs = q.order_by(desc(JournalAuditSecurite.date_action)).limit(limit).all()
+    logs = q.order_by(JournalAuditSecurite.date_action.desc()).limit(limit).all()  # type: ignore
 
     return [
         {

@@ -42,7 +42,7 @@ class LocalLlamaClient(LLMClient):
         self.max_tokens = max_tokens
 
         try:
-            from llama_cpp import Llama
+            from llama_cpp import Llama  # type: ignore
         except ImportError:
             raise ImportError(
                 "Le paquet llama-cpp-python n'est pas installé. "

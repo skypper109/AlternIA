@@ -36,7 +36,7 @@ gpio_available = False
 gpio_led = None
 
 try:
-    import gpiod
+    import gpiod  # type: ignore
     # Utilisation de libgpiod (standard officiel Pi 5 sous Bookworm)
     chip = gpiod.Chip('gpiochip4')
     gpio_led = chip.get_line(EXTERNAL_LED_PIN)
@@ -44,7 +44,7 @@ try:
     gpio_available = True
 except Exception:
     try:
-        from gpiozero import LED
+        from gpiozero import LED  # type: ignore
         gpio_led = LED(EXTERNAL_LED_PIN)
         gpio_available = True
     except Exception:

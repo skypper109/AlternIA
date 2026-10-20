@@ -147,7 +147,7 @@ def associer_et_valider_parrainage(
             .first()
         )
 
-        if abo_actif:
+        if abo_actif and abo_actif.date_expiration:
             # Prolonger l'abonnement
             abo_actif.date_expiration = abo_actif.date_expiration + timedelta(days=DUREE_PREMIUM_JOURS)
             premium_debloque = True
@@ -201,7 +201,7 @@ def get_referral_summary(db: Session, student_id: str, student_name: str = "√âl√
     filleuls = (
         db.query(ParrainageFilleul)
         .filter(ParrainageFilleul.parrain_id == student_id)
-        .order_by(desc(ParrainageFilleul.date_inscription))
+        .order_by(ParrainageFilleul.date_inscription.desc())  # type: ignore
         .all()
     )
 

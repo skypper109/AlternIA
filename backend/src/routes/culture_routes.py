@@ -42,6 +42,15 @@ class AskGuideRequest(BaseModel):
         extra = "allow"
 
 
+class SageChatRequest(BaseModel):
+    user_message: str = Field(..., description="Message de l'apprenant à Grand-mère Mah")
+    history: Optional[List[Dict[str, str]]] = Field(default=[], description="Historique de la conversation")
+    additional_context: Optional[str] = Field(None, description="Contexte régional ou patrimonial")
+
+    class Config:
+        extra = "allow"
+
+
 class DiscoveryRecordRequest(BaseModel):
     monument_id: str = Field(..., description="ID du monument scanné")
     apprenant_id: Optional[str] = Field(None, description="ID de l'apprenant")
@@ -279,3 +288,52 @@ def get_user_discoveries(
 ):
     """Récupère l'historique des découvertes enregistrées."""
     return CultureService.get_discoveries(db, apprenant_id=apprenant_id)
+
+
+# ==============================================================================
+# GRAND-MÈRE MAH, NOMS, PRÉNOMS ET VEILLÉE AU COIN DU FEU
+# ==============================================================================
+
+@router.post("/sage/chat")
+def chat_with_grandmere_mah(payload: SageChatRequest, db: Session = Depends(get_db)):
+    """
+    Endpoint conversationnel direct avec Grand-mère Mah sous le grand baobab au coin du feu.
+    Recherche et extrait en temps réel depuis la base de données alta_db l'histoire sacrée des
+    patronymes (Jamu), prénoms, totems (Tanan) et cousinage à plaisanterie (Senankouya).
+    """
+    return CultureService.chat_grandmere_mah(
+        db=db,
+        user_message=payload.user_message,
+        history=payload.history,
+        additional_context=payload.additional_context,
+    )
+
+
+@router.get("/names")
+def get_malian_names(
+    type: Optional[str] = Query(None, description="Filtrer par type : 'nom' (patronyme) ou 'prenom'"),
+    q: Optional[str] = Query(None, description="Recherche textuelle libre"),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
+    db: Session = Depends(get_db),
+):
+    """
+    Catalogue complet certifié des patronymes (Jamu) et prénoms du Mali avec étymologie,
+    clans, totems sacrés et cousinages à plaisanterie.
+    """
+    return CultureService.get_noms(db=db, type=type, query=q, skip=skip, limit=limit)
+
+
+@router.get("/names/{name_query}")
+def get_malian_name_detail(name_query: str, db: Session = Depends(get_db)):
+    """
+    Récupère la fiche généalogique détaillée et certifiée d'un nom ou prénom malien.
+    """
+    nom = CultureService.get_nom_by_id_or_exact_name(db, name_query)
+    if not nom:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Le nom ou prénom '{name_query}' est introuvable dans la généalogie des terroirs",
+        )
+    return nom
+

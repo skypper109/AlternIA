@@ -50,11 +50,13 @@ class DuelCreateRoomRequest(BaseModel):
     count: int = 5
     student_id: Optional[str] = None
     period: str = "trimestre_1"
+    duration_seconds: int = 15
 
 
 class DuelJoinRoomRequest(BaseModel):
     room_code: str
     player_name: str
+    class_level: Optional[str] = None
     player_id: Optional[str] = None
 
 
@@ -67,6 +69,9 @@ class DuelScoreUpdateRequest(BaseModel):
     player_name: str
     score: int
     question_index: int
+    is_host: Optional[bool] = None
+    player_id: Optional[str] = None
+    is_finished: bool = False
 
 
 class DuelMatchmakeRequest(BaseModel):
@@ -505,6 +510,7 @@ class DuelRoom:
         subject: str,
         questions: List[Dict[str, Any]],
         period: str = "trimestre_1",
+        duration_seconds: int = 15,
     ):
         self.code = code
         self.creator_name = creator_name
@@ -514,6 +520,7 @@ class DuelRoom:
         self.class_level = class_level
         self.subject = subject
         self.period = period
+        self.duration_seconds = duration_seconds
         self.questions = questions
         self.status = "WAITING_FOR_OPPONENT"  # WAITING_FOR_OPPONENT, WAITING_FOR_START, IN_PROGRESS, FINISHED
         self.created_at = time.time()
@@ -521,20 +528,28 @@ class DuelRoom:
         self.guest_score = 0
         self.creator_index = 0
         self.guest_index = 0
+        self.creator_finished = False
+        self.guest_finished = False
 
     def to_dict(self) -> Dict[str, Any]:
         return {
             "room_code": self.code,
             "status": self.status,
             "creator_name": self.creator_name,
+            "creator_id": self.creator_id,
             "guest_name": self.guest_name,
+            "guest_id": self.guest_id,
             "class_level": self.class_level,
             "subject": self.subject,
             "period": self.period,
+            "duration_seconds": self.duration_seconds,
             "creator_score": self.creator_score,
             "guest_score": self.guest_score,
             "creator_index": self.creator_index,
             "guest_index": self.guest_index,
+            "creator_finished": self.creator_finished,
+            "guest_finished": self.guest_finished,
+            "is_finished": self.status == "FINISHED",
             "questions_count": len(self.questions),
             "questions": self.questions,
             "created_at": self.created_at,
@@ -672,10 +687,11 @@ async def generate_ai_duel_questions(
 
         # ── INTERROGATION DU MOTEUR RAG LOCAL POUR LE PROGRAMME MALIEN ──
         rag_context = ""
-        if getattr(orch, "rag_service", None) is not None:
+        rag_svc = getattr(orch, "rag_service", None)
+        if rag_svc is not None:
             try:
                 rag_query = f"{subject} leçons cours notions {period_key}"
-                ctx = orch.rag_service.retrieve(
+                ctx = rag_svc.retrieve(
                     question=rag_query,
                     student_class=norm_class,
                     subject=subject,
@@ -799,12 +815,14 @@ async def api_create_duel_room(req: DuelCreateRoomRequest):
         subject=req.subject,
         questions=questions,
         period=req.period,
+        duration_seconds=req.duration_seconds,
     )
     DUEL_ROOMS[code] = room
 
     return {
         "status": "success",
         "room_code": code,
+        "duration_seconds": room.duration_seconds,
         "message": f"Salle de duel créée avec succès. Partage le code de validation {code} à ton ami.",
         "room": room.to_dict(),
         "questions": questions,
@@ -816,6 +834,7 @@ def api_join_duel_room(req: DuelJoinRoomRequest):
     """
     Rejoint une salle de duel existante en fournissant le CODE DE VALIDATION reçu de son ami.
     Place le salon en état WAITING_FOR_START pour que le joueur invité attende que l'hôte lance.
+    Vérifie la compatibilité de classe pour garantir l'équité scolaire.
     """
     code = req.room_code.strip().upper()
     room = DUEL_ROOMS.get(code)
@@ -838,6 +857,7 @@ def api_join_duel_room(req: DuelJoinRoomRequest):
             subject="Mathématiques",
             questions=demo_qs,
             period="trimestre_1",
+            duration_seconds=15,
         )
         DUEL_ROOMS[code] = room
 
@@ -853,6 +873,16 @@ def api_join_duel_room(req: DuelJoinRoomRequest):
             detail="Ce duel est déjà terminé.",
         )
 
+    # Contrôle strict de compatibilité de classe
+    if req.class_level and room.class_level:
+        norm_room = normalize_student_class(room.class_level)
+        norm_req = normalize_student_class(req.class_level)
+        if norm_room != norm_req:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Incompatibilité de classe : Ce salon est conçu pour la classe de '{room.class_level}', alors que ton niveau est '{req.class_level}'. Veuillez affronter un camarade de la même classe pour garantir l'équité du programme.",
+            )
+
     # Assigner le second joueur et placer le salon en attente de lancement par l'hôte
     room.guest_name = req.player_name
     room.guest_id = req.player_id or f"guest_{int(time.time()*1000)}"
@@ -861,6 +891,7 @@ def api_join_duel_room(req: DuelJoinRoomRequest):
     return {
         "status": "success",
         "room_code": code,
+        "duration_seconds": room.duration_seconds,
         "message": f"Connecté au salon ! En attente que {room.creator_name} lance le duel.",
         "opponent_name": room.creator_name,
         "room": room.to_dict(),
@@ -918,6 +949,7 @@ def api_get_duel_room(room_code: str):
 def api_update_duel_score(room_code: str, req: DuelScoreUpdateRequest):
     """
     Met à jour en temps réel le score et l'avancement d'un joueur dans une salle de duel.
+    Distingue rigoureusement l'hôte et l'invité même s'ils partagent le même prénom.
     """
     code = room_code.strip().upper()
     room = DUEL_ROOMS.get(code)
@@ -930,16 +962,29 @@ def api_update_duel_score(room_code: str, req: DuelScoreUpdateRequest):
     if not room:
         raise HTTPException(status_code=404, detail="Salle de duel introuvable.")
 
-    is_creator = req.player_name.strip().lower() == room.creator_name.strip().lower()
+    is_creator = False
+    if req.is_host is not None:
+        is_creator = req.is_host
+    elif req.player_id and room.creator_id and req.player_id == room.creator_id:
+        is_creator = True
+    elif req.player_id and room.guest_id and req.player_id == room.guest_id:
+        is_creator = False
+    else:
+        is_creator = req.player_name.strip().lower() == room.creator_name.strip().lower()
+
     if is_creator:
         room.creator_score = req.score
         room.creator_index = req.question_index
+        if req.is_finished or req.question_index >= len(room.questions):
+            room.creator_finished = True
     else:
         room.guest_score = req.score
         room.guest_index = req.question_index
+        if req.is_finished or req.question_index >= len(room.questions):
+            room.guest_finished = True
 
-    # Vérification de fin
-    if room.creator_index >= len(room.questions) - 1 and room.guest_index >= len(room.questions) - 1:
+    # Fin synchronisée : terminé UNIQUEMENT quand les deux élèves ont achevé le duel
+    if room.creator_finished and room.guest_finished:
         room.status = "FINISHED"
 
     return {
@@ -949,6 +994,8 @@ def api_update_duel_score(room_code: str, req: DuelScoreUpdateRequest):
         "guest_score": room.guest_score,
         "creator_index": room.creator_index,
         "guest_index": room.guest_index,
+        "creator_finished": room.creator_finished,
+        "guest_finished": room.guest_finished,
         "room_status": room.status,
         "is_finished": room.status == "FINISHED",
     }
@@ -1041,31 +1088,38 @@ def api_claim_duel_reward(req: DuelClaimRewardRequest):
     """
     Attribue et enregistre les récompenses de fin de duel côté serveur avec idempotence :
     - Victoire : +250 XP et +50 Pièces AlterniA
-    - Participation / Défaite : +50 XP et +10 Pièces AlterniA
+    - Défaite : +75 XP et 0 Pièce AlterniA (les pièces ne sont attribuées qu'en cas de victoire)
     """
-    xp = 250 if req.player_won else 50
-    coins = 50 if req.player_won else 10
+    xp = 250 if req.player_won else 75
+    coins = 50 if req.player_won else 0
 
-    from backend.src.db.database import get_db
-    from backend.src.services.wallet_service import credit_coins
+    if coins > 0:
+        from backend.src.db.database import get_db
+        from backend.src.services.wallet_service import credit_coins
 
-    db = next(get_db())
-    try:
-        # Clé d'idempotence basée sur le joueur, sujet et tranche de 60s
-        idemp_key = f"duel_{req.player_name.lower()}_{req.subject.lower()}_{int(time.time() // 60)}"
-        credit_coins(
-            db=db,
-            student_id=req.player_name,
-            amount=coins,
-            origine="BATTLE_DUEL",
-            description=f"Duel {'remporté' if req.player_won else 'terminé'} en {req.subject}",
-            idempotency_key=idemp_key,
-            metadata={"player_won": req.player_won, "score": req.score, "subject": req.subject},
-        )
-    except Exception as err:
-        print(f"⚠️ [DuelReward] Erreur persistance wallet : {err}")
-    finally:
-        db.close()
+        db = next(get_db())
+        try:
+            # Clé d'idempotence basée sur le joueur, sujet et tranche de 60s
+            idemp_key = f"duel_{req.player_name.lower()}_{req.subject.lower()}_{int(time.time() // 60)}"
+            credit_coins(
+                db=db,
+                student_id=req.player_name,
+                amount=coins,
+                origine="BATTLE_DUEL",
+                description=f"Duel {'remporté' if req.player_won else 'terminé'} en {req.subject}",
+                idempotency_key=idemp_key,
+                metadata={"player_won": req.player_won, "score": req.score, "subject": req.subject},
+            )
+        except Exception as err:
+            print(f"⚠️ [DuelReward] Erreur persistance wallet : {err}")
+        finally:
+            db.close()
+
+    msg = (
+        "Félicitations ! Tes 50 pièces AlterniA et 250 XP ont été crédités à ton profil."
+        if req.player_won
+        else "Bien joué ! Tu remportes 75 XP d'entraînement. Rejoue pour remporter la victoire et décrocher les pièces !"
+    )
 
     return {
         "status": "success",
@@ -1073,7 +1127,7 @@ def api_claim_duel_reward(req: DuelClaimRewardRequest):
         "player_won": req.player_won,
         "xp_awarded": xp,
         "coins_awarded": coins,
-        "message": "Félicitations ! Tes points XP et pièces AlterniA ont été crédités à ton profil.",
+        "message": msg,
     }
 
 

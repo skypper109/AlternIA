@@ -250,7 +250,7 @@ def lister_demandes_apprenant(db: Session, apprenant_id: str) -> List[Dict[str, 
     demandes = (
         db.query(DemandeRetrait)
         .filter(DemandeRetrait.apprenant_id == apprenant_id)
-        .order_by(desc(DemandeRetrait.date_demande))
+        .order_by(DemandeRetrait.date_demande.desc())  # type: ignore
         .all()
     )
     return [_serialiser_demande(d) for d in demandes]
@@ -261,7 +261,7 @@ def lister_toutes_demandes_admin(db: Session, statut_filter: Optional[str] = Non
     query = db.query(DemandeRetrait)
     if statut_filter:
         query = query.filter(DemandeRetrait.statut == statut_filter.upper())
-    demandes = query.order_by(desc(DemandeRetrait.date_demande)).all()
+    demandes = query.order_by(DemandeRetrait.date_demande.desc()).all()  # type: ignore
     return [_serialiser_demande(d) for d in demandes]
 
 

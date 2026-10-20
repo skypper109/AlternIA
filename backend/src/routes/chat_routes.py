@@ -355,22 +355,30 @@ async def chat_stream_endpoint(req: ChatRequest):
 
     async def sse_generator() -> AsyncIterator[str]:
         full_text = ""
-        for chunk in generator:
-            full_text += chunk
-            payload = json.dumps({"chunk": chunk, "done": False}, ensure_ascii=False)
-            yield f"data: {payload}\n\n"
-            await asyncio.sleep(0)
+        try:
+            for chunk in generator:
+                full_text += chunk
+                payload = json.dumps({"chunk": chunk, "done": False}, ensure_ascii=False)
+                yield f"data: {payload}\n\n"
+                await asyncio.sleep(0)
+        except Exception as e:
+            err_msg = f"\n⚠️ [AlternIA IA Engine] Une erreur est survenue lors de la génération : {e}"
+            print(f"\033[1;31m❌ [chat_routes.py] Erreur streaming : {e}\033[0m")
+            error_payload = json.dumps({"chunk": err_msg, "done": True, "error": str(e)}, ensure_ascii=False)
+            yield f"data: {error_payload}\n\n"
+            return
 
         # Enregistrement en direct dans la base de données réelle
-        record_student_interaction(
-            student_id=req.student_id,
-            student_class=norm_class,
-            subject=req.subject,
-            question=req.question,
-            answer=full_text,
-            sources=formatted_sources,
-            session_id=session_id,
-        )
+        if full_text.strip():
+            record_student_interaction(
+                student_id=req.student_id,
+                student_class=norm_class,
+                subject=req.subject,
+                question=req.question,
+                answer=full_text,
+                sources=formatted_sources,
+                session_id=session_id,
+            )
 
         dt_total = time.perf_counter() - t0_req
         print(f"\033[36m⏱️  [chat_routes.py]\033[0m Stream SSE terminé en \033[1;32m{dt_total:.2f}s\033[0m ({len(full_text)} caractères)\n")

@@ -165,7 +165,7 @@ def ensure_environment():
     # 5. Vérification du support GPU CUDA dans llama-cpp-python
     is_llama_ready = False
     try:
-        import llama_cpp
+        import llama_cpp  # type: ignore
         is_llama_ready = True
     except Exception:
         is_llama_ready = False
@@ -262,8 +262,8 @@ def install_cloudflared() -> str:
     import urllib.request
     import tarfile
     
-    # Détection architecture Linux / macOS
-    machine = os.uname().machine.lower()
+    import platform
+    machine = platform.machine().lower()
     if sys.platform == "darwin":
         arch = "darwin-arm64" if "arm" in machine else "darwin-amd64"
         url = f"https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-{arch}.tgz"
@@ -498,17 +498,41 @@ def free_port(port: int):
 
 def main():
     import argparse
-    parser = argparse.ArgumentParser(description="AlternIA Cloud Server Runner")
+    parser = argparse.ArgumentParser(description="AlternIA Cloud Server Runner (Colab Pro / AWS g4dn GPU / CPU)")
     parser.add_argument("--port", type=int, default=int(os.environ.get("PORT", 8000)), help="Port d'écoute local")
     parser.add_argument("--token", type=str, default=None, help="Token Cloudflare Tunnel pour URL fixe permanente")
     parser.add_argument("--hostname", type=str, default=None, help="Nom de domaine public associé au tunnel fixe")
     parser.add_argument("--quick", action="store_true", help="Forcer l'utilisation du tunnel temporaire gratuit (trycloudflare.com)")
+    parser.add_argument("--local", action="store_true", help="Activer le mode 100%% local (Qwen embarqué, AUCUN appel Groq ni Gemini)")
+    parser.add_argument("--device", choices=["gpu", "cpu"], default=None, help="Matériel d'exécution du LLM : 'gpu' (NVIDIA VRAM) ou 'cpu' (vCPUs/RAM)")
+    parser.add_argument("--model", type=str, default=None, help="Nom ou chemin spécifique du modèle GGUF (ex: qwen2.5-7b-instruct-q4_k_m.gguf)")
     args, _ = parser.parse_known_args()
+
+    # Configuration des variables d'environnement selon les arguments CLI
+    if args.local:
+        os.environ["LLM_PROVIDER"] = "local"
+    if args.device:
+        os.environ["LLM_DEVICE"] = args.device
+    if args.model:
+        os.environ["LOCAL_MODEL_PATH"] = args.model
 
     port = args.port
     free_port(port)
 
     print_banner()
+
+    # Résumé de la configuration choisie
+    provider = os.environ.get("LLM_PROVIDER", "gemini").lower()
+    device = os.environ.get("LLM_DEVICE", "gpu").lower()
+    print("📋 \033[1;34mConfiguration du Service d'Inférence :\033[0m")
+    if provider in ("local", "qwen", "gguf"):
+        dev_desc = "NVIDIA T4 CUDA (VRAM Dédiée)" if device == "gpu" else "Intel vCPUs (RAM Système - GPU libéré pour la vidéo)"
+        print(f"   🧠 Moteur LLM     : \033[1;32mQwen Embarqué Local (100% Autonome)\033[0m")
+        print(f"   ⚙️  Cible Matériel : \033[1;33m{device.upper()} [{dev_desc}]\033[0m")
+        print(f"   🔒 APIs Externes  : \033[1;36mDÉSACTIVÉES (Zéro requête vers Groq / Gemini)\033[0m")
+    else:
+        print(f"   🧠 Moteur LLM     : \033[1;36mCloud Provider [{provider.upper()}]\033[0m (Secours : Local)")
+
     ensure_environment()
     detect_hardware()
 

@@ -10,7 +10,7 @@ import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 try:
-    import cv2
+    import cv2  # type: ignore
 except ImportError:
     cv2 = None
 from fastapi import HTTPException, Response, UploadFile
@@ -88,40 +88,41 @@ def analyze_face_landmarks(img_path: Path) -> Dict[str, Any]:
                     img_cv = cv2.imread(str(img_path))
                     if img_cv is not None:
                         gray = cv2.cvtColor(img_cv, cv2.COLOR_BGR2GRAY)
-                        face_cascade = cv2.CascadeClassifier(haarcascades + "haarcascade_frontalface_default.xml")
-                        eye_cascade = cv2.CascadeClassifier(haarcascades + "haarcascade_eye.xml")
-                    faces = face_cascade.detectMultiScale(gray, scaleFactor=1.08, minNeighbors=4, minSize=(50, 50))
-                    if len(faces) > 0:
-                        faces = sorted(faces, key=lambda f: f[2] * f[3], reverse=True)
-                        fx, fy, fw, fh = faces[0]
-                        face_roi = gray[fy : fy + fh, fx : fx + fw]
-                        eyes = eye_cascade.detectMultiScale(face_roi, scaleFactor=1.1, minNeighbors=3, minSize=(15, 15))
-                        if len(eyes) >= 2:
-                            eyes_sorted = sorted(eyes, key=lambda e: e[0])
-                            e1, e2 = eyes_sorted[0], eyes_sorted[-1]
-                            left_eye = {"x": round((fx + e1[0] + e1[2] / 2) / w, 3), "y": round((fy + e1[1] + e1[3] / 2) / h, 3)}
-                            right_eye = {"x": round((fx + e2[0] + e2[2] / 2) / w, 3), "y": round((fy + e2[1] + e2[3] / 2) / h, 3)}
-                        else:
-                            left_eye = {"x": round((fx + fw * 0.33) / w, 3), "y": round((fy + fh * 0.38) / h, 3)}
-                            right_eye = {"x": round((fx + fw * 0.67) / w, 3), "y": round((fy + fh * 0.38) / h, 3)}
+                        cascade_cls = getattr(cv2, "CascadeClassifier")
+                        face_cascade = cascade_cls(haarcascades + "haarcascade_frontalface_default.xml")
+                        eye_cascade = cascade_cls(haarcascades + "haarcascade_eye.xml")
+                        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.08, minNeighbors=4, minSize=(50, 50))
+                        if len(faces) > 0:
+                            faces = sorted(faces, key=lambda f: f[2] * f[3], reverse=True)
+                            fx, fy, fw, fh = faces[0]
+                            face_roi = gray[fy : fy + fh, fx : fx + fw]
+                            eyes = eye_cascade.detectMultiScale(face_roi, scaleFactor=1.1, minNeighbors=3, minSize=(15, 15))
+                            if len(eyes) >= 2:
+                                eyes_sorted = sorted(eyes, key=lambda e: e[0])
+                                e1, e2 = eyes_sorted[0], eyes_sorted[-1]
+                                left_eye = {"x": round((fx + e1[0] + e1[2] / 2) / w, 3), "y": round((fy + e1[1] + e1[3] / 2) / h, 3)}
+                                right_eye = {"x": round((fx + e2[0] + e2[2] / 2) / w, 3), "y": round((fy + e2[1] + e2[3] / 2) / h, 3)}
+                            else:
+                                left_eye = {"x": round((fx + fw * 0.33) / w, 3), "y": round((fy + fh * 0.38) / h, 3)}
+                                right_eye = {"x": round((fx + fw * 0.67) / w, 3), "y": round((fy + fh * 0.38) / h, 3)}
 
-                        nose = {"x": round((fx + fw * 0.50) / w, 3), "y": round((fy + fh * 0.56) / h, 3)}
-                        mouth = {"x": round((fx + fw * 0.50) / w, 3), "y": round((fy + fh * 0.74) / h, 3)}
-                        jaw = {"x": round((fx + fw * 0.50) / w, 3), "y": round((fy + fh * 0.95) / h, 3)}
+                            nose = {"x": round((fx + fw * 0.50) / w, 3), "y": round((fy + fh * 0.56) / h, 3)}
+                            mouth = {"x": round((fx + fw * 0.50) / w, 3), "y": round((fy + fh * 0.74) / h, 3)}
+                            jaw = {"x": round((fx + fw * 0.50) / w, 3), "y": round((fy + fh * 0.95) / h, 3)}
 
-                        return {
-                            "valide": True,
-                            "visage_detecte": True,
-                            "score_compatibilite": 95.0,
-                            "message": "Visage humain détecté avec succès. Repères faciaux et mimiques labiales calibrés.",
-                            "landmarks": {
-                                "left_eye": left_eye,
-                                "right_eye": right_eye,
-                                "nose": nose,
-                                "mouth": mouth,
-                                "jaw_bottom": jaw,
-                            },
-                        }
+                            return {
+                                "valide": True,
+                                "visage_detecte": True,
+                                "score_compatibilite": 95.0,
+                                "message": "Visage humain détecté avec succès. Repères faciaux et mimiques labiales calibrés.",
+                                "landmarks": {
+                                    "left_eye": left_eye,
+                                    "right_eye": right_eye,
+                                    "nose": nose,
+                                    "mouth": mouth,
+                                    "jaw_bottom": jaw,
+                                },
+                            }
             except Exception as cv_err:
                 logger.debug(f"OpenCV cascade pass ignored: {cv_err}")
 
