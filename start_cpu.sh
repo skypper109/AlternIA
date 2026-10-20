@@ -12,4 +12,4 @@ if [ -f ".venv/bin/python3" ]; then
 fi
 
 echo -e "\033[1;33m⚙️ Démarrage d'AlternIA sur CPU (vCPUs) - VRAM 100% libre pour la vidéo (Zéro API)\033[0m"
-$PYTHON_BIN cloud/colab_server.py --local --device cpu --quick "$@"
+$PYTHON_BIN cloud/colab_server.py --local --device cpu "$@"

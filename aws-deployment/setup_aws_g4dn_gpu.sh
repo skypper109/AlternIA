@@ -162,6 +162,34 @@ echo -e "\n${BLUE}[5/7] Configuration de l'environnement Python & compilation ll
 cd "$APP_DIR"
 chown -R "$REAL_USER:$REAL_USER" "$APP_DIR"
 
+# Création du fichier .env officiel si absent
+if [ ! -f "$APP_DIR/.env" ]; then
+    echo "⚙️ Génération automatique du fichier .env officiel avec le token Cloudflare permanent..."
+    cat << 'EOF' > "$APP_DIR/.env"
+APP_NAME=AlternIA
+APP_ENV=production
+DEBUG=false
+
+# LLM 100% Embarqué Local Qwen sur GPU T4
+LLM_PROVIDER=local
+LLM_DEVICE=gpu
+
+# Backend & Port
+PORT=8000
+BACKEND_HOST=0.0.0.0
+BACKEND_PORT=8000
+
+# Cloudflare Tunnel Officiel AlternIA (Domaine Permanent alterniamali.com)
+CLOUDFLARE_TUNNEL_TOKEN=eyJhIjoiNTYxMzlhYzA0OGZkNWQ4ODEyOTliM2U0NTBiYWEyYzIiLCJ0IjoiZDk2MGQyMDUtMGU5ZC00ODY4LTk4ZjctOGEwYWQzMGVjODFhIiwicyI6Ik4yTTVOREl5WW1JdE9UVXlNaTAwWmpWa0xUazJNMk10TUdWbU5qZzBZVGsyWXpreiJ9
+CLOUDFLARE_HOSTNAME=alterniamali.com
+CLOUDFLARE_ADMIN_HOSTNAME=admin.alterniamali.com
+CLOUDFLARE_DEVICE_HOSTNAME=device.alterniamali.com
+CLOUDFLARE_API_HOSTNAME=api.alterniamali.com
+EOF
+    chown "$REAL_USER:$REAL_USER" "$APP_DIR/.env"
+    echo "✅ Fichier .env créé avec le token Cloudflare officiel alterniamali.com."
+fi
+
 # Vérification et purge de l'ancien .venv s'il a été créé avec Python 3.13/3.14 incompatible
 if [ -d ".venv" ]; then
     VENV_IS_COMPATIBLE=true
