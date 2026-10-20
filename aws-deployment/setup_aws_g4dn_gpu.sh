@@ -48,7 +48,7 @@ EOF
 sysctl --system > /dev/null
 echo "✅ Paramètres noyau appliqués."
 
-echo -e "\n${BLUE}[2/7] Installation des dépendances système & compilation...${NC}"
+echo -e "\n${BLUE}[2/7] Installation des dépendances système & Python compatible PyTorch...${NC}"
 apt-get update -y
 apt-get install -y \
     build-essential \
@@ -60,10 +60,7 @@ apt-get install -y \
     unzip \
     htop \
     jq \
-    python3 \
-    python3-pip \
-    python3-venv \
-    python3-dev \
+    software-properties-common \
     libportaudio2 \
     libasound2-dev \
     portaudio19-dev \
@@ -71,6 +68,37 @@ apt-get install -y \
     poppler-utils \
     tesseract-ocr \
     tesseract-ocr-fra
+
+# PyTorch et l'écosystème CUDA ne supportent pas Python 3.13/3.14+.
+# Installation garantie de Python 3.10 ou Python 3.11 (Standard IA)
+echo "🔍 Vérification de la compatibilité de la version Python pour PyTorch CUDA..."
+if ! which python3.10 > /dev/null 2>&1 && ! which python3.11 > /dev/null 2>&1; then
+    echo "⚡ Installation de Python 3.10/3.11 via deadsnakes PPA..."
+    add-apt-repository -y ppa:deadsnakes/ppa || true
+    apt-get update -y
+    apt-get install -y python3.10 python3.10-venv python3.10-dev || apt-get install -y python3.11 python3.11-venv python3.11-dev || true
+fi
+
+# Sélection du meilleur interpréteur Python (3.10 > 3.11 > 3.12 > système si <= 3.12)
+TARGET_PYTHON=""
+for cand in python3.10 python3.11 python3.12; do
+    if which "$cand" > /dev/null 2>&1; then
+        TARGET_PYTHON=$(which "$cand")
+        break
+    fi
+done
+
+if [ -z "$TARGET_PYTHON" ]; then
+    SYS_MAJ_MIN=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2>/dev/null || echo "3.10")
+    if python3 -c "import sys; sys.exit(0 if sys.version_info < (3, 13) else 1)" 2>/dev/null; then
+        TARGET_PYTHON=$(which python3)
+    else
+        echo -e "${RED}❌ Aucune version de Python compatible avec PyTorch (<= 3.12) trouvée. Installation forcée de python3.10...${NC}"
+        apt-get install -y python3.10 python3.10-venv python3.10-dev
+        TARGET_PYTHON=$(which python3.10)
+    fi
+fi
+echo -e "✅ Interpréteur Python sélectionné pour l'IA : \033[1;32m$TARGET_PYTHON\033[0m ($($TARGET_PYTHON --version))"
 
 echo -e "\n${BLUE}[3/7] Détection et configuration des pilotes NVIDIA CUDA (T4)...${NC}"
 if ! which nvidia-smi > /dev/null 2>&1; then
@@ -117,14 +145,31 @@ echo -e "\n${BLUE}[5/7] Configuration de l'environnement Python & compilation ll
 cd "$APP_DIR"
 chown -R "$REAL_USER:$REAL_USER" "$APP_DIR"
 
+# Vérification et purge de l'ancien .venv s'il a été créé avec Python 3.13/3.14 incompatible
+if [ -d ".venv" ]; then
+    VENV_IS_COMPATIBLE=true
+    if [ -f ".venv/bin/python3" ]; then
+        if ! .venv/bin/python3 -c "import sys; sys.exit(0 if (3, 8) <= sys.version_info < (3, 13) else 1)" 2>/dev/null; then
+            VENV_IS_COMPATIBLE=false
+        fi
+    else
+        VENV_IS_COMPATIBLE=false
+    fi
+
+    if [ "$VENV_IS_COMPATIBLE" = false ]; then
+        echo -e "${YELLOW}🔄 Ancien .venv détecté avec une version incompatible (ex: Python 3.14). Purge et recréation propre...${NC}"
+        rm -rf .venv
+    fi
+fi
+
 if [ ! -d ".venv" ]; then
-    sudo -u "$REAL_USER" python3 -m venv .venv
-    echo "✅ Environnement virtuel '.venv' créé."
+    sudo -u "$REAL_USER" "$TARGET_PYTHON" -m venv .venv
+    echo -e "✅ Environnement virtuel '.venv' créé avec \033[1;32m$($TARGET_PYTHON --version)\033[0m."
 fi
 
 echo "📦 Installation de PyTorch avec support CUDA 12..."
 sudo -u "$REAL_USER" .venv/bin/pip install --upgrade pip
-sudo -u "$REAL_USER" .venv/bin/pip install -q torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+sudo -u "$REAL_USER" .venv/bin/pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 
 echo "⚡ Compilation de llama-cpp-python avec accélération NVIDIA CUDA (Turing/T4)..."
 sudo -u "$REAL_USER" bash -c "
