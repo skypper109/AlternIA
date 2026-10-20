@@ -17,6 +17,7 @@ NC='\033[0m'
 
 echo -e "${BLUE}==============================================================================${NC}"
 echo -e "${GREEN}   🚀  ALTERNIA — INSTALLATION SERVEUR AWS GPU g4dn.2xlarge (NVIDIA T4)  🚀${NC}"
+echo -e "${YELLOW}   📌  Script Version 2.2 — Patch PyTorch CUDA 12 & Python 3.10/3.11 Certifié${NC}"
 echo -e "${BLUE}==============================================================================${NC}"
 
 if [ "$EUID" -ne 0 ]; then
@@ -28,6 +29,12 @@ REAL_USER=${SUDO_USER:-ubuntu}
 USER_HOME=$(eval echo "~$REAL_USER")
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APP_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# Purge préventive immédiate si un .venv sous Python 3.14 réside dans le projet
+if [ -d "$APP_DIR/.venv/lib/python3.14" ] || [ -d "$APP_DIR/.venv/lib/python3.13" ]; then
+    echo -e "${YELLOW}🗑️ Détection et suppression immédiate du vieux .venv (Python 3.14 incompatible avec PyTorch)...${NC}"
+    rm -rf "$APP_DIR/.venv"
+fi
 
 echo -e "\n${BLUE}[1/7] Optimisation du noyau Linux et configuration Swap (4 Go)...${NC}"
 if [ ! -f /swapfile ]; then
