@@ -83,11 +83,17 @@ Dès l'allumage du Raspberry Pi 5, le réseau Wi-Fi apparaît automatiquement :
 * **Bande Wi-Fi** : `2.4 GHz` (canal 6, compatible avec 100% des smartphones au Mali)
 * **Adresse IP de la passerelle Boîtier** : `10.42.0.1`
 
-### Accès pour les élèves :
+### Accès Wi-Fi pour les élèves (Portail Captif automatique) :
 Dès qu'un élève se connecte au Wi-Fi `Alta-box1` depuis son téléphone ou sa tablette :
-* Il ouvre son navigateur sur **`http://10.42.0.1`** ou **`http://alta.box`** (ou `device.alterniamali.com`).
-* L'application Kiosk se charge instantanément depuis le cache local du Pi 5.
-* Les questions posées au tuteur IA sont relayées en temps réel vers votre serveur AWS `t3.xlarge` (`https://api.alterniamali.com`).
+* **Redirection automatique** : La détection de portail captif (Android, iOS/Apple CNA, Windows) redirige automatiquement l'appareil vers **`https://device.alterniamali.com`**.
+* Si l'élève tape manuellement `alta.box` ou `10.42.0.1` dans son navigateur, le serveur Nginx Edge renvoie immédiatement un code 302 vers **`https://device.alterniamali.com`**.
+* En cas de coupure Internet totale, un miroir local de secours (`/local/` ou `127.0.0.1`) permet la continuité pédagogique sans écran noir.
+
+### Sortie Vidéo HDMI (Écran TV / Kiosk Kiosque) :
+Dès le branchement du Raspberry Pi 5 sur une télévision ou un moniteur HDMI :
+* Le service systemd `alta-kiosk.service` exécute le script `kiosk/launch_kiosk.sh`.
+* Chromium démarre en plein écran (**mode Kiosk 1080p**) directement sur **`https://device.alterniamali.com`**.
+* L'option `--autoplay-policy=no-user-gesture-required` garantit la diffusion vocale immédiate des réponses sans nécessiter de clic préalable.
 
 ---
 

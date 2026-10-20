@@ -1,7 +1,7 @@
 [Unit]
-Description=Alta-Box Fullscreen Chromium Kiosk on Raspberry Pi Display
-After=graphical.target alta-hotspot.service nginx.service
-Wants=graphical.target
+Description=Alta-Box Fullscreen Chromium Kiosk on Raspberry Pi HDMI Display
+After=graphical.target alta-hotspot.service nginx.service network-online.target
+Wants=graphical.target network-online.target
 
 [Service]
 Type=simple
