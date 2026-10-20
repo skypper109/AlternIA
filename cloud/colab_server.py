@@ -155,8 +155,8 @@ def ensure_environment():
     except Exception as exc:
         print(f"⚡ Réparation sentence-transformers / transformers ({exc})...")
         subprocess.run(
-            [sys.executable, "-m", "pip", "install", "-q", "--upgrade",
-             "transformers>=4.44.0", "sentence-transformers>=3.0.0", "huggingface-hub>=0.24.0", "numpy==1.26.4"],
+            [sys.executable, "-m", "pip", "install", "-q",
+             "transformers>=4.44.0,<4.48.0", "sentence-transformers>=3.0.0", "huggingface-hub>=0.24.0", "numpy==1.26.4"],
             check=False
         )
         import importlib

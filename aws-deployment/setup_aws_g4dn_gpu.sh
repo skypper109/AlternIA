@@ -221,10 +221,11 @@ sudo -u "$REAL_USER" .venv/bin/pip install -q \
     scipy==1.13.1 \
     scikit-learn \
     opencv-python-headless \
+    "transformers>=4.44.0,<4.48.0" \
+    sentence-transformers \
     fastapi \
     uvicorn[standard] \
     pydantic-settings \
-    sentence-transformers \
     edge-tts \
     python-multipart \
     faster-whisper \
@@ -235,17 +236,27 @@ echo -e "\n${BLUE}[6/7] Téléchargement du modèle Qwen 2.5 embarqué (GGUF)...
 MODELS_DIR="$APP_DIR/ai-engine/models/llm"
 sudo -u "$REAL_USER" mkdir -p "$MODELS_DIR"
 
-# Modèle recommandé pour g4dn (16 Go VRAM) : Qwen 2.5 7B Instruct (Q4_K_M ~4.5 Go)
 MODEL_7B="$MODELS_DIR/qwen2.5-7b-instruct-q4_k_m.gguf"
 MODEL_3B="$MODELS_DIR/qwen2.5-3b-instruct-q4_k_m.gguf"
 
+# Purge automatique de tout fichier corrompu ou incomplet (< 50 Mo)
+for m in "$MODEL_7B" "$MODEL_3B"; do
+    if [ -f "$m" ]; then
+        F_SZ=$(stat -c%s "$m" 2>/dev/null || stat -f%z "$m" 2>/dev/null || echo 0)
+        if [ "$F_SZ" -lt 50000000 ]; then
+            echo -e "${YELLOW}🗑️ Suppression du fichier modèle invalide ($F_SZ octets) : $m${NC}"
+            rm -f "$m"
+        fi
+    fi
+done
+
 if [ ! -f "$MODEL_7B" ] && [ ! -f "$MODEL_3B" ]; then
-    echo -e "${YELLOW}📥 Téléchargement de Qwen 2.5 7B Instruct (Optimisé pour VRAM 16 Go T4)...${NC}"
-    sudo -u "$REAL_USER" curl -L -o "$MODEL_7B" \
-        "https://huggingface.co/Qwen/Qwen2.5-7B-Instruct-GGUF/resolve/main/qwen2.5-7b-instruct-q4_k_m.gguf"
+    echo -e "${YELLOW}📥 Téléchargement de Qwen 2.5 7B Instruct (GGUF unifié 4.68 Go - Optimisé VRAM T4)...${NC}"
+    sudo -u "$REAL_USER" curl -L --fail --progress-bar -o "$MODEL_7B" \
+        "https://huggingface.co/bartowski/Qwen2.5-7B-Instruct-GGUF/resolve/main/Qwen2.5-7B-Instruct-Q4_K_M.gguf"
     echo "✅ Modèle Qwen 2.5 7B téléchargé avec succès."
 else
-    echo "ℹ️ Modèle local déjà présent dans $MODELS_DIR."
+    echo "ℹ️ Modèle local GGUF déjà présent et valide dans $MODELS_DIR."
 fi
 
 echo -e "\n${BLUE}[7/7] Création des raccourcis de démarrage interactifs...${NC}"
