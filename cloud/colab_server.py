@@ -155,8 +155,8 @@ def ensure_environment():
     except Exception as exc:
         print(f"⚡ Réparation sentence-transformers / transformers ({exc})...")
         subprocess.run(
-            [sys.executable, "-m", "pip", "install", "-q", "--upgrade",
-             "transformers>=4.44.0", "sentence-transformers>=3.0.0", "huggingface-hub>=0.24.0", "numpy==1.26.4"],
+            [sys.executable, "-m", "pip", "install", "-q",
+             "transformers>=4.44.0,<4.48.0", "sentence-transformers>=3.0.0", "huggingface-hub>=0.24.0", "numpy==1.26.4"],
             check=False
         )
         import importlib
@@ -302,6 +302,7 @@ DEFAULT_DOMAIN = "alterniamali.com"
 DEFAULT_ADMIN_DOMAIN = "admin.alterniamali.com"
 DEFAULT_DEVICE_DOMAIN = "device.alterniamali.com"
 DEFAULT_API_DOMAIN = "api.alterniamali.com"
+DEFAULT_TUNNEL_TOKEN = "eyJhIjoiNTYxMzlhYzA0OGZkNWQ4ODEyOTliM2U0NTBiYWEyYzIiLCJ0IjoiZDk2MGQyMDUtMGU5ZC00ODY4LTk4ZjctOGEwYWQzMGVjODFhIiwicyI6Ik4yTTVOREl5WW1JdE9UVXlNaTAwWmpWa0xUazJNMk10TUdWbU5qZzBZVGsyWXpreiJ9"
 
 
 def start_tunnel(
@@ -336,13 +337,14 @@ def start_tunnel(
     except Exception:
         pass
 
-    # Priorités : Arguments CLI > Variables d'environnement > Colab Secrets > Configuration persistante > Défaut
+    # Priorités : Arguments CLI > Variables d'environnement > Colab Secrets > Configuration persistante > Token officiel AlternIA
     tunnel_token = (
         cli_token
         or os.environ.get("CLOUDFLARE_TUNNEL_TOKEN")
         or os.environ.get("TUNNEL_TOKEN")
         or colab_token
         or cfg.get("tunnel_token", "").strip()
+        or DEFAULT_TUNNEL_TOKEN
     )
     raw_hostname = (
         cli_hostname

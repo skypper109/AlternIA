@@ -12,4 +12,4 @@ if [ -f ".venv/bin/python3" ]; then
 fi
 
 echo -e "\033[1;32m🚀 Démarrage d'AlternIA sur GPU (VRAM Dédiée) - Qwen Embarqué (Zéro API)\033[0m"
-$PYTHON_BIN cloud/colab_server.py --local --device gpu --quick "$@"
+$PYTHON_BIN cloud/colab_server.py --local --device gpu "$@"
