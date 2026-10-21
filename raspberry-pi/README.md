@@ -116,34 +116,46 @@ stateDiagram-v2
 
 ---
 
-## 6. Câblage Matériel : 4 Boutons + Micro + Haut-Parleur
+## 6. Câblage Matériel : 4 Boutons + Micro Toggle + LED Tricolore (RGB) + Haut-Parleur
 
-Le contrôleur matériel [`hardware/buttons_audio_controller.py`](file:///Users/ibrahimsorydiallo/Desktop/OSC/AlternIA/raspberry-pi/hardware/buttons_audio_controller.py) est déjà pré-câblé pour recevoir vos composants physiques :
+Le contrôleur matériel [`hardware/buttons_audio_controller.py`](file:///Users/ibrahimsorydiallo/Desktop/OSC/AlternIA/raspberry-pi/hardware/buttons_audio_controller.py) pilote l'ensemble des composants physiques de l'Alta-Box :
 
 ### Broches GPIO (Pinout Raspberry Pi 5) :
 
-| Composant | Broche BCM | Broche Physique | Raccordement électrique |
+| Composant | Broche BCM | Broche Physique | Raccordement électrique & Rôle |
 | :--- | :---: | :---: | :--- |
-| **Bouton 1 (Micro Push-to-Talk)** | **GPIO 5** | Pin 29 | Une patte sur GPIO 5, l'autre sur GND (Pin 30) |
-| **Bouton 2 (Répéter Réponse Audio)** | **GPIO 6** | Pin 31 | Une patte sur GPIO 6, l'autre sur GND (Pin 34) |
-| **Bouton 3 (Changer de Classe)** | **GPIO 13** | Pin 33 | Une patte sur GPIO 13, l'autre sur GND (Pin 39) |
-| **Bouton 4 (Défi Quizz National)** | **GPIO 19** | Pin 35 | Une patte sur GPIO 19, l'autre sur GND (Pin 39) |
-| **LED d'État Externe (Optionnelle)** | **GPIO 17** | Pin 11 | Anode (+) via résistance 330Ω sur GPIO 17, Cathode (-) sur GND |
+| **Bouton 1 (Niveau 1 — Fondamental)** | **GPIO 5** | Pin 29 | Une patte sur GPIO 5, l'autre sur GND (Pin 30). Cycle 6ème -> 7ème -> 8ème -> 9ème (DEF). |
+| **Bouton 2 (Niveau 2 — Secondaire)** | **GPIO 6** | Pin 31 | Une patte sur GPIO 6, l'autre sur GND (Pin 34). Bascule entre 10ème <-> 11ème. |
+| **Bouton 3 (Niveau 3 — Terminale)** | **GPIO 13** | Pin 33 | Une patte sur GPIO 13, l'autre sur GND (Pin 39). Active la classe de Terminale (BAC). |
+| **Bouton 4 (Micro Toggle Bistable)** | **GPIO 26** | Pin 37 | Une patte sur GPIO 26, l'autre sur GND (Pin 39). **1er clic** = Enregistrement, **2e clic** = Fin & Envoi IA. |
+| **LED Tricolore — Rouge (R)** | **GPIO 17** | Pin 11 | Anode Rouge via résistance 220-330Ω sur GPIO 17 |
+| **LED Tricolore — Vert (G)** | **GPIO 27** | Pin 13 | Anode Verte via résistance 220-330Ω sur GPIO 27 |
+| **LED Tricolore — Bleu (B)** | **GPIO 22** | Pin 15 | Anode Bleue via résistance 220-330Ω sur GPIO 22 |
+| **LED Tricolore — Masse Commune** | **GND** | Pin 9 ou 14 | Cathode commune reliée directement à la masse GND du Pi |
 
 > [!TIP]
-> Tous les boutons utilisent les **résistances de Pull-Up internes du Raspberry Pi 5**. Vous n'avez pas besoin d'ajouter de résistances externes pour les boutons : reliez simplement une patte au GPIO et l'autre à la masse (GND) !
+> **Résistances de Pull-Up internes :** Tous les boutons poussoirs exploitent les résistances pull-up intégrées du Raspberry Pi 5. Aucune résistance externe n'est requise pour les boutons (câbler directement entre le GPIO et GND).
+>
+> **Amplificateur I2S MAX98357A :** Les broches GPIO 18 (BCLK / Pin 12), GPIO 19 (LRCLK / Pin 35) et GPIO 21 (DIN / Pin 40) sont réservées exclusivement au DAC audio I2S.
+
+### Comportement Lumineux de la LED Tricolore :
+* 🟢 **Turquoise / Vert Émeraude** : Niveau 1 sélectionné (Fondamental / DEF).
+* 🔵 **Bleu Royal** : Niveau 2 sélectionné (Secondaire : 10ème / 11ème).
+* 🟠 **Ambre / Orange Doré** : Niveau 3 sélectionné (Terminale / Baccalauréat).
+* 🔴 **Rouge Vif Pulsant** : Enregistrement micro en cours (**1er clic** sur Bouton 4).
+* 🟣 **Violet Pulsant** : Traitement & réflexion IA en cours (**2ème clic**, attente de réponse).
+* 🌊 **Cyan Scintillant** : Dispositif en train de parler (synthèse vocale diffusée sur le haut-parleur).
+* 🔄 **Restauration automatique** : Dès la fin de parole, la LED revient à la couleur du niveau actif.
 
 ### Microphone & Haut-Parleur :
-* **Microphone** : 
-  * Brancher un microphone USB standard sur l'un des ports USB du Pi 5 (ou carte d'extension I2S / USB audio Jack).
-* **Haut-Parleur** :
-  * Brancher une enceinte Jack sur un adaptateur USB-Audio DAC, ou un module I2S DAC (type **MAX98357A**).
+* **Microphone** : Brancher un microphone USB standard sur l'un des ports USB 3.0/2.0 du Pi 5 (ou micro Jack).
+* **Haut-Parleur** : Brancher un haut-parleur 3W/5W sur le bornier du module I2S DAC **MAX98357A** (ou enceinte USB).
 
 ### Tester le matériel en direct :
 ```bash
 python3 /home/ubuntu/AlternIA/raspberry-pi/hardware/test_hardware.py
 ```
-Ce script émet un son de test, enregistre votre voix pendant 3 secondes et détecte l'appui sur chaque bouton en affichant un message coloré dans le terminal.
+Ce script teste le haut-parleur, le micro, cycle toutes les couleurs de la LED tricolore et détecte les appuis sur les 4 boutons en affichant un retour couleur dans le terminal.
 
 ---
 

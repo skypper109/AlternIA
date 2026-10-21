@@ -1,5 +1,5 @@
 [Unit]
-Description=Alta-Box 4-Buttons & Audio Controller (Push-to-Talk, Repeat, Class, Quiz)
+Description=Alta-Box 4-Buttons (Niveaux 1-2-3, Micro Toggle) & Tricolor RGB LED Controller
 After=sound.target multi-user.target
 Wants=sound.target
 
