@@ -31,11 +31,11 @@ AUDIO_OUTPUT_PATH = Path("/tmp/alta_voice_output.mp3")
 
 SERVER_URL = os.environ.get("ALTERNIA_API_URL", "https://api.alterniamali.com")
 
-# Assignation des broches GPIO pour les 4 boutons
+# Assignation des broches GPIO pour les 4 boutons (libère GPIO 18, 19, 21 pour l'amplificateur I2S MAX98357A)
 PIN_BTN_MIC = 5       # Bouton 1 : Micro Push-To-Talk
 PIN_BTN_REPEAT = 6    # Bouton 2 : Répéter l'audio
 PIN_BTN_CLASS = 13    # Bouton 3 : Changer de classe
-PIN_BTN_QUIZ = 19     # Bouton 4 : Défi / Quizz
+PIN_BTN_QUIZ = 26     # Bouton 4 : Défi / Quizz (Pin physique 37)
 
 CLASSES_LIST = ["10eme", "11eme", "terminale", "9eme"]
 current_class_idx = 0

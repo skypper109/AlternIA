@@ -40,7 +40,7 @@ except Exception as e:
     print(f"⚠️ Erreur test microphone : {e} (Assurez-vous qu'un micro USB ou Jack est branché)")
 
 # 3. Test des 4 Boutons GPIO
-print("\n[3/3] Test des 4 Boutons GPIO (GPIO 5, 6, 13, 19)...")
+print("\n[3/3] Test des 4 Boutons GPIO (GPIO 5, 6, 13, 26)...")
 print("Appuyez sur n'importe quel bouton. Appuyez sur Ctrl+C pour quitter.")
 
 try:
@@ -48,12 +48,12 @@ try:
     b1 = Button(5, pull_up=True)
     b2 = Button(6, pull_up=True)
     b3 = Button(13, pull_up=True)
-    b4 = Button(19, pull_up=True)
+    b4 = Button(26, pull_up=True)
 
     b1.when_pressed = lambda: print("🟢 [CLIC] Bouton 1 (GPIO 5) : Micro Push-To-Talk détecté !")
     b2.when_pressed = lambda: print("🟡 [CLIC] Bouton 2 (GPIO 6) : Répéter Audio détecté !")
     b3.when_pressed = lambda: print("🔵 [CLIC] Bouton 3 (GPIO 13) : Changer Classe détecté !")
-    b4.when_pressed = lambda: print("🟣 [CLIC] Bouton 4 (GPIO 19) : Défi Quizz détecté !")
+    b4.when_pressed = lambda: print("🟣 [CLIC] Bouton 4 (GPIO 26) : Défi Quizz détecté !")
 
     while True:
         time.sleep(0.1)
