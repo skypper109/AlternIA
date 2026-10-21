@@ -2,9 +2,11 @@
 Modèles de données SQLAlchemy pour la base alta_db.
 """
 
-from datetime import datetime
-from typing import List, Optional
 import uuid
+from datetime import UTC, datetime
+from typing import Optional
+
+from backend.src.db.database import Base
 from sqlalchemy import (
     Boolean,
     DateTime,
@@ -16,11 +18,13 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from backend.src.db.database import Base
-
 
 def generate_uuid() -> str:
     return str(uuid.uuid4())
+
+
+def utc_now() -> datetime:
+    return datetime.now(UTC)
 
 
 class Utilisateur(Base):
@@ -28,12 +32,12 @@ class Utilisateur(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
     email: Mapped[str] = mapped_column(String(120), unique=True, index=True, nullable=False)
-    mot_de_passe_hash: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    mot_de_passe_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     role: Mapped[str] = mapped_column(String(30), nullable=False, default="parent")  # 'admin_ecole', 'parent', 'enseignant'
     nom_complet: Mapped[str] = mapped_column(String(120), nullable=False)
-    avatar: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    date_creation: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
-    dernier_acces: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
+    avatar: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    date_creation: Mapped[datetime | None] = mapped_column(DateTime, default=utc_now)
+    dernier_acces: Mapped[datetime | None] = mapped_column(DateTime, default=utc_now)
     actif: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
@@ -44,15 +48,15 @@ class Etablissement(Base):
     nom: Mapped[str] = mapped_column(String(150), nullable=False)
     type_etablissement: Mapped[str] = mapped_column(String(50), default="Lycée")  # 'Lycée', 'Collège', 'Complexe Scolaire'
     code: Mapped[str] = mapped_column(String(50), unique=True, index=True, nullable=False)
-    adresse: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    adresse: Mapped[str | None] = mapped_column(String(255), nullable=True)
     ville: Mapped[str] = mapped_column(String(100), default="Bamako")
     pays: Mapped[str] = mapped_column(String(100), default="Mali")
-    telephone: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
-    email: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
-    date_creation: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
+    telephone: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    email: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    date_creation: Mapped[datetime | None] = mapped_column(DateTime, default=utc_now)
 
-    boitiers: Mapped[List["Boitier"]] = relationship("Boitier", back_populates="etablissement")
-    apprenants: Mapped[List["Apprenant"]] = relationship("Apprenant", back_populates="etablissement")
+    boitiers: Mapped[list["Boitier"]] = relationship("Boitier", back_populates="etablissement")
+    apprenants: Mapped[list["Apprenant"]] = relationship("Apprenant", back_populates="etablissement")
 
 
 class Boitier(Base):
@@ -68,14 +72,14 @@ class Boitier(Base):
     stockage_utilise_go: Mapped[float] = mapped_column(Float, default=8.4)
     wifi_ssid: Mapped[str] = mapped_column(String(100), default="AlternIA-Box-WiFi")
     ip_locale: Mapped[str] = mapped_column(String(45), default="192.168.4.1")
-    derniere_synchro: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
-    date_activation: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
+    derniere_synchro: Mapped[datetime | None] = mapped_column(DateTime, default=utc_now)
+    date_activation: Mapped[datetime | None] = mapped_column(DateTime, default=utc_now)
 
-    etablissement_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("etablissements.id"), nullable=True)
-    enfant_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
+    etablissement_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("etablissements.id"), nullable=True)
+    enfant_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
 
     etablissement: Mapped[Optional["Etablissement"]] = relationship("Etablissement", back_populates="boitiers")
-    apprenants: Mapped[List["Apprenant"]] = relationship("Apprenant", back_populates="boitier")
+    apprenants: Mapped[list["Apprenant"]] = relationship("Apprenant", back_populates="boitier")
 
 
 class Apprenant(Base):
@@ -86,21 +90,21 @@ class Apprenant(Base):
     prenom: Mapped[str] = mapped_column(String(80), nullable=False)
     matricule: Mapped[str] = mapped_column(String(50), unique=True, index=True, nullable=False)
     classe: Mapped[str] = mapped_column(String(20), nullable=False, default="11eme")  # '10eme', '11eme', '12eme'
-    serie: Mapped[Optional[str]] = mapped_column(String(30), nullable=True, default="11S")       # '11S', '11L', 'TSE', 'TSExp', etc.
+    serie: Mapped[str | None] = mapped_column(String(30), nullable=True, default="11S")       # '11S', '11L', 'TSE', 'TSExp', etc.
     niveau_maitrise: Mapped[float] = mapped_column(Float, default=74.5)                  # Pourcentage global
     temps_total_sec: Mapped[int] = mapped_column(Integer, default=14200)
     questions_posees: Mapped[int] = mapped_column(Integer, default=42)
-    dernier_acces: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
-    date_inscription: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
-    photo_url: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    dernier_acces: Mapped[datetime | None] = mapped_column(DateTime, default=utc_now)
+    date_inscription: Mapped[datetime | None] = mapped_column(DateTime, default=utc_now)
+    photo_url: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
-    etablissement_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("etablissements.id"), nullable=True)
-    boitier_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("boitiers.id"), nullable=True)
+    etablissement_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("etablissements.id"), nullable=True)
+    boitier_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("boitiers.id"), nullable=True)
 
     etablissement: Mapped[Optional["Etablissement"]] = relationship("Etablissement", back_populates="apprenants")
     boitier: Mapped[Optional["Boitier"]] = relationship("Boitier", back_populates="apprenants")
-    sessions: Mapped[List["SessionApprentissage"]] = relationship("SessionApprentissage", back_populates="apprenant")
-    alertes: Mapped[List["AlertePedagogique"]] = relationship("AlertePedagogique", back_populates="apprenant")
+    sessions: Mapped[list["SessionApprentissage"]] = relationship("SessionApprentissage", back_populates="apprenant")
+    alertes: Mapped[list["AlertePedagogique"]] = relationship("AlertePedagogique", back_populates="apprenant")
 
 
 class SessionApprentissage(Base):
@@ -108,34 +112,34 @@ class SessionApprentissage(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
     apprenant_id: Mapped[str] = mapped_column(String(36), ForeignKey("apprenants.id"), nullable=False)
-    boitier_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("boitiers.id"), nullable=True)
+    boitier_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("boitiers.id"), nullable=True)
     matiere: Mapped[str] = mapped_column(String(50), nullable=False, default="biologie")
-    chapitre: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    notion: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    date_debut: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
-    date_fin: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
+    chapitre: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    notion: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    date_debut: Mapped[datetime | None] = mapped_column(DateTime, default=utc_now)
+    date_fin: Mapped[datetime | None] = mapped_column(DateTime, default=utc_now)
     duree_sec: Mapped[int] = mapped_column(Integer, default=900)
     questions_count: Mapped[int] = mapped_column(Integer, default=5)
     reussite_taux: Mapped[float] = mapped_column(Float, default=80.0)
 
     apprenant: Mapped[Optional["Apprenant"]] = relationship("Apprenant", back_populates="sessions")
-    interactions: Mapped[List["InteractionPedagogique"]] = relationship("InteractionPedagogique", back_populates="session")
+    interactions: Mapped[list["InteractionPedagogique"]] = relationship("InteractionPedagogique", back_populates="session")
 
 
 class InteractionPedagogique(Base):
     __tablename__ = "interactions_pedagogiques"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
-    session_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("sessions_apprentissage.id"), nullable=True)
+    session_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("sessions_apprentissage.id"), nullable=True)
     apprenant_id: Mapped[str] = mapped_column(String(36), nullable=False)
     question: Mapped[str] = mapped_column(Text, nullable=False)
     reponse: Mapped[str] = mapped_column(Text, nullable=False)
-    matiere: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
-    notion: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    matiere: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    notion: Mapped[str | None] = mapped_column(String(100), nullable=True)
     intention: Mapped[str] = mapped_column(String(50), default="explanation")
     difficulte: Mapped[str] = mapped_column(String(30), default="moyen")
     succes: Mapped[bool] = mapped_column(Boolean, default=True)
-    timestamp: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
+    timestamp: Mapped[datetime | None] = mapped_column(DateTime, default=utc_now)
 
     session: Mapped[Optional["SessionApprentissage"]] = relationship("SessionApprentissage", back_populates="interactions")
 
@@ -148,16 +152,16 @@ class AvatarPedagogique(Base):
     matiere: Mapped[str] = mapped_column(String(80), nullable=False, default="Toutes matières")
     style_pedagogique: Mapped[str] = mapped_column(String(120), default="Bienveillant, rigoureux et interactif")
     voix_tts: Mapped[str] = mapped_column(String(60), default="vivienne")
-    face_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, default="bb1212ec-2cc5-4ca0-ad32-4a4427600345")
-    photo_url: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    video_url: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    audio_sample_url: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    audio_file_name: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
+    face_id: Mapped[str | None] = mapped_column(String(255), nullable=True, default="bb1212ec-2cc5-4ca0-ad32-4a4427600345")
+    photo_url: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    video_url: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    audio_sample_url: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    audio_file_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
     actif: Mapped[bool] = mapped_column(Boolean, default=True)
     par_defaut: Mapped[bool] = mapped_column(Boolean, default=False)
-    landmarks_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    viseme_photos_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    date_creation: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
+    landmarks_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    viseme_photos_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    date_creation: Mapped[datetime | None] = mapped_column(DateTime, default=utc_now)
 
 
 class AlertePedagogique(Base):
@@ -169,9 +173,9 @@ class AlertePedagogique(Base):
     description: Mapped[str] = mapped_column(Text, nullable=False)
     type_alerte: Mapped[str] = mapped_column(String(50), default="difficulte_recurrente")  # 'difficulte_recurrente', 'inactivite', 'reussite_remarquable'
     gravite: Mapped[str] = mapped_column(String(20), default="moyenne")                   # 'faible', 'moyenne', 'elevee'
-    matiere: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    matiere: Mapped[str | None] = mapped_column(String(50), nullable=True)
     resolu: Mapped[bool] = mapped_column(Boolean, default=False)
-    date_creation: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
+    date_creation: Mapped[datetime | None] = mapped_column(DateTime, default=utc_now)
 
     apprenant: Mapped[Optional["Apprenant"]] = relationship("Apprenant", back_populates="alertes")
 
@@ -186,7 +190,7 @@ class StatistiquePedagogique(Base):
     total_interactions: Mapped[int] = mapped_column(Integer, default=0)
     total_temps_sec: Mapped[int] = mapped_column(Integer, default=0)
     taux_comprehension: Mapped[float] = mapped_column(Float, default=75.0)
-    notions_difficiles_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # JSON array
+    notions_difficiles_json: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON array
 
 
 class SeanceRevisionModel(Base):
@@ -199,26 +203,26 @@ class SeanceRevisionModel(Base):
     heure_debut: Mapped[str] = mapped_column(String(10), nullable=False)  # 'HH:MM'
     heure_fin: Mapped[str] = mapped_column(String(10), nullable=False)
     duree_minutes: Mapped[int] = mapped_column(Integer, default=45)
-    commentaire: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    commentaire: Mapped[str | None] = mapped_column(Text, nullable=True)
     statut: Mapped[str] = mapped_column(String(30), default="PROGRAMMÉE")
     rappel_minutes_avant: Mapped[int] = mapped_column(Integer, default=30)
-    date_creation: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
+    date_creation: Mapped[datetime | None] = mapped_column(DateTime, default=utc_now)
 
 
 class RapportModel(Base):
     __tablename__ = "rapports_pedagogiques"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
-    etablissement_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
+    etablissement_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     titre: Mapped[str] = mapped_column(String(150), nullable=False)
     periode: Mapped[str] = mapped_column(String(80), default="Semaine en cours")
-    date_debut: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
-    date_fin: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
+    date_debut: Mapped[datetime | None] = mapped_column(DateTime, default=utc_now)
+    date_fin: Mapped[datetime | None] = mapped_column(DateTime, default=utc_now)
     type_fichier: Mapped[str] = mapped_column(String(20), default="pdf")  # 'pdf', 'excel'
     statut: Mapped[str] = mapped_column(String(30), default="genere")
     taille_fichier_octets: Mapped[int] = mapped_column(Integer, default=450000)
-    url_telechargement: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    date_generation: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
+    url_telechargement: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    date_generation: Mapped[datetime | None] = mapped_column(DateTime, default=utc_now)
 
 
 # ==============================================================================
@@ -250,13 +254,13 @@ class CultureMonument(Base):
     narration_audio_texte: Mapped[str] = mapped_column(Text, nullable=False)
     pourquoi_ce_lieu_compte: Mapped[str] = mapped_column(Text, nullable=False)
     route_path: Mapped[str] = mapped_column(String(200), nullable=False)
-    modele_3d_url: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    modele_3d_url: Mapped[str | None] = mapped_column(String(255), nullable=True)
     ar_disponible: Mapped[bool] = mapped_column(Boolean, default=False)
-    audio_url: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    audio_url: Mapped[str | None] = mapped_column(String(255), nullable=True)
     statut_validation: Mapped[str] = mapped_column(String(100), default="Patrimoine vérifié")
-    date_mise_a_jour: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
+    date_mise_a_jour: Mapped[datetime | None] = mapped_column(DateTime, default=utc_now)
 
-    decouvertes: Mapped[List["CultureDecouverte"]] = relationship("CultureDecouverte", back_populates="monument")
+    decouvertes: Mapped[list["CultureDecouverte"]] = relationship("CultureDecouverte", back_populates="monument")
 
 
 class CulturePersonnage(Base):
@@ -270,14 +274,14 @@ class CulturePersonnage(Base):
     region_nom: Mapped[str] = mapped_column(String(100), nullable=False)
     tag: Mapped[str] = mapped_column(String(100), default="Héros Historique")
     photo_url: Mapped[str] = mapped_column(String(255), nullable=False)
-    photo_credits: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    photo_credits: Mapped[str | None] = mapped_column(String(255), nullable=True)
     resume: Mapped[str] = mapped_column(Text, nullable=False)
-    citation_historique: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    citation_historique: Mapped[str | None] = mapped_column(Text, nullable=True)
     faits_marquants_json: Mapped[str] = mapped_column(Text, nullable=False)  # JSON list
     chapitres_json: Mapped[str] = mapped_column(Text, nullable=False)        # JSON list
     elements_lies_json: Mapped[str] = mapped_column(Text, nullable=False)     # JSON list
-    audio_narration: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    date_creation: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
+    audio_narration: Mapped[str | None] = mapped_column(Text, nullable=True)
+    date_creation: Mapped[datetime | None] = mapped_column(DateTime, default=utc_now)
 
 
 class CultureLieu(Base):
@@ -290,15 +294,15 @@ class CultureLieu(Base):
     region_nom: Mapped[str] = mapped_column(String(100), nullable=False)
     tag: Mapped[str] = mapped_column(String(100), default="Cité Historique")
     photo_url: Mapped[str] = mapped_column(String(255), nullable=False)
-    photo_credits: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    photo_credits: Mapped[str | None] = mapped_column(String(255), nullable=True)
     fondation: Mapped[str] = mapped_column(String(150), nullable=False)
     latitude: Mapped[float] = mapped_column(Float, default=12.6392)
     longitude: Mapped[float] = mapped_column(Float, default=-8.0029)
-    population_ou_details: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
+    population_ou_details: Mapped[str | None] = mapped_column(String(150), nullable=True)
     resume: Mapped[str] = mapped_column(Text, nullable=False)
     chapitres_json: Mapped[str] = mapped_column(Text, nullable=False)
     elements_lies_json: Mapped[str] = mapped_column(Text, nullable=False)
-    date_creation: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
+    date_creation: Mapped[datetime | None] = mapped_column(DateTime, default=utc_now)
 
     @property
     def surnom(self) -> str:
@@ -321,11 +325,11 @@ class CultureConte(Base):
     titre: Mapped[str] = mapped_column(String(150), nullable=False, index=True)
     sous_titre: Mapped[str] = mapped_column(String(200), nullable=False)
     origine: Mapped[str] = mapped_column(String(150), nullable=False)
-    region_id: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    region_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
     region_nom: Mapped[str] = mapped_column(String(100), default="Tout le Mali")
     tag: Mapped[str] = mapped_column(String(100), default="Fable & Conte")
     photo_url: Mapped[str] = mapped_column(String(255), nullable=False)
-    photo_credits: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    photo_credits: Mapped[str | None] = mapped_column(String(255), nullable=True)
     resume: Mapped[str] = mapped_column(Text, nullable=False)
     conteur: Mapped[str] = mapped_column(String(120), default="Griot AlternIA")
     duree_audio: Mapped[str] = mapped_column(String(30), default="5 min")
@@ -333,7 +337,7 @@ class CultureConte(Base):
     morale: Mapped[str] = mapped_column(Text, nullable=False)
     scenes_json: Mapped[str] = mapped_column(Text, nullable=False)
     elements_lies_json: Mapped[str] = mapped_column(Text, nullable=False)
-    date_creation: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
+    date_creation: Mapped[datetime | None] = mapped_column(DateTime, default=utc_now)
 
 
 class CultureProverbe(Base):
@@ -341,7 +345,7 @@ class CultureProverbe(Base):
 
     id: Mapped[str] = mapped_column(String(100), primary_key=True)
     texte: Mapped[str] = mapped_column(Text, nullable=False)
-    texte_original: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    texte_original: Mapped[str | None] = mapped_column(Text, nullable=True)
     signification: Mapped[str] = mapped_column(Text, nullable=False)
     morale: Mapped[str] = mapped_column(String(255), nullable=False)
     origine: Mapped[str] = mapped_column(String(150), nullable=False)
@@ -349,8 +353,8 @@ class CultureProverbe(Base):
     region_id: Mapped[str] = mapped_column(String(50), nullable=False)
     region_nom: Mapped[str] = mapped_column(String(100), nullable=False)
     xp_recompense: Mapped[int] = mapped_column(Integer, default=40)
-    orateur_nom: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    orateur_role: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    orateur_nom: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    orateur_role: Mapped[str | None] = mapped_column(String(100), nullable=True)
     accent_color_hex: Mapped[str] = mapped_column(String(10), default="#F1851F")
 
 
@@ -358,13 +362,13 @@ class CultureDecouverte(Base):
     __tablename__ = "culture_decouvertes"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
-    apprenant_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True, index=True)
+    apprenant_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
     monument_id: Mapped[str] = mapped_column(String(100), ForeignKey("culture_monuments.id"), nullable=False)
     confidence: Mapped[float] = mapped_column(Float, default=0.98)
     est_favori: Mapped[bool] = mapped_column(Boolean, default=False)
-    notes_personnelles: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    image_scannee_url: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    date_decouverte: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
+    notes_personnelles: Mapped[str | None] = mapped_column(Text, nullable=True)
+    image_scannee_url: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    date_decouverte: Mapped[datetime | None] = mapped_column(DateTime, default=utc_now)
 
     monument: Mapped["CultureMonument"] = relationship("CultureMonument", back_populates="decouvertes")
 
@@ -381,8 +385,8 @@ class CulturePack(Base):
     version: Mapped[str] = mapped_column(String(20), default="1.0.0")
     elements_count: Mapped[int] = mapped_column(Integer, default=15)
     inclus_json: Mapped[str] = mapped_column(Text, nullable=False)  # JSON summary
-    bundle_data_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # Full offline JSON
-    date_mise_a_jour: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
+    bundle_data_json: Mapped[str | None] = mapped_column(Text, nullable=True)  # Full offline JSON
+    date_mise_a_jour: Mapped[datetime | None] = mapped_column(DateTime, default=utc_now)
 
 
 class CultureNom(Base):
@@ -397,10 +401,54 @@ class CultureNom(Base):
     clan_role: Mapped[str] = mapped_column(String(200), nullable=False)
     totem: Mapped[str] = mapped_column(String(150), nullable=False)  # Tanan ancestral
     senankouya: Mapped[str] = mapped_column(String(255), nullable=False)  # Cousinage à plaisanterie
-    devise_ou_louange: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # Louange griotique
+    devise_ou_louange: Mapped[str | None] = mapped_column(Text, nullable=True)  # Louange griotique
     anecdote: Mapped[str] = mapped_column(Text, nullable=False)
     variantes_json: Mapped[str] = mapped_column(Text, nullable=False, default="[]")  # JSON list
-    date_creation: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
+    date_creation: Mapped[datetime | None] = mapped_column(DateTime, default=utc_now)
+
+
+class CultureContribution(Base):
+    __tablename__ = "culture_contributions"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    
+    # Contributeur
+    auteur_nom: Mapped[str] = mapped_column(String(120), nullable=False)
+    auteur_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    auteur_role: Mapped[str] = mapped_column(String(50), default="Apprenant")  # 'Apprenant', 'Parent', 'Enseignant', 'Griot'
+
+    # Nature du contenu
+    type_contenu: Mapped[str] = mapped_column(String(30), nullable=False, index=True)  # 'proverbe', 'devinette', 'conte', 'patronyme'
+
+    # Données culturelles
+    texte: Mapped[str] = mapped_column(Text, nullable=False)
+    texte_original: Mapped[str | None] = mapped_column(Text, nullable=True)  # Version Bambara, Peul, etc.
+    signification: Mapped[str] = mapped_column(Text, nullable=False)
+    morale: Mapped[str | None] = mapped_column(String(255), nullable=True)   # Ou réponse à la devinette
+    origine: Mapped[str] = mapped_column(String(150), default="Tradition Orale")
+    theme: Mapped[str] = mapped_column(String(80), default="Sagesse & Culture")
+    region_id: Mapped[str] = mapped_column(String(50), default="bamako")
+    region_nom: Mapped[str] = mapped_column(String(100), default="Tout le Mali")
+    
+    # Médias & Données multimédias étendues
+    titre: Mapped[str | None] = mapped_column(String(150), nullable=True)           # Pour les monuments, contes, cités
+    photo_url: Mapped[str | None] = mapped_column(String(255), nullable=True)       # Pour les photos de sites, visages ou manuscrits
+    source_temoin: Mapped[str | None] = mapped_column(String(150), nullable=True)  # Ex: "Mon grand-père à Bandiagara"
+    audio_url: Mapped[str | None] = mapped_column(String(255), nullable=True)       # Enregistrement vocal
+    donnees_supplementaires_json: Mapped[str | None] = mapped_column(Text, nullable=True) # JSON flexible (GPS, totem, variantes, etc.)
+
+    # Workflow de validation
+    statut: Mapped[str] = mapped_column(String(30), default="EN_ATTENTE", index=True)  # 'EN_ATTENTE', 'APPROUVE', 'REJETE'
+    motif_moderation: Mapped[str | None] = mapped_column(Text, nullable=True)
+    traite_par_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    
+    # Récompenses gamification
+    xp_attribues: Mapped[int] = mapped_column(Integer, default=50)
+    pieces_attribuees: Mapped[int] = mapped_column(Integer, default=25)
+
+    # Horodatage
+    date_soumission: Mapped[datetime | None] = mapped_column(DateTime, default=utc_now)
+    date_moderation: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
 # ==============================================================================
@@ -416,10 +464,10 @@ class Portefeuille(Base):
     pieces_reservees: Mapped[int] = mapped_column(Integer, default=0)  # Réservées pour un retrait en attente
     pieces_retirees_total: Mapped[int] = mapped_column(Integer, default=0)
     argent_total_gagne_fcfa: Mapped[int] = mapped_column(Integer, default=0)
-    date_creation: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
-    date_mise_a_jour: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
+    date_creation: Mapped[datetime | None] = mapped_column(DateTime, default=utc_now)
+    date_mise_a_jour: Mapped[datetime | None] = mapped_column(DateTime, default=utc_now)
 
-    transactions: Mapped[List["TransactionPiece"]] = relationship("TransactionPiece", back_populates="portefeuille")
+    transactions: Mapped[list["TransactionPiece"]] = relationship("TransactionPiece", back_populates="portefeuille")
 
 
 class TransactionPiece(Base):
@@ -431,11 +479,11 @@ class TransactionPiece(Base):
     montant: Mapped[int] = mapped_column(Integer, nullable=False)  # Positif (crédit) ou négatif (débit)
     type_operation: Mapped[str] = mapped_column(String(40), nullable=False)  # 'CREDIT', 'DEBIT_RESERVATION', 'DEBIT_FINAL', 'REMBOURSEMENT'
     origine: Mapped[str] = mapped_column(String(50), nullable=False)  # 'DEFI_NATIONAL', 'BATTLE_DUEL', 'CHALLENGE_SOLO', 'SESSION_GRIN', 'BONUS_FIDELITE', 'CULTURE_VALIDEE', 'RETRAIT_MOBILE_MONEY', 'PARRAINAGE'
-    idempotency_key: Mapped[Optional[str]] = mapped_column(String(100), unique=True, index=True, nullable=True)
+    idempotency_key: Mapped[str | None] = mapped_column(String(100), unique=True, index=True, nullable=True)
     description: Mapped[str] = mapped_column(String(255), nullable=False)
-    metadonnees_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    metadonnees_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     solde_apres: Mapped[int] = mapped_column(Integer, nullable=False)
-    date_creation: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
+    date_creation: Mapped[datetime | None] = mapped_column(DateTime, default=utc_now)
 
     portefeuille: Mapped["Portefeuille"] = relationship("Portefeuille", back_populates="transactions")
 
@@ -452,13 +500,13 @@ class DemandeRetrait(Base):
     numero_telephone: Mapped[str] = mapped_column(String(30), nullable=False)
     nom_titulaire: Mapped[str] = mapped_column(String(100), nullable=False)
     statut: Mapped[str] = mapped_column(String(40), default="EN_ATTENTE", index=True)  # 'EN_ATTENTE', 'EN_VERIFICATION', 'ACCEPTEE', 'REJETEE', 'EN_COURS_DE_PAIEMENT', 'PAYEE', 'ECHEC'
-    motif_rejet: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    reference_operateur: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    traite_par_admin_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
-    date_demande: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
-    date_traitement: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    date_paiement: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    ip_demandeur: Mapped[Optional[str]] = mapped_column(String(45), nullable=True)
+    motif_rejet: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reference_operateur: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    traite_par_admin_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    date_demande: Mapped[datetime | None] = mapped_column(DateTime, default=utc_now)
+    date_traitement: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    date_paiement: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    ip_demandeur: Mapped[str | None] = mapped_column(String(45), nullable=True)
 
 
 # ==============================================================================
@@ -474,7 +522,7 @@ class ParrainageCode(Base):
     total_filleuls: Mapped[int] = mapped_column(Integer, default=0)
     total_filleuls_actifs: Mapped[int] = mapped_column(Integer, default=0)
     pieces_gagnees_parrainage: Mapped[int] = mapped_column(Integer, default=0)
-    date_creation: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
+    date_creation: Mapped[datetime | None] = mapped_column(DateTime, default=utc_now)
 
 
 class ParrainageFilleul(Base):
@@ -486,8 +534,8 @@ class ParrainageFilleul(Base):
     code_utilise: Mapped[str] = mapped_column(String(20), nullable=False)
     statut: Mapped[str] = mapped_column(String(30), default="EN_ATTENTE")  # 'EN_ATTENTE', 'VALIDE', 'SUSPECT_REJETE'
     recompense_attribuee: Mapped[bool] = mapped_column(Boolean, default=False)
-    date_inscription: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
-    date_validation: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    date_inscription: Mapped[datetime | None] = mapped_column(DateTime, default=utc_now)
+    date_validation: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
 # ==============================================================================
@@ -514,9 +562,9 @@ class AbonnementUtilisateur(Base):
     offre_id: Mapped[str] = mapped_column(String(50), nullable=False)
     source: Mapped[str] = mapped_column(String(50), default="ACHAT_MOBILE_MONEY")  # 'ACHAT_MOBILE_MONEY', 'PARRAINAGE_OFFERT', 'ADMIN_GRATIFIE'
     statut: Mapped[str] = mapped_column(String(30), default="ACTIF", index=True)  # 'ACTIF', 'EXPIRE', 'RESILIE'
-    date_debut: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
-    date_expiration: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=False)
-    date_creation: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
+    date_debut: Mapped[datetime | None] = mapped_column(DateTime, default=utc_now)
+    date_expiration: Mapped[datetime | None] = mapped_column(DateTime, nullable=False)
+    date_creation: Mapped[datetime | None] = mapped_column(DateTime, default=utc_now)
 
 
 # ==============================================================================
@@ -528,20 +576,20 @@ class DefiNational(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
     titre: Mapped[str] = mapped_column(String(150), nullable=False)
-    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
     classe: Mapped[str] = mapped_column(String(30), nullable=False, index=True)  # '12eme', '10eme', 'TSE', etc.
     matiere: Mapped[str] = mapped_column(String(80), nullable=False)
     statut: Mapped[str] = mapped_column(String(30), default="EN_COURS", index=True)  # 'A_VENIR', 'EN_COURS', 'CLOTURE'
-    date_debut: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
-    date_fin: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=False)
+    date_debut: Mapped[datetime | None] = mapped_column(DateTime, default=utc_now)
+    date_fin: Mapped[datetime | None] = mapped_column(DateTime, nullable=False)
     duree_minutes: Mapped[int] = mapped_column(Integer, default=15)
     recompense_pieces_premier: Mapped[int] = mapped_column(Integer, default=500)
     recompense_pieces_top10: Mapped[int] = mapped_column(Integer, default=250)
     recompense_pieces_participation: Mapped[int] = mapped_column(Integer, default=50)
     questions_json: Mapped[str] = mapped_column(Text, nullable=False)  # Questions officielles
-    date_creation: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
+    date_creation: Mapped[datetime | None] = mapped_column(DateTime, default=utc_now)
 
-    participations: Mapped[List["ParticipationDefiNational"]] = relationship("ParticipationDefiNational", back_populates="defi")
+    participations: Mapped[list["ParticipationDefiNational"]] = relationship("ParticipationDefiNational", back_populates="defi")
 
 
 class ParticipationDefiNational(Base):
@@ -556,9 +604,9 @@ class ParticipationDefiNational(Base):
     temps_secondes: Mapped[int] = mapped_column(Integer, default=0)
     pieces_remportees: Mapped[int] = mapped_column(Integer, default=0)
     xp_remportes: Mapped[int] = mapped_column(Integer, default=0)
-    rang_final: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    reponses_soumises_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    soumis_a: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
+    rang_final: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    reponses_soumises_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    soumis_a: Mapped[datetime | None] = mapped_column(DateTime, default=utc_now)
 
     defi: Mapped["DefiNational"] = relationship("DefiNational", back_populates="participations")
 
@@ -575,8 +623,8 @@ class JournalAuditSecurite(Base):
     action_type: Mapped[str] = mapped_column(String(50), nullable=False, index=True)  # 'RETRAIT_APPROUVE', 'RETRAIT_REJETE', 'RETRAIT_PAYE', 'RESET_CLASSEMENT', etc.
     entite_cible: Mapped[str] = mapped_column(String(50), nullable=False)
     entite_id: Mapped[str] = mapped_column(String(100), nullable=False)
-    details_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    adresse_ip: Mapped[Optional[str]] = mapped_column(String(45), nullable=True)
-    date_action: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
+    details_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    adresse_ip: Mapped[str | None] = mapped_column(String(45), nullable=True)
+    date_action: Mapped[datetime | None] = mapped_column(DateTime, default=utc_now)
 
 

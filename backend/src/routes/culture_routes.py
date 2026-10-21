@@ -5,7 +5,8 @@ de dialogue RAG culturel et de synchronisation des packs hors ligne.
 """
 
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
@@ -22,21 +23,21 @@ router = APIRouter(prefix="/api/v1/culture", tags=["CultureLens & Patrimoine"])
 # ==============================================================================
 
 class IdentifyRequest(BaseModel):
-    image_name: Optional[str] = Field(None, description="Nom du fichier image ou identifiant de capture")
-    image_base64: Optional[str] = Field(None, description="Image encodée en base64 pour inférence IA vision directe")
-    keywords: Optional[List[str]] = Field(None, description="Mots-clés extraits ou annotations")
-    latitude: Optional[float] = Field(None, description="Position GPS de l'appareil (latitude)")
-    longitude: Optional[float] = Field(None, description="Position GPS de l'appareil (longitude)")
-    hint_id: Optional[str] = Field(None, description="ID cible suggéré (mode démo ou balise)")
+    image_name: str | None = Field(None, description="Nom du fichier image ou identifiant de capture")
+    image_base64: str | None = Field(None, description="Image encodée en base64 pour inférence IA vision directe")
+    keywords: list[str] | None = Field(None, description="Mots-clés extraits ou annotations")
+    latitude: float | None = Field(None, description="Position GPS de l'appareil (latitude)")
+    longitude: float | None = Field(None, description="Position GPS de l'appareil (longitude)")
+    hint_id: str | None = Field(None, description="ID cible suggéré (mode démo ou balise)")
 
 
 class AskGuideRequest(BaseModel):
     question: str = Field(..., description="Question posée au guide culturel")
-    monument_id: Optional[str] = Field(None, description="ID du monument en cours de consultation")
-    region_id: Optional[str] = Field(None, description="ID de la région contextuelle")
-    system: Optional[str] = Field(None, description="System prompt spécialisé ou adapté")
-    use_case: Optional[str] = Field(None, description="Cas d'usage culturel")
-    context: Optional[str] = Field(None, description="Contexte patrimonial immédiat")
+    monument_id: str | None = Field(None, description="ID du monument en cours de consultation")
+    region_id: str | None = Field(None, description="ID de la région contextuelle")
+    system: str | None = Field(None, description="System prompt spécialisé ou adapté")
+    use_case: str | None = Field(None, description="Cas d'usage culturel")
+    context: str | None = Field(None, description="Contexte patrimonial immédiat")
 
     class Config:
         extra = "allow"
@@ -44,8 +45,8 @@ class AskGuideRequest(BaseModel):
 
 class SageChatRequest(BaseModel):
     user_message: str = Field(..., description="Message de l'apprenant à Grand-mère Mah")
-    history: Optional[List[Dict[str, str]]] = Field(default=[], description="Historique de la conversation")
-    additional_context: Optional[str] = Field(None, description="Contexte régional ou patrimonial")
+    history: list[dict[str, str]] | None = Field(default=[], description="Historique de la conversation")
+    additional_context: str | None = Field(None, description="Contexte régional ou patrimonial")
 
     class Config:
         extra = "allow"
@@ -53,10 +54,37 @@ class SageChatRequest(BaseModel):
 
 class DiscoveryRecordRequest(BaseModel):
     monument_id: str = Field(..., description="ID du monument scanné")
-    apprenant_id: Optional[str] = Field(None, description="ID de l'apprenant")
+    apprenant_id: str | None = Field(None, description="ID de l'apprenant")
     confidence: float = Field(0.98, description="Indice de confiance de la détection")
     is_favorite: bool = Field(False, description="Marqué en favori")
-    notes: Optional[str] = Field(None, description="Notes personnelles de l'apprenant")
+    notes: str | None = Field(None, description="Notes personnelles de l'apprenant")
+
+
+class ContributionCreateRequest(BaseModel):
+    type_contenu: str = Field("proverbe", description="Pilier culturel : 'proverbe', 'devinette', 'conte', 'monument', 'personnage', 'lieu', 'patronyme'")
+    titre: str | None = Field(None, description="Titre ou nom du monument, personnage, conte, ville, patronyme")
+    texte: str = Field(..., description="Texte principal, récit historique, légende, énigme ou description")
+    texte_original: str | None = Field(None, description="Version originale en langue locale (Bambara, Peul, Songhoy, etc.) ou louange clanique")
+    signification: str = Field(..., description="Explication, signification profonde ou importance culturelle")
+    morale: str | None = Field(None, description="Morale de la fable, réponse à la devinette, ou titre honorifique")
+    origine: str | None = Field("Tradition Orale", description="Origine, ethnie ou terroir")
+    theme: str | None = Field("Sagesse & Culture", description="Thème ou catégorie")
+    region_id: str | None = Field("bamako", description="Identifiant de la région")
+    region_nom: str | None = Field("Tout le Mali", description="Nom de la région")
+    source_temoin: str | None = Field(None, description="Qui a transmis ou certifié ce savoir (anciens, griots, famille)")
+    photo_url: str | None = Field(None, description="URL ou chemin de la photo illustrative")
+    audio_url: str | None = Field(None, description="URL de l'enregistrement vocal audio ou narration")
+    donnees_supplementaires: dict[str, Any] | None = Field(None, description="Données enrichies : totem, senankouya, latitude, longitude, epoque, etc.")
+    donneesSupplementaires: dict[str, Any] | None = Field(None, description="Alias pour compatibilité client Flutter")
+    auteur_nom: str | None = Field(None, description="Nom ou pseudo du contributeur")
+    auteur_id: str | None = Field(None, description="ID de l'utilisateur ou apprenant connecté")
+    auteur_role: str | None = Field("Apprenant", description="Rôle : 'Apprenant', 'Parent', 'Enseignant', 'Griot'")
+
+
+class ContributionDecisionRequest(BaseModel):
+    decision: str = Field(..., description="'APPROUVE' ou 'REJETE'")
+    motif: str | None = Field(None, description="Justification ou conseil pédagogique")
+    admin_id: str | None = Field(None, description="Identifiant du modérateur")
 
 
 # ==============================================================================
@@ -80,9 +108,9 @@ def culture_health(db: Session = Depends(get_db)):
 
 @router.get("/monuments")
 def get_monuments(
-    ville: Optional[str] = Query(None, description="Filtrer par ville (ex: 'Bamako', 'Djenné')"),
-    region_id: Optional[str] = Query(None, description="Filtrer par région (ex: 'bamako', 'mopti')"),
-    q: Optional[str] = Query(None, description="Recherche textuelle libre"),
+    ville: str | None = Query(None, description="Filtrer par ville (ex: 'Bamako', 'Djenné')"),
+    region_id: str | None = Query(None, description="Filtrer par région (ex: 'bamako', 'mopti')"),
+    q: str | None = Query(None, description="Recherche textuelle libre"),
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
     db: Session = Depends(get_db),
@@ -100,9 +128,9 @@ def get_monuments(
 
 @router.get("/sites")
 def get_sites(
-    ville: Optional[str] = None,
-    region_id: Optional[str] = None,
-    q: Optional[str] = None,
+    ville: str | None = None,
+    region_id: str | None = None,
+    q: str | None = None,
     skip: int = 0,
     limit: int = 50,
     db: Session = Depends(get_db),
@@ -283,7 +311,7 @@ def save_discovery(payload: DiscoveryRecordRequest, db: Session = Depends(get_db
 
 @router.get("/discoveries")
 def get_user_discoveries(
-    apprenant_id: Optional[str] = None,
+    apprenant_id: str | None = None,
     db: Session = Depends(get_db),
 ):
     """Récupère l'historique des découvertes enregistrées."""
@@ -311,8 +339,8 @@ def chat_with_grandmere_mah(payload: SageChatRequest, db: Session = Depends(get_
 
 @router.get("/names")
 def get_malian_names(
-    type: Optional[str] = Query(None, description="Filtrer par type : 'nom' (patronyme) ou 'prenom'"),
-    q: Optional[str] = Query(None, description="Recherche textuelle libre"),
+    type: str | None = Query(None, description="Filtrer par type : 'nom' (patronyme) ou 'prenom'"),
+    q: str | None = Query(None, description="Recherche textuelle libre"),
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
     db: Session = Depends(get_db),
@@ -336,4 +364,93 @@ def get_malian_name_detail(name_query: str, db: Session = Depends(get_db)):
             detail=f"Le nom ou prénom '{name_query}' est introuvable dans la généalogie des terroirs",
         )
     return nom
+
+
+# ==============================================================================
+# PATRIMOINE PARTICIPATIF & CONTRIBUTIONS CITOYENNES
+# ==============================================================================
+
+@router.post("/contributions", status_code=status.HTTP_201_CREATED)
+def submit_cultural_contribution(
+    payload: ContributionCreateRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Permet à un utilisateur ou apprenant de soumettre un proverbe, une devinette,
+    un conte ou une variante patrimoniale pour enrichir la base commune.
+    La contribution entre d'abord en statut 'EN_ATTENTE' de modération.
+    """
+    if not payload.texte.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Le texte de la contribution ne peut pas être vide.",
+        )
+    return CultureService.create_contribution(db=db, payload=payload.model_dump())
+
+
+@router.get("/contributions")
+def get_cultural_contributions(
+    statut: str | None = Query(None, description="Filtrer par statut : 'EN_ATTENTE', 'APPROUVE', 'REJETE'"),
+    type_contenu: str | None = Query(None, description="Filtrer par type : 'proverbe', 'devinette', 'conte', 'monument', 'personnage', 'lieu', 'patronyme'"),
+    auteur_id: str | None = Query(None, description="Filtrer par ID d'auteur pour voir ses propres soumissions"),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
+    db: Session = Depends(get_db),
+):
+    """
+    Récupère la liste des contributions culturelles pour l'historique utilisateur ou la modération.
+    """
+    return CultureService.list_contributions(
+        db=db,
+        statut=statut,
+        type_contenu=type_contenu,
+        auteur_id=auteur_id,
+        skip=skip,
+        limit=limit,
+    )
+
+
+@router.get("/contributions/{contribution_id}")
+def get_cultural_contribution_detail(
+    contribution_id: str,
+    db: Session = Depends(get_db),
+):
+    """
+    Consulte le détail d'une contribution spécifique.
+    """
+    item = CultureService.get_contribution_by_id(db=db, contribution_id=contribution_id)
+    if not item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Contribution '{contribution_id}' introuvable.",
+        )
+    return item
+
+
+@router.post("/contributions/{contribution_id}/decision")
+def moderate_cultural_contribution(
+    contribution_id: str,
+    payload: ContributionDecisionRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Endpoint réservé aux enseignants / administrateurs pour valider ou rejeter une contribution.
+    Si validée :
+    - Elle est automatiquement promue dans le catalogue actif (CultureProverbe).
+    - L'auteur reçoit immédiatement ses pièces et XP dans son portefeuille.
+    """
+    try:
+        return CultureService.moderate_contribution(
+            db=db,
+            contribution_id=contribution_id,
+            decision=payload.decision,
+            motif=payload.motif,
+            admin_id=payload.admin_id,
+        )
+    except ValueError as val_err:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(val_err),
+        )
+
 

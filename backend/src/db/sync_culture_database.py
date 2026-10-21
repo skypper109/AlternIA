@@ -9,26 +9,26 @@ Met à jour et peuple MySQL et SQLite avec l'ensemble des données culturelles a
 """
 
 import json
-from datetime import datetime
-from pathlib import Path
-from sqlalchemy.orm import Session
+from datetime import UTC, datetime
+from typing import Any
 
-from backend.src.db.database import SessionLocal, SQLITE_FALLBACK_URL
-from sqlalchemy import create_engine
+from backend.src.db.database import SQLITE_FALLBACK_URL, SessionLocal
 from backend.src.db.models import (
     Base,
+    CultureConte,
+    CultureLieu,
     CultureMonument,
     CulturePersonnage,
-    CultureLieu,
-    CultureConte,
     CultureProverbe,
 )
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 1. CATALOGUE COMPLET DES MONUMENTS
 # ══════════════════════════════════════════════════════════════════════════════
 
-ALL_MONUMENTS = [
+ALL_MONUMENTS: list[dict[str, Any]] = [
     {
         "id": "monument_independance_bamako",
         "nom": "Monument de l'Indépendance",
@@ -819,7 +819,7 @@ ALL_MONUMENTS = [
 # 2. GRANDS PERSONNAGES HISTORIQUES
 # ══════════════════════════════════════════════════════════════════════════════
 
-ALL_FIGURES = [
+ALL_FIGURES: list[dict[str, Any]] = [
     {
         "id": "perso_soundiata",
         "nom": "Soundiata Keïta",
@@ -991,7 +991,7 @@ ALL_FIGURES = [
 # 3. VILLES ET TERROIRS REMARQUABLES
 # ══════════════════════════════════════════════════════════════════════════════
 
-ALL_PLACES = [
+ALL_PLACES: list[dict[str, Any]] = [
     {
         "id": "ville_bamako",
         "nom": "Bamako",
@@ -1153,7 +1153,7 @@ ALL_PLACES = [
 # 4. CONTES ET FABLES INTERACTIFS
 # ══════════════════════════════════════════════════════════════════════════════
 
-ALL_STORIES = [
+ALL_STORIES: list[dict[str, Any]] = [
     {
         "id": "conte_lievre_hyene",
         "titre": "Zoumana le Lièvre et Namori l'Hyène",
@@ -1243,7 +1243,7 @@ ALL_STORIES = [
 # 5. SAGESSES, PROVERBES & DÉFIS
 # ══════════════════════════════════════════════════════════════════════════════
 
-ALL_PROVERBS = [
+ALL_PROVERBS: list[dict[str, Any]] = [
     {
         "id": "prov_humilite",
         "texte": "L'eau chaude n'oublie jamais qu'elle a été froide.",
@@ -1320,10 +1320,10 @@ ALL_PROVERBS = [
         "accent_color_hex": "#8B5CF6",
     },
     {
-        "id": "defi_nda_baobab",
-        "texte": "« N'da ! » — Les Énigmes du Baobab",
-        "texte_original": "N'da sira",
-        "signification": "Répondez par « N'da sira » et élucidez les énigmes poétiques posées par nos aïeux sous l'arbre à palabres.",
+        "id": "defi_koko_baobab",
+        "texte": "« Kôkô ! » — « N'sira ! » • Les Énigmes du Baobab",
+        "texte_original": "Kôkô ! — N'sira !",
+        "signification": "Répondez par « N'sira ! » et élucidez les énigmes poétiques posées par nos aïeux sous l'arbre à palabres.",
         "morale": "La vivacité d'esprit préserve la culture vivante",
         "origine": "Devinettes traditionnelles Bambara",
         "theme": "Jeu de Devinettes",
@@ -1369,11 +1369,11 @@ ALL_PROVERBS = [
 
 def sync_database(db: Session):
     """Effectue l'upsert certifié dans la session SQLAlchemy fournie."""
-    print("🚀 Début de la synchronisation de la base de données...")
+    print(" Début de la synchronisation de la base de données...")
 
     # 1. Monuments
     for m in ALL_MONUMENTS:
-        rec = db.query(CultureMonument).filter(CultureMonument.id == m["id"]).first()
+        rec: Any = db.query(CultureMonument).filter(CultureMonument.id == m["id"]).first()
         if not rec:
             rec = CultureMonument(id=m["id"])
             db.add(rec)
@@ -1401,11 +1401,11 @@ def sync_database(db: Session):
         rec.modele_3d_url = m.get("modele_3d_url")
         rec.ar_disponible = m.get("ar_disponible", False)
         rec.statut_validation = m.get("statut_validation", "Patrimoine vérifié")
-        rec.date_mise_a_jour = datetime.utcnow()
+        rec.date_mise_a_jour = datetime.now(UTC)
 
     # 2. Personnages
     for p in ALL_FIGURES:
-        rec = db.query(CulturePersonnage).filter(CulturePersonnage.id == p["id"]).first()
+        rec: Any = db.query(CulturePersonnage).filter(CulturePersonnage.id == p["id"]).first()
         if not rec:
             rec = CulturePersonnage(id=p["id"])
             db.add(rec)
@@ -1425,7 +1425,7 @@ def sync_database(db: Session):
 
     # 3. Lieux
     for l in ALL_PLACES:
-        rec = db.query(CultureLieu).filter(CultureLieu.id == l["id"]).first()
+        rec: Any = db.query(CultureLieu).filter(CultureLieu.id == l["id"]).first()
         if not rec:
             rec = CultureLieu(id=l["id"])
             db.add(rec)
@@ -1446,7 +1446,7 @@ def sync_database(db: Session):
 
     # 4. Contes
     for c in ALL_STORIES:
-        rec = db.query(CultureConte).filter(CultureConte.id == c["id"]).first()
+        rec: Any = db.query(CultureConte).filter(CultureConte.id == c["id"]).first()
         if not rec:
             rec = CultureConte(id=c["id"])
             db.add(rec)
@@ -1468,7 +1468,7 @@ def sync_database(db: Session):
 
     # 5. Proverbes
     for pr in ALL_PROVERBS:
-        rec = db.query(CultureProverbe).filter(CultureProverbe.id == pr["id"]).first()
+        rec: Any = db.query(CultureProverbe).filter(CultureProverbe.id == pr["id"]).first()
         if not rec:
             rec = CultureProverbe(id=pr["id"])
             db.add(rec)
@@ -1486,7 +1486,7 @@ def sync_database(db: Session):
         rec.accent_color_hex = pr.get("accent_color_hex", "#F1851F")
 
     db.commit()
-    print("✅ Synchronisation réussie :")
+    print(" Synchronisation réussie :")
     print(f"   • {len(ALL_MONUMENTS)} monuments")
     print(f"   • {len(ALL_FIGURES)} personnages historiques")
     print(f"   • {len(ALL_PLACES)} terroirs et cités")
@@ -1510,7 +1510,7 @@ if __name__ == "__main__":
         SqliteSession = sessionmaker(autocommit=False, autoflush=False, bind=sqlite_engine)
         s_db = SqliteSession()
         try:
-            print("💾 Synchronisation de la base SQLite locale de secours...")
+            print(" Synchronisation de la base SQLite locale de secours...")
             sync_database(s_db)
         finally:
             s_db.close()

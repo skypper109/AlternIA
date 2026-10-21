@@ -107,3 +107,118 @@ def test_culture_figures_and_proverbs():
     resp_prov = client.get("/api/v1/culture/proverbs")
     assert resp_prov.status_code == 200
     assert len(resp_prov.json()) >= 5
+
+
+def test_create_and_moderate_proverbe_contribution():
+    payload = {
+        "type_contenu": "proverbe",
+        "texte": "Dɔɔnin dɔɔnin, kɔnɔnin b'a ɲaa da.",
+        "texte_original": "Dɔɔnin dɔɔnin, kɔnɔnin b'a ɲaa da.",
+        "signification": "Petit à petit, l'oiseau fait son nid. La patience et la persévérance mènent au succès.",
+        "morale": "La patience est la mère de la réussite.",
+        "origine": "Tradition Mandingue",
+        "region_id": "koulikoro",
+        "region_nom": "Koulikoro",
+        "source_temoin": "Mon grand-père à Kangaba",
+        "auteur_nom": "Amadou Diarra",
+        "auteur_role": "Apprenant",
+    }
+    # 1. Soumission
+    resp = client.post("/api/v1/culture/contributions", json=payload)
+    assert resp.status_code in (200, 201)
+    created = resp.json()
+    assert created["statut"] == "EN_ATTENTE"
+    assert created["typeContenu"] == "proverbe"
+    contrib_id = created["id"]
+
+    # 2. Modération : Approbation
+    mod_resp = client.post(
+        f"/api/v1/culture/contributions/{contrib_id}/decision",
+        json={"decision": "APPROUVE", "motif": "Proverbe authentique certifié", "admin_id": "admin_sage_1"},
+    )
+    assert mod_resp.status_code == 200
+    approved = mod_resp.json()
+    assert approved["statut"] == "APPROUVE"
+    assert approved["motifModeration"] == "Proverbe authentique certifié"
+
+
+def test_contributions_all_pillars():
+    pillars = [
+        {
+            "type_contenu": "devinette",
+            "texte": "Je voyage partout dans le village sans laisser de trace de pas. Qui suis-je ?",
+            "signification": "Énigme sur l'élément naturel omniprésent",
+            "morale": "Le vent",
+            "origine": "Tradition Peule",
+            "region_id": "mopti",
+            "region_nom": "Mopti",
+        },
+        {
+            "type_contenu": "conte",
+            "titre": "Le Lièvre et le Lion",
+            "texte": "Il était une fois dans la savane du Manden un lièvre si rusé qu'il défia le roi lion...",
+            "signification": "Conte initiatique sur l'intelligence qui triomphe de la force brute",
+            "morale": "La ruse vaut mieux que la force",
+            "origine": "Tradition Orale Mandingue",
+            "region_id": "segou",
+            "region_nom": "Ségou",
+        },
+        {
+            "type_contenu": "monument",
+            "titre": "Sanctuaire de Kamablon",
+            "texte": "Case sacrée circulaire à Kangaba réfectionnée tous les 7 ans lors d'un rituel solennel.",
+            "signification": "Cœur mystique et spirituel du Manden historique",
+            "origine": "Histoire du Mali",
+            "region_id": "koulikoro",
+            "region_nom": "Koulikoro",
+            "donnees_supplementaires": {"ville": "Kangaba", "epoque": "XIIIe siècle"},
+        },
+        {
+            "type_contenu": "personnage",
+            "titre": "Fakoly Doumbia",
+            "texte": "Général d'armée redoutable, grand maître des forgerons et allié clé de Soundiata Keïta.",
+            "signification": "Symbole de la bravoure et de la maîtrise du fer au Manden",
+            "morale": "Chef suprême des forgerons",
+            "origine": "Épopée Mandingue",
+            "region_id": "koulikoro",
+            "region_nom": "Koulikoro",
+            "donnees_supplementaires": {"periode": "XIIIe siècle"},
+        },
+        {
+            "type_contenu": "lieu",
+            "titre": "Bafoulabé la Légendaire",
+            "texte": "Cité confluent du Bafing et du Bakoye devenant le fleuve Sénégal, terre de la légende de Mali Sadio.",
+            "signification": "Carrefour fluvial et légende sacrée de l'amitié entre une jeune fille et un hippopotame",
+            "origine": "Royaume du Khasso",
+            "region_id": "kayes",
+            "region_nom": "Kayes",
+            "donnees_supplementaires": {"fondation": "Carrefour séculaire"},
+        },
+        {
+            "type_contenu": "patronyme",
+            "titre": "Coulibaly",
+            "texte": "Fondateurs du Royaume bambara de Ségou avec Biton Coulibaly.",
+            "signification": "Nom clanique noble de Ségou signifiant 'sans pirogue' selon la légende de la traversée.",
+            "texte_original": "Ségou Diarra, Ségou Coulibaly",
+            "origine": "Bambara de Ségou",
+            "region_id": "segou",
+            "region_nom": "Ségou",
+            "donnees_supplementaires": {"totem": "Silure", "senankouya": "Diarra / Traoré"},
+        },
+    ]
+
+    for p in pillars:
+        resp = client.post("/api/v1/culture/contributions", json=p)
+        assert resp.status_code in (200, 201), f"Erreur soumission pilier {p['type_contenu']}: {resp.text}"
+        data = resp.json()
+        assert data["typeContenu"] == p["type_contenu"]
+        assert data["statut"] == "EN_ATTENTE"
+        c_id = data["id"]
+
+        # Modération et promotion automatique
+        mod = client.post(
+            f"/api/v1/culture/contributions/{c_id}/decision",
+            json={"decision": "APPROUVE", "motif": "Validé par le jury d'experts"},
+        )
+        assert mod.status_code == 200, f"Erreur modération pilier {p['type_contenu']}: {mod.text}"
+        assert mod.json()["statut"] == "APPROUVE"

@@ -4,8 +4,15 @@ Portefeuille & Transactions, Retraits Mobile Money, Parrainage, Abonnements,
 Défi National, Podcasts et Administration sécurisée.
 """
 
+import sys
+from pathlib import Path
 import uuid
 from fastapi.testclient import TestClient
+
+root_dir = Path(__file__).resolve().parents[2]
+if str(root_dir) not in sys.path:
+    sys.path.insert(0, str(root_dir))
+
 from backend.src.main import app
 from backend.src.db.database import init_db, SessionLocal
 from backend.src.services.wallet_service import (

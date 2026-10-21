@@ -3,8 +3,15 @@ Tests automatisés pour l'API Flashcards Leitner IA.
 Vérifie la génération dynamique de cartes de révision.
 """
 
+import sys
+from pathlib import Path
 from unittest.mock import AsyncMock, patch
 from fastapi.testclient import TestClient
+
+root_dir = Path(__file__).resolve().parents[2]
+if str(root_dir) not in sys.path:
+    sys.path.insert(0, str(root_dir))
+
 from backend.src.main import app
 
 client = TestClient(app)

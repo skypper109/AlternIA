@@ -2,7 +2,7 @@
 Routes API pour l'Espace Parent connectées en temps réel à alta_db.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
@@ -114,7 +114,7 @@ def api_parent_historique(db: Session = Depends(get_db)) -> List[Dict[str, Any]]
     """Retourne l'historique complet des sessions et dialogues de révision."""
     sessions = db.query(SessionApprentissage).order_by(SessionApprentissage.date_debut.desc()).all()
     if not sessions:
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         return [
             {
                 "id": "ses-01",

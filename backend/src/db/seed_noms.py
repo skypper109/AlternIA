@@ -9,12 +9,12 @@ reconnue (griots, épopée de Soundiata) ou par l'histoire documentée.
   d'information fiable et générale (ils varient souvent selon les lignages).
 """
 
-from datetime import datetime
 import json
 import logging
-from sqlalchemy.orm import Session
+from datetime import UTC, datetime
 
 from backend.src.db.models import CultureNom
+from sqlalchemy.orm import Session
 
 logger = logging.getLogger("AlternIA.NomsSeed")
 
@@ -665,7 +665,7 @@ def seed_noms_data(db: Session, force: bool = False):
         for item in NOMS_DATA:
             rec = db.query(CultureNom).filter(CultureNom.id == item["id"]).first()
             if not rec:
-                rec = CultureNom(id=item["id"], date_creation=datetime.utcnow())
+                rec = CultureNom(id=item["id"], date_creation=datetime.now(UTC))
                 _apply(rec, item)
                 db.add(rec)
                 inserted += 1

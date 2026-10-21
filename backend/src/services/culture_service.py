@@ -2,27 +2,29 @@
 Service métier pour la gestion du patrimoine culturel, la reconnaissance CultureLens et le RAG culturel.
 """
 
-from datetime import datetime
 import json
 import logging
 import math
 import random
 import time
 import unicodedata
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
-from sqlalchemy.orm import Session
+from typing import Any
+
 from sqlalchemy import or_
+from sqlalchemy.orm import Session
 
 from backend.src.db.models import (
-    CultureMonument,
-    CulturePersonnage,
-    CultureLieu,
     CultureConte,
-    CultureProverbe,
-    CulturePack,
+    CultureContribution,
     CultureDecouverte,
+    CultureLieu,
+    CultureMonument,
     CultureNom,
+    CulturePack,
+    CulturePersonnage,
+    CultureProverbe,
 )
 
 logger = logging.getLogger("AlternIA.CultureService")
@@ -48,7 +50,7 @@ def _calculate_haversine_distance_km(lat1: float, lon1: float, lat2: float, lon2
     return round(R * c, 2)
 
 
-def _serialize_monument(m: CultureMonument) -> Dict[str, Any]:
+def _serialize_monument(m: CultureMonument) -> dict[str, Any]:
     """Sérialise un monument pour la réponse API."""
     mots_cles = []
     try:
@@ -197,7 +199,7 @@ def _build_grandmere_mah_speech_for_nom(n: CultureNom) -> str:
     Elle ne fait que mettre en voix les informations stockées en BDD :
     aucune signification, aucun totem ni senankouya n'est ajouté ici.
     """
-    parts: List[str] = []
+    parts: list[str] = []
 
     if n.type == "prenom":
         parts.append(f"« Mon enfant, écoute ce que Grand-mère Mah sait du prénom « {n.nom} ».")
@@ -234,7 +236,7 @@ def _build_grandmere_mah_speech_for_nom(n: CultureNom) -> str:
     return "\n\n".join(p for p in parts if p)
 
 
-def _serialize_culture_nom(n: CultureNom) -> Dict[str, Any]:
+def _serialize_culture_nom(n: CultureNom) -> dict[str, Any]:
     """Sérialise un patronyme ou prénom malien pour les réponses API."""
     variantes = []
     try:
@@ -263,16 +265,62 @@ def _serialize_culture_nom(n: CultureNom) -> Dict[str, Any]:
     }
 
 
+def _serialize_contribution(c: CultureContribution) -> dict[str, Any]:
+    """Sérialise une contribution culturelle pour l'API."""
+    supp = {}
+    if c.donnees_supplementaires_json:
+        try:
+            supp = json.loads(c.donnees_supplementaires_json)
+        except Exception:
+            supp = {}
+
+    return {
+        "id": c.id,
+        "auteurNom": c.auteur_nom,
+        "auteurId": c.auteur_id,
+        "auteurRole": c.auteur_role,
+        "typeContenu": c.type_contenu,
+        "type_contenu": c.type_contenu,
+        "titre": c.titre,
+        "texte": c.texte,
+        "texteOriginal": c.texte_original,
+        "texte_original": c.texte_original,
+        "signification": c.signification,
+        "morale": c.morale,
+        "origine": c.origine,
+        "theme": c.theme,
+        "regionId": c.region_id,
+        "region_id": c.region_id,
+        "regionNom": c.region_nom,
+        "region_nom": c.region_nom,
+        "sourceTemoin": c.source_temoin,
+        "source_temoin": c.source_temoin,
+        "photoUrl": c.photo_url,
+        "photo_url": c.photo_url,
+        "audioUrl": c.audio_url,
+        "audio_url": c.audio_url,
+        "donneesSupplementaires": supp,
+        "statut": c.statut,
+        "motifModeration": c.motif_moderation,
+        "motif_moderation": c.motif_moderation,
+        "traiteParId": c.traite_par_id,
+        "xpAttribues": c.xp_attribues,
+        "piecesAttribuees": c.pieces_attribuees,
+        "dateSoumission": c.date_soumission.isoformat() if c.date_soumission else None,
+        "dateModeration": c.date_moderation.isoformat() if c.date_moderation else None,
+    }
+
+
 class CultureService:
     @staticmethod
     def get_monuments(
         db: Session,
-        ville: Optional[str] = None,
-        region_id: Optional[str] = None,
-        query: Optional[str] = None,
+        ville: str | None = None,
+        region_id: str | None = None,
+        query: str | None = None,
         skip: int = 0,
         limit: int = 50,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Récupère la liste des monuments avec filtres et recherche."""
         q = db.query(CultureMonument)
 
@@ -295,7 +343,7 @@ class CultureService:
         return [_serialize_monument(m) for m in monuments]
 
     @staticmethod
-    def get_monument_by_id(db: Session, monument_id: str) -> Optional[Dict[str, Any]]:
+    def get_monument_by_id(db: Session, monument_id: str) -> dict[str, Any] | None:
         """Récupère un monument spécifique par son identifiant."""
         m = db.query(CultureMonument).filter(CultureMonument.id == monument_id).first()
         return _serialize_monument(m) if m else None
@@ -303,13 +351,13 @@ class CultureService:
     @staticmethod
     def identify_monument(
         db: Session,
-        image_name: Optional[str] = None,
-        image_base64: Optional[str] = None,
-        keywords: Optional[List[str]] = None,
-        latitude: Optional[float] = None,
-        longitude: Optional[float] = None,
-        hint_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        image_name: str | None = None,
+        image_base64: str | None = None,
+        keywords: list[str] | None = None,
+        latitude: float | None = None,
+        longitude: float | None = None,
+        hint_id: str | None = None,
+    ) -> dict[str, Any]:
         """
         Pipeline intelligent d'identification CultureLens :
         0. Inférence par le modèle neuronal de Deep Embeddings (MobileNetV3) si image fournie.
@@ -329,8 +377,8 @@ class CultureService:
             }
 
         t_start = time.perf_counter()
-        print(f"\n\033[1;35m════════════════════════════════════════════════════════════════════════════════\033[0m")
-        print(f"\033[1;35m📸 [CultureLens AI]\033[0m Requête de scan reçue sur \033[1;36mPOST /api/v1/culture/identify\033[0m")
+        print("\n\033[1;35m════════════════════════════════════════════════════════════════════════════════\033[0m")
+        print("\033[1;35m📸 [CultureLens AI]\033[0m Requête de scan reçue sur \033[1;36mPOST /api/v1/culture/identify\033[0m")
         if image_base64:
             b64_size_kb = (len(image_base64) * 3 / 4) / 1024
             print(f"   • Données image     : Base64 présente ({b64_size_kb:.1f} KB)")
@@ -341,12 +389,12 @@ class CultureService:
         if hint_id:
             print(f"   • Hint ID fourni    : {hint_id}")
 
-        matched_monument: Optional[CultureMonument] = None
+        matched_monument: CultureMonument | None = None
         confidence = 0.0
         detected_features = []
 
         # Cas 0 : Analyse neuronale par le modèle de vision CultureLens AI
-        ai_result: Optional[Dict[str, Any]] = None
+        ai_result: dict[str, Any] | None = None
         if image_base64:
             try:
                 import base64
@@ -466,7 +514,7 @@ class CultureService:
         # Cas 3 : Calcul de la distance géospatiale (strictement pour métadonnées et validation)
         # RÈGLE ABSOLUE : Le GPS ne doit JAMAIS se substituer à la vision ni forcer un monument si l'image ne correspond pas.
         # La reconnaissance visuelle neuronale est souveraine.
-        estimated_distance_km: Optional[float] = None
+        estimated_distance_km: float | None = None
         if latitude is not None and longitude is not None and matched_monument:
             estimated_distance_km = round(_calculate_haversine_distance_km(
                 latitude, longitude, matched_monument.latitude, matched_monument.longitude
@@ -486,8 +534,8 @@ class CultureService:
             conf_val = round(confidence, 3) if confidence > 0 else 0.0
             print(f"\n\033[1;33m⚠️  [VERDICT CULTURELENS]\033[0m Monument NON RECONNU (< 45%) en {dt_total:.2f}s :")
             print(f"   • Confiance maximale : {conf_val * 100:.1f}%")
-            print(f"   • Statut             : Correspondance insuffisante avec le patrimoine répertorié")
-            print(f"\033[1;35m════════════════════════════════════════════════════════════════════════════════\033[0m\n")
+            print("   • Statut             : Correspondance insuffisante avec le patrimoine répertorié")
+            print("\033[1;35m════════════════════════════════════════════════════════════════════════════════\033[0m\n")
 
             return {
                 "success": False,
@@ -501,7 +549,7 @@ class CultureService:
                 "recognizedFeatures": [],
                 "estimatedDistanceKm": None,
                 "isCertain": False,
-                "scannedAt": datetime.utcnow().isoformat(),
+                "scannedAt": datetime.now(UTC).isoformat(),
             }
 
         serialized = _serialize_monument(matched_monument)
@@ -511,7 +559,7 @@ class CultureService:
         print(f"   • Monument           : \033[1m{matched_monument.nom}\033[0m ({matched_monument.id})")
         print(f"   • Confiance certifiée: \033[1;32m{confidence * 100:.1f}%\033[0m (Seuil minimum: 45.0%)")
         print(f"   • Région / Ville     : {matched_monument.region_nom} ({matched_monument.ville})")
-        print(f"\033[1;35m════════════════════════════════════════════════════════════════════════════════\033[0m\n")
+        print("\033[1;35m════════════════════════════════════════════════════════════════════════════════\033[0m\n")
 
         return {
             "success": True,
@@ -521,19 +569,19 @@ class CultureService:
             "recognizedFeatures": detected_features,
             "estimatedDistanceKm": estimated_distance_km,
             "isCertain": confidence >= 0.88,
-            "scannedAt": datetime.utcnow().isoformat(),
+            "scannedAt": datetime.now(UTC).isoformat(),
         }
 
     @staticmethod
     def ask_cultural_guide(
         db: Session,
         question: str,
-        monument_id: Optional[str] = None,
-        region_id: Optional[str] = None,
-        context_hint: Optional[str] = None,
-        custom_system_prompt: Optional[str] = None,
-        use_case: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        monument_id: str | None = None,
+        region_id: str | None = None,
+        context_hint: str | None = None,
+        custom_system_prompt: str | None = None,
+        use_case: str | None = None,
+    ) -> dict[str, Any]:
         """
         Assistant RAG & IA Adaptative du Guide Culturel :
         - Contexte documentaire haute fidélité (Monuments, Personnages, Contes, Proverbes)
@@ -545,11 +593,11 @@ class CultureService:
         clean_q = question.strip().lower()
         norm_q = _normalize_text(question)
 
-        matched_item_name: Optional[str] = None
+        matched_item_name: str | None = None
         matched_item_type: str = "general"
-        context_item: Optional[Dict[str, Any]] = None
-        sources: List[str] = []
-        facts_blocks: List[str] = []
+        context_item: dict[str, Any] | None = None
+        sources: list[str] = []
+        facts_blocks: list[str] = []
 
         # ── 0. RECHERCHE DANS LES NOMS ET PATRONYMES DU MALI (GRAND-MÈRE MAH) ──
         matched_nom = CultureService.find_culture_nom_by_keyword(db, norm_q)
@@ -580,7 +628,7 @@ class CultureService:
             "raconte", "parle", "moi", "qui", "est", "quoi", "c'est", "ce", "cette"
         }
 
-        target_monument: Optional[CultureMonument] = None
+        target_monument: CultureMonument | None = None
         if monument_id and not matched_nom:
             target_monument = db.query(CultureMonument).filter(CultureMonument.id == monument_id).first()
 
@@ -839,7 +887,7 @@ class CultureService:
             f"En tant que Guide Culturel et Vieux Sage, réponds avec éloquence, sagesse et haute fidélité culturelle :"
         )
 
-        reponse: Optional[str] = None
+        reponse: str | None = None
         dt_llm = 0.0
 
         # Tentative d'appel du LLM avec température dynamique pour variation garantie
@@ -891,36 +939,37 @@ class CultureService:
             
             if matched_nom:
                 reponse = _build_grandmere_mah_speech_for_nom(matched_nom)
-            elif target_monument:
-                corps = (
-                    f"{target_monument.nom} ({target_monument.sous_titre}) veille fièrement sur {target_monument.ville}, "
-                    f"dans la région de {target_monument.region_nom}. {target_monument.recit_historique}\n\n"
-                    f"Sur le plan architectural, il illustre avec majesté : {target_monument.style_architectural}. "
-                    f"Comme le racontent les anciens sous le clair de lune : {target_monument.secrets_et_mysteres}\n\n"
-                    f"Ce lieu compte profondément pour notre nation : {target_monument.pourquoi_ce_lieu_compte}"
-                )
-            elif matched_item_name:
-                corps = f"Concernant {matched_item_name} :\n\n{facts_text}"
             else:
-                corps = (
-                    "Le Mali est le berceau des grands bâtisseurs et des poètes de la parole. "
-                    "De la Charte de Kouroukan Fouga (1236) aux monuments de Bamako et aux merveilles de Djenné et Tombouctou, "
-                    "notre patrimoine est une source inépuisable de fierté et de concorde."
-                )
+                if target_monument:
+                    corps = (
+                        f"{target_monument.nom} ({target_monument.sous_titre}) veille fièrement sur {target_monument.ville}, "
+                        f"dans la région de {target_monument.region_nom}. {target_monument.recit_historique}\n\n"
+                        f"Sur le plan architectural, il illustre avec majesté : {target_monument.style_architectural}. "
+                        f"Comme le racontent les anciens sous le clair de lune : {target_monument.secrets_et_mysteres}\n\n"
+                        f"Ce lieu compte profondément pour notre nation : {target_monument.pourquoi_ce_lieu_compte}"
+                    )
+                elif matched_item_name:
+                    corps = f"Concernant {matched_item_name} :\n\n{facts_text}"
+                else:
+                    corps = (
+                        "Le Mali est le berceau des grands bâtisseurs et des poètes de la parole. "
+                        "De la Charte de Kouroukan Fouga (1236) aux monuments de Bamako et aux merveilles de Djenné et Tombouctou, "
+                        "notre patrimoine est une source inépuisable de fierté et de concorde."
+                    )
 
-            if not matched_nom:
                 outro_list = [
                     "Quelle autre merveille de notre terre souhaites-tu explorer avec moi ?",
                     "La parole est comme l'eau du fleuve, elle fertilise l'esprit de qui sait écouter. Pose-moi une autre question quand tu le désires !",
-                    "Sous cet arbre à palabres, mes souvenirs restent éveillés pour éclairer tes prochains pas. À très bientôt, voyageur !"
+                    "Sous cet arbre à palabres, mes souvenirs restent éveillés pour éclairer tes prochains pas. À très bientôt, voyageur !",
                 ]
                 reponse = f"{intro}\n\n{corps}\n\n{random.choice(outro_list)}"
 
+        reponse = reponse or ""
         dt_total = time.perf_counter() - t0_ask
 
         # ── 9. LOGS CONSOLE STYLE CHAT INTERACTIF ─────────────────────────
-        print(f"\n\033[1;35m════════════════════════════════════════════════════════════════════════════════\033[0m")
-        print(f"\033[1;36m🗣️  [Guide Culturel IA]\033[0m Requête reçue sur \033[1mPOST /api/v1/culture/ask\033[0m")
+        print("\n\033[1;35m════════════════════════════════════════════════════════════════════════════════\033[0m")
+        print("\033[1;36m🗣️  [Guide Culturel IA]\033[0m Requête reçue sur \033[1mPOST /api/v1/culture/ask\033[0m")
         print(f"   • Question           : \033[1m\"{question}\"\033[0m")
         print(f"   • Cas d'usage IA     : \033[1;34m{detected_use_case}\033[0m {'(Prompt client adaptatif)' if custom_system_prompt else '(Prompt adaptatif auto)'}")
         print(f"   • Cible RAG détectée : \033[1;33m{matched_item_name or 'Patrimoine Général du Mali'}\033[0m (Type: {matched_item_type})")
@@ -928,10 +977,10 @@ class CultureService:
         if dt_llm > 0:
             print(f"   • Inférence LLM      : \033[1;32mGénération réussie via Qwen2.5 en {dt_llm:.2f}s\033[0m (Temp: 0.72 | Variabilité active)")
         else:
-            print(f"   • Inférence LLM      : \033[1;33mMode de repli dynamique contextuel\033[0m")
+            print("   • Inférence LLM      : \033[1;33mMode de repli dynamique contextuel\033[0m")
         print(f"   • Temps total        : {dt_total:.2f}s")
         print(f"   • Début de réponse   : \033[37m\"{reponse[:150].strip()}...\"\033[0m")
-        print(f"\033[1;35m════════════════════════════════════════════════════════════════════════════════\033[0m\n")
+        print("\033[1;35m════════════════════════════════════════════════════════════════════════════════\033[0m\n")
 
         return {
             "answer": reponse,
@@ -939,11 +988,11 @@ class CultureService:
             "sources": sources,
             "contextItem": context_item,
             "ragVerified": True,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
     @staticmethod
-    def get_figures(db: Session) -> List[Dict[str, Any]]:
+    def get_figures(db: Session) -> list[dict[str, Any]]:
         figures = db.query(CulturePersonnage).all()
         res = []
         for f in figures:
@@ -974,7 +1023,7 @@ class CultureService:
         return res
 
     @staticmethod
-    def get_places(db: Session) -> List[Dict[str, Any]]:
+    def get_places(db: Session) -> list[dict[str, Any]]:
         places = db.query(CultureLieu).all()
         res = []
         for p in places:
@@ -1004,7 +1053,7 @@ class CultureService:
         return res
 
     @staticmethod
-    def get_figure_by_id(db: Session, figure_id: str) -> Optional[Dict[str, Any]]:
+    def get_figure_by_id(db: Session, figure_id: str) -> dict[str, Any] | None:
         figures = CultureService.get_figures(db)
         for f in figures:
             if f["id"] == figure_id:
@@ -1016,7 +1065,7 @@ class CultureService:
         return None
 
     @staticmethod
-    def get_place_by_id(db: Session, place_id: str) -> Optional[Dict[str, Any]]:
+    def get_place_by_id(db: Session, place_id: str) -> dict[str, Any] | None:
         places = CultureService.get_places(db)
         for p in places:
             if p["id"] == place_id:
@@ -1027,7 +1076,7 @@ class CultureService:
         return None
 
     @staticmethod
-    def get_stories(db: Session) -> List[Dict[str, Any]]:
+    def get_stories(db: Session) -> list[dict[str, Any]]:
         contes = db.query(CultureConte).all()
         res = []
         for c in contes:
@@ -1058,7 +1107,7 @@ class CultureService:
         return res
 
     @staticmethod
-    def get_proverbs(db: Session) -> List[Dict[str, Any]]:
+    def get_proverbs(db: Session) -> list[dict[str, Any]]:
         proverbes = db.query(CultureProverbe).all()
         return [
             {
@@ -1087,7 +1136,7 @@ class CultureService:
         ]
 
     @staticmethod
-    def get_packs(db: Session) -> List[Dict[str, Any]]:
+    def get_packs(db: Session) -> list[dict[str, Any]]:
         packs = db.query(CulturePack).all()
         res = []
         for pk in packs:
@@ -1112,7 +1161,7 @@ class CultureService:
         return res
 
     @staticmethod
-    def get_pack_bundle(db: Session, pack_id: str) -> Optional[Dict[str, Any]]:
+    def get_pack_bundle(db: Session, pack_id: str) -> dict[str, Any] | None:
         """Génère le pack hors ligne complet prêt pour le téléchargement mobile."""
         pack = db.query(CulturePack).filter(CulturePack.id == pack_id).first()
         if not pack:
@@ -1130,7 +1179,7 @@ class CultureService:
             "packId": pack.id,
             "titre": pack.titre,
             "version": pack.version,
-            "generatedAt": datetime.utcnow().isoformat(),
+            "generatedAt": datetime.now(UTC).isoformat(),
             "monuments": [_serialize_monument(m) for m in monuments],
             "figures": CultureService.get_figures(db)[:3],
             "proverbs": CultureService.get_proverbs(db)[:5],
@@ -1141,11 +1190,11 @@ class CultureService:
     def record_discovery(
         db: Session,
         monument_id: str,
-        apprenant_id: Optional[str] = None,
+        apprenant_id: str | None = None,
         confidence: float = 0.98,
         is_favorite: bool = False,
-        notes: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        notes: str | None = None,
+    ) -> dict[str, Any]:
         """Enregistre un monument découvert ou mis en favori par l'apprenant."""
         decouverte = CultureDecouverte(
             monument_id=monument_id,
@@ -1153,7 +1202,7 @@ class CultureService:
             confidence=confidence,
             est_favori=is_favorite,
             notes_personnelles=notes,
-            date_decouverte=datetime.utcnow(),
+            date_decouverte=datetime.now(UTC),
         )
         db.add(decouverte)
         db.commit()
@@ -1168,7 +1217,7 @@ class CultureService:
         }
 
     @staticmethod
-    def get_discoveries(db: Session, apprenant_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    def get_discoveries(db: Session, apprenant_id: str | None = None) -> list[dict[str, Any]]:
         """Récupère l'historique des découvertes de monuments."""
         q = db.query(CultureDecouverte)
         if apprenant_id:
@@ -1197,11 +1246,11 @@ class CultureService:
     @staticmethod
     def get_noms(
         db: Session,
-        type: Optional[str] = None,
-        query: Optional[str] = None,
+        type: str | None = None,
+        query: str | None = None,
         skip: int = 0,
         limit: int = 50,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Récupère le catalogue des patronymes et prénoms traditionnels du Mali."""
         q = db.query(CultureNom)
         if type:
@@ -1221,7 +1270,7 @@ class CultureService:
         return [_serialize_culture_nom(n) for n in noms]
 
     @staticmethod
-    def get_nom_by_id_or_exact_name(db: Session, identifier: str) -> Optional[Dict[str, Any]]:
+    def get_nom_by_id_or_exact_name(db: Session, identifier: str) -> dict[str, Any] | None:
         """Récupère la fiche détaillée d'un patronyme ou prénom par son identifiant ou libellé exact."""
         clean = identifier.strip()
         norm = _normalize_text(clean)
@@ -1237,7 +1286,7 @@ class CultureService:
         return _serialize_culture_nom(nom) if nom else None
 
     @staticmethod
-    def find_culture_nom_by_keyword(db: Session, query: str) -> Optional[CultureNom]:
+    def find_culture_nom_by_keyword(db: Session, query: str) -> CultureNom | None:
         """
         Détection et extraction haute précision d'un patronyme ou prénom malien dans un texte libre.
         Gère les minuscules, les accents et les variantes orthographiques courantes.
@@ -1278,9 +1327,9 @@ class CultureService:
     def chat_grandmere_mah(
         db: Session,
         user_message: str,
-        history: Optional[List[Dict[str, str]]] = None,
-        additional_context: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        history: list[dict[str, str]] | None = None,
+        additional_context: str | None = None,
+    ) -> dict[str, Any]:
         """
         Logique métier complète du Chat avec Grand-mère Mah sous le grand baobab au coin du feu.
         Interroge directement la base de données pour les vrais sens des noms, prénoms,
@@ -1351,3 +1400,299 @@ class CultureService:
             "matchedName": rag_res.get("contextItem") if rag_res.get("contextItem", {}).get("type") == "nom_patronyme" else None,
             "sources": rag_res.get("sources", ["Tradition Orale du Mali"]),
         }
+
+    # ==========================================================================
+    # GESTION DES CONTRIBUTIONS CITOYENNES & PATRIMOINE PARTICIPATIF
+    # ==========================================================================
+
+    @staticmethod
+    def create_contribution(
+        db: Session,
+        payload: dict[str, Any],
+        auteur_id: str | None = None,
+        auteur_nom: str | None = None,
+        auteur_role: str = "Apprenant",
+    ) -> dict[str, Any]:
+        """Crée une nouvelle proposition culturelle (proverbe, devinette, conte) en attente de validation."""
+        extra_json = None
+        if payload.get("donnees_supplementaires") or payload.get("donneesSupplementaires"):
+            extra_json = json.dumps(payload.get("donnees_supplementaires") or payload.get("donneesSupplementaires"), ensure_ascii=False)
+
+        contrib = CultureContribution(
+            auteur_nom=auteur_nom or payload.get("auteur_nom") or payload.get("auteurNom") or "Contributeur AlternIA",
+            auteur_id=auteur_id or payload.get("auteur_id") or payload.get("auteurId"),
+            auteur_role=auteur_role or payload.get("auteur_role") or payload.get("auteurRole") or "Apprenant",
+            type_contenu=(payload.get("type_contenu") or payload.get("typeContenu") or "proverbe").lower(),
+            titre=payload.get("titre"),
+            texte=(payload.get("texte") or "").strip(),
+            texte_original=payload.get("texte_original") or payload.get("texteOriginal"),
+            signification=(payload.get("signification") or "").strip(),
+            morale=payload.get("morale"),
+            origine=payload.get("origine") or "Tradition Orale",
+            theme=payload.get("theme") or "Sagesse & Culture",
+            region_id=payload.get("region_id") or payload.get("regionId") or "bamako",
+            region_nom=payload.get("region_nom") or payload.get("regionNom") or "Tout le Mali",
+            source_temoin=payload.get("source_temoin") or payload.get("sourceTemoin"),
+            photo_url=payload.get("photo_url") or payload.get("photoUrl"),
+            audio_url=payload.get("audio_url") or payload.get("audioUrl"),
+            donnees_supplementaires_json=extra_json,
+            statut="EN_ATTENTE",
+            xp_attribues=int(payload.get("xp_attribues") or payload.get("xpAttribues") or 50),
+            pieces_attribuees=int(payload.get("pieces_attribuees") or payload.get("piecesAttribuees") or 25),
+            date_soumission=datetime.now(UTC),
+        )
+        db.add(contrib)
+        db.commit()
+        db.refresh(contrib)
+        logger.info(f"Nouvelle contribution culturelle reçue : {contrib.id} ({contrib.type_contenu})")
+        return _serialize_contribution(contrib)
+
+    @staticmethod
+    def list_contributions(
+        db: Session,
+        statut: str | None = None,
+        type_contenu: str | None = None,
+        auteur_id: str | None = None,
+        skip: int = 0,
+        limit: int = 50,
+    ) -> dict[str, Any]:
+        """Liste les contributions avec filtres pour la modération ou l'historique utilisateur."""
+        query = db.query(CultureContribution)
+        if statut:
+            query = query.filter(CultureContribution.statut == statut.upper())
+        if type_contenu:
+            query = query.filter(CultureContribution.type_contenu == type_contenu.lower())
+        if auteur_id:
+            query = query.filter(CultureContribution.auteur_id == auteur_id)
+
+        total = query.count()
+        items = query.order_by(CultureContribution.date_soumission.desc()).offset(skip).limit(limit).all()
+        return {
+            "total": total,
+            "skip": skip,
+            "limit": limit,
+            "items": [_serialize_contribution(c) for c in items],
+        }
+
+    @staticmethod
+    def get_contribution_by_id(db: Session, contribution_id: str) -> dict[str, Any] | None:
+        """Récupère une contribution par son identifiant unique."""
+        c = db.query(CultureContribution).filter(CultureContribution.id == contribution_id).first()
+        return _serialize_contribution(c) if c else None
+
+    @staticmethod
+    def moderate_contribution(
+        db: Session,
+        contribution_id: str,
+        decision: str,
+        motif: str | None = None,
+        admin_id: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        Modère une contribution (APPROUVE ou REJETE).
+        Si APPROUVE :
+        1. Injecte automatiquement dans la table officielle correspondante :
+           - Proverbes / Devinettes -> CultureProverbe
+           - Contes & Fables -> CultureConte
+           - Monuments & Sites -> CultureMonument
+           - Cités & Terroirs -> CultureLieu
+           - Personnages historiques -> CulturePersonnage
+           - Patronymes & Jamu -> CultureNom
+        2. Crédite les pièces dans le Portefeuille de l'auteur
+        """
+        contrib = db.query(CultureContribution).filter(CultureContribution.id == contribution_id).first()
+        if not contrib:
+            raise ValueError(f"Contribution introuvable : {contribution_id}")
+
+        decision_clean = decision.upper()
+        if decision_clean not in ("APPROUVE", "REJETE"):
+            raise ValueError("La décision doit être 'APPROUVE' ou 'REJETE'.")
+
+        contrib.statut = decision_clean
+        contrib.motif_moderation = motif
+        contrib.traite_par_id = admin_id
+        contrib.date_moderation = datetime.now(UTC)
+
+        # 1. Promotion automatique vers la base active selon le type
+        if decision_clean == "APPROUVE":
+            extra: dict[str, Any] = {}
+            if contrib.donnees_supplementaires_json:
+                try:
+                    extra = json.loads(contrib.donnees_supplementaires_json)
+                except Exception:
+                    extra = {}
+
+            # A. Proverbes et Devinettes
+            if contrib.type_contenu in ("proverbe", "devinette"):
+                target_id = f"contrib_{contrib.type_contenu}_{contrib.id[:8]}"
+                if not db.query(CultureProverbe).filter(CultureProverbe.id == target_id).first():
+                    new_prov = CultureProverbe(
+                        id=target_id,
+                        texte=contrib.texte,
+                        texte_original=contrib.texte_original,
+                        signification=contrib.signification,
+                        morale=contrib.morale or ("Réponse à la devinette" if contrib.type_contenu == "devinette" else "Sagesse partagée"),
+                        origine=contrib.origine or "Transmission citoyenne",
+                        theme="Jeu de Devinettes" if contrib.type_contenu == "devinette" else contrib.theme,
+                        region_id=contrib.region_id,
+                        region_nom=contrib.region_nom,
+                        xp_recompense=contrib.xp_attribues,
+                        orateur_nom=f"Transmis par {contrib.auteur_nom}",
+                        orateur_role=contrib.source_temoin or "Gardien du Patrimoine",
+                        accent_color_hex="#10B981" if contrib.type_contenu == "proverbe" else "#EAB308",
+                    )
+                    db.add(new_prov)
+
+            # B. Contes et Fables
+            elif contrib.type_contenu == "conte":
+                target_id = f"contrib_conte_{contrib.id[:8]}"
+                if not db.query(CultureConte).filter(CultureConte.id == target_id).first():
+                    new_conte = CultureConte(
+                        id=target_id,
+                        titre=contrib.titre or contrib.texte[:60],
+                        sous_titre=contrib.signification[:120],
+                        origine=contrib.origine or "Tradition Orale Mandingue",
+                        region_id=contrib.region_id,
+                        region_nom=contrib.region_nom,
+                        tag="Conte Citoyen Participatif",
+                        photo_url=contrib.photo_url or "assets/images/culture/contes/zoumana_lievre.jpg",
+                        photo_credits=f"Contribution de {contrib.auteur_nom}",
+                        resume=contrib.signification,
+                        conteur=f"Transmis par {contrib.auteur_nom}",
+                        duree_audio="4 min",
+                        duree_lecture="3 min",
+                        morale=contrib.morale or "Leçon de vie transmise par nos aïeux",
+                        scenes_json=json.dumps([{"order": 1, "text": contrib.texte}], ensure_ascii=False),
+                        elements_lies_json="[]",
+                        date_creation=datetime.now(UTC),
+                    )
+                    db.add(new_conte)
+
+            # C. Monuments et Sites Historiques
+            elif contrib.type_contenu in ("monument", "site"):
+                target_id = f"contrib_monument_{contrib.id[:8]}"
+                if not db.query(CultureMonument).filter(CultureMonument.id == target_id).first():
+                    new_monument = CultureMonument(
+                        id=target_id,
+                        nom=contrib.titre or contrib.texte[:60],
+                        sous_titre=contrib.signification[:120],
+                        region_id=contrib.region_id,
+                        region_nom=contrib.region_nom,
+                        ville=extra.get("ville", contrib.region_nom),
+                        epoque=extra.get("epoque", "Patrimoine historique vivant"),
+                        style_architectural=extra.get("style_architectural", "Architecture traditionnelle locale"),
+                        details_localisation=contrib.source_temoin or contrib.region_nom,
+                        photo_url=contrib.photo_url or "assets/images/culture/monuments/tour_afrique.jpg",
+                        tag="Monument Citoyen",
+                        latitude=float(extra.get("latitude", 12.6392)),
+                        longitude=float(extra.get("longitude", -8.0029)),
+                        badge_debloque=f"Pionnier de {contrib.titre or 'ce site'}",
+                        xp_recompense=contrib.xp_attribues,
+                        mots_cles_json="[]",
+                        caracteristiques_detection_json="[]",
+                        secrets_et_mysteres=contrib.morale or "",
+                        recit_historique=contrib.texte,
+                        narration_audio_texte=contrib.signification,
+                        pourquoi_ce_lieu_compte=contrib.signification,
+                        route_path=f"/culture/monument/{target_id}",
+                        modele_3d_url=None,
+                        ar_disponible=False,
+                        audio_url=contrib.audio_url,
+                        statut_validation=f"Validé (Transmis par {contrib.auteur_nom})",
+                        date_mise_a_jour=datetime.now(UTC),
+                    )
+                    db.add(new_monument)
+
+            # D. Personnages Historiques
+            elif contrib.type_contenu in ("personnage", "figure"):
+                target_id = f"contrib_perso_{contrib.id[:8]}"
+                if not db.query(CulturePersonnage).filter(CulturePersonnage.id == target_id).first():
+                    new_perso = CulturePersonnage(
+                        id=target_id,
+                        nom=contrib.titre or contrib.texte[:60],
+                        titre_honorifique=contrib.morale or "Figure Historique Emblématique",
+                        periode=extra.get("periode", "Histoire du Mali"),
+                        region_id=contrib.region_id,
+                        region_nom=contrib.region_nom,
+                        tag="Héros Citoyen",
+                        photo_url=contrib.photo_url or "assets/images/culture/personnages/soundiata.jpg",
+                        photo_credits=f"Archive transmise par {contrib.auteur_nom}",
+                        resume=contrib.texte,
+                        citation_historique=contrib.texte_original,
+                        faits_marquants_json="[]",
+                        chapitres_json="[]",
+                        elements_lies_json="[]",
+                        audio_narration=contrib.audio_url,
+                        date_creation=datetime.now(UTC),
+                    )
+                    db.add(new_perso)
+
+            # E. Villes & Terroirs
+            elif contrib.type_contenu in ("lieu", "ville", "terroir"):
+                target_id = f"contrib_lieu_{contrib.id[:8]}"
+                if not db.query(CultureLieu).filter(CultureLieu.id == target_id).first():
+                    new_lieu = CultureLieu(
+                        id=target_id,
+                        nom=contrib.titre or contrib.texte[:60],
+                        sous_titre=contrib.signification[:120],
+                        region_id=contrib.region_id,
+                        region_nom=contrib.region_nom,
+                        tag="Cité & Terroir Citoyen",
+                        photo_url=contrib.photo_url or "assets/images/culture/monuments/tour_afrique.jpg",
+                        photo_credits=f"Contribution de {contrib.auteur_nom}",
+                        fondation=extra.get("fondation", "Fondation séculaire transmise par les anciens"),
+                        latitude=float(extra.get("latitude", 12.6392)),
+                        longitude=float(extra.get("longitude", -8.0029)),
+                        population_ou_details=extra.get("population", ""),
+                        resume=contrib.texte,
+                        chapitres_json="[]",
+                        elements_lies_json="[]",
+                        date_creation=datetime.now(UTC),
+                    )
+                    db.add(new_lieu)
+
+            # F. Patronymes (Jamu) & Prénoms
+            elif contrib.type_contenu in ("patronyme", "nom"):
+                name_clean = (contrib.titre or contrib.texte).strip().capitalize()
+                target_id = f"nom_{_normalize_text(name_clean)[:25]}"
+                if not db.query(CultureNom).filter(CultureNom.id == target_id).first():
+                    new_nom = CultureNom(
+                        id=target_id,
+                        nom=name_clean,
+                        nom_normalise=_normalize_text(name_clean),
+                        type="nom",
+                        ethnie_ou_region=contrib.origine or contrib.region_nom,
+                        signification=contrib.signification,
+                        clan_role=contrib.source_temoin or "Lignée traditionnelle du Mali",
+                        totem=extra.get("totem", ""),
+                        senankouya=extra.get("senankouya", ""),
+                        devise_ou_louange=contrib.texte_original,
+                        anecdote=contrib.texte,
+                        variantes_json=json.dumps([name_clean], ensure_ascii=False),
+                        date_creation=datetime.now(UTC),
+                    )
+                    db.add(new_nom)
+
+            # 2. Crédit de récompense dans le Portefeuille si auteur_id présent
+            if contrib.auteur_id:
+                try:
+                    from backend.src.db.models import Portefeuille, TransactionPiece
+                    portefeuille = db.query(Portefeuille).filter(Portefeuille.apprenant_id == contrib.auteur_id).first()
+                    if portefeuille:
+                        portefeuille.solde_pieces += contrib.pieces_attribuees
+                        portefeuille.date_mise_a_jour = datetime.now(UTC)
+                        tx = TransactionPiece(
+                            portefeuille_id=portefeuille.id,
+                            apprenant_id=contrib.auteur_id,
+                            montant=contrib.pieces_attribuees,
+                            type_transaction="gain_culture",
+                            description=f"Contribution validée ({contrib.type_contenu})",
+                            solde_apres=portefeuille.solde_pieces,
+                        )
+                        db.add(tx)
+                except Exception as rew_err:
+                    logger.warning(f"Note attribution récompense contribution: {rew_err}")
+        db.commit()
+        db.refresh(contrib)
+        logger.info(f"Contribution {contrib.id} modérée avec statut : {decision_clean}")
+        return _serialize_contribution(contrib)

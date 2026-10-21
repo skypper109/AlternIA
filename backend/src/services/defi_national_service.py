@@ -6,7 +6,7 @@ attribue les pièces automatiquement dans le portefeuille unique,
 et établit le classement national en temps réel.
 """
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 import json
 import logging
 from typing import Any, Dict, List, Optional
@@ -103,7 +103,7 @@ DEFIS_NATIONAUX_DEFAUT = [
 
 def init_defis_nationaux_si_besoin(db: Session):
     """Initialise un défi national actif si la table est vide."""
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     existant = db.query(DefiNational).filter(DefiNational.statut == "EN_COURS").first()
     if not existant:
         for d in DEFIS_NATIONAUX_DEFAUT:
@@ -130,7 +130,7 @@ def init_defis_nationaux_si_besoin(db: Session):
 def get_defis_actifs(db: Session, classe: Optional[str] = None, periode: Optional[str] = None) -> List[Dict[str, Any]]:
     """Retourne les défis nationaux ouverts avec questions épurées des réponses correctes."""
     init_defis_nationaux_si_besoin(db)
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     query = db.query(DefiNational).filter(
         DefiNational.statut == "EN_COURS",
         DefiNational.date_fin > now,
@@ -259,7 +259,7 @@ def soumettre_reponses_defi(
         pieces_remportees=pieces_gagnees,
         xp_remportes=xp_gagnes,
         reponses_soumises_json=json.dumps(reponses),
-        soumis_a=datetime.utcnow(),
+        soumis_a=datetime.now(UTC),
     )
     db.add(participation)
 

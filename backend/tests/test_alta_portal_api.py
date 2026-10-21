@@ -2,7 +2,14 @@
 Tests automatisés des APIs du portail Alta et de l'intégration base de données alta_db.
 """
 
+import sys
+from pathlib import Path
 from fastapi.testclient import TestClient
+
+root_dir = Path(__file__).resolve().parents[2]
+if str(root_dir) not in sys.path:
+    sys.path.insert(0, str(root_dir))
+
 from backend.src.main import app
 from backend.src.db.database import init_db
 

@@ -4,19 +4,19 @@ Enregistre en base de données l'intégralité des monuments (avec priorité abs
 des personnages historiques, des villes/terroirs, des contes, des proverbes et des packs hors ligne.
 """
 
-from datetime import datetime
 import json
 import logging
-from sqlalchemy.orm import Session
+from datetime import UTC, datetime
 
 from backend.src.db.models import (
-    CultureMonument,
-    CulturePersonnage,
-    CultureLieu,
     CultureConte,
-    CultureProverbe,
+    CultureLieu,
+    CultureMonument,
     CulturePack,
+    CulturePersonnage,
+    CultureProverbe,
 )
+from sqlalchemy.orm import Session
 
 logger = logging.getLogger("AlternIA.CultureSeed")
 
@@ -1267,7 +1267,7 @@ def seed_culture_data(db: Session, force: bool = False):
                     modele_3d_url=m.get("modele_3d_url"),
                     ar_disponible=m.get("ar_disponible", False),
                     statut_validation=m.get("statut_validation", "Patrimoine vérifié"),
-                    date_mise_a_jour=datetime.utcnow(),
+                    date_mise_a_jour=datetime.now(UTC),
                 ))
 
         # 2. Insertion des Personnages
@@ -1289,7 +1289,7 @@ def seed_culture_data(db: Session, force: bool = False):
                     faits_marquants_json=json.dumps(p["faits_marquants"], ensure_ascii=False),
                     chapitres_json=json.dumps(p["chapitres"], ensure_ascii=False),
                     elements_lies_json=json.dumps(p["elements_lies"], ensure_ascii=False),
-                    date_creation=datetime.utcnow(),
+                    date_creation=datetime.now(UTC),
                 ))
 
         # 3. Insertion des Villes et Terroirs
@@ -1312,7 +1312,7 @@ def seed_culture_data(db: Session, force: bool = False):
                     resume=l["resume"],
                     chapitres_json=json.dumps(l["chapitres"], ensure_ascii=False),
                     elements_lies_json=json.dumps(l["elements_lies"], ensure_ascii=False),
-                    date_creation=datetime.utcnow(),
+                    date_creation=datetime.now(UTC),
                 ))
 
         # 4. Insertion des Contes
@@ -1336,7 +1336,7 @@ def seed_culture_data(db: Session, force: bool = False):
                     morale=c["morale"],
                     scenes_json=json.dumps(c["scenes"], ensure_ascii=False),
                     elements_lies_json=json.dumps(c["elements_lies"], ensure_ascii=False),
-                    date_creation=datetime.utcnow(),
+                    date_creation=datetime.now(UTC),
                 ))
 
         # 5. Insertion des Proverbes
@@ -1374,7 +1374,7 @@ def seed_culture_data(db: Session, force: bool = False):
                     elements_count=pk["elements_count"],
                     inclus_json=json.dumps(pk["inclus"], ensure_ascii=False),
                     bundle_data_json=None,
-                    date_mise_a_jour=datetime.utcnow(),
+                    date_mise_a_jour=datetime.now(UTC),
                 ))
 
         db.commit()
