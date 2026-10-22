@@ -18,21 +18,18 @@ import json
 from sqlalchemy.orm import Session
 
 from backend.src.db.models import (
+    AbonnementUtilisateur,
+    AlertePedagogique,
     Apprenant,
     AvatarPedagogique,
-    AlertePedagogique,
-    AbonnementUtilisateur,
     Boitier,
     CampagneOTA,
     Etablissement,
-    InteractionPedagogique,
     NotificationAdmin,
     OffreAbonnement,
     ParametrePlateforme,
-    SessionApprentissage,
     StatistiquePedagogique,
     Utilisateur,
-    generate_uuid,
 )
 from backend.src.services.security import hash_password
 

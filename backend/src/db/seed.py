@@ -2,7 +2,7 @@
 Données initiales de démarrage pour alta_db (Établissements, Boîtiers, Apprenants, Avatars, Alertes).
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime
 import json
 from sqlalchemy.orm import Session
 from backend.src.db.models import (
@@ -10,7 +10,6 @@ from backend.src.db.models import (
     Etablissement,
     Boitier,
     Apprenant,
-    SessionApprentissage,
     AvatarPedagogique,
     AlertePedagogique,
     StatistiquePedagogique,

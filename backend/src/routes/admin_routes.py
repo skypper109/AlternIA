@@ -17,7 +17,6 @@ Connecte l'intégralité du portail de gouvernance Angular 19 à la base de donn
 """
 
 from datetime import UTC, datetime, timedelta
-import json
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -35,11 +34,9 @@ from backend.src.db.models import (
     CampagneOTA,
     CultureContribution,
     Etablissement,
-    InteractionPedagogique,
     NotificationAdmin,
     OffreAbonnement,
     ParametrePlateforme,
-    SessionApprentissage,
     StatistiquePedagogique,
     Utilisateur,
     generate_uuid,
@@ -366,20 +363,23 @@ def get_etablissements_admin(db: Session = Depends(get_db)):
 @router.post("/etablissements", status_code=status.HTTP_201_CREATED)
 def create_etablissement_admin(payload: EtablissementCreateDTO, db: Session = Depends(get_db)):
     """Enregistre un nouvel établissement scolaire partenaire en base alta_db."""
+    new_id = generate_uuid()
+    new_date = datetime.now(UTC)
     new_etab = Etablissement(
+        id=new_id,
         nom=payload.nom,
         type_etablissement="Lycée d'Enseignement Général",
-        code=f"ML-{payload.ville[:3].upper()}-{generate_uuid()[:4].upper()}",
+        code=f"ML-{payload.ville[:3].upper()}-{new_id[:4].upper()}",
         ville=payload.ville,
         email=payload.directeurEmail,
         telephone=payload.contactPhone,
-        date_creation=datetime.now(UTC),
+        date_creation=new_date,
     )
     db.add(new_etab)
     db.commit()
     db.refresh(new_etab)
     return {
-        "id": new_etab.id,
+        "id": new_etab.id or new_id,
         "nom": new_etab.nom,
         "ville": new_etab.ville,
         "region": payload.region,
@@ -389,12 +389,12 @@ def create_etablissement_admin(payload: EtablissementCreateDTO, db: Session = De
         "dateInscription": (
             new_etab.date_creation.isoformat()
             if new_etab.date_creation
-            else datetime.now(UTC).isoformat()
+            else new_date.isoformat()
         ),
         "statut": payload.statut,
-        "directeurEmail": new_etab.email,
+        "directeurEmail": new_etab.email or payload.directeurEmail,
         "offre": payload.offre,
-        "contactPhone": new_etab.telephone,
+        "contactPhone": new_etab.telephone or payload.contactPhone or "+223 20 22 00 00",
     }
 
 
@@ -486,7 +486,10 @@ def get_campagnes_ota_admin(db: Session = Depends(get_db)):
 @router.post("/boitiers", status_code=status.HTTP_201_CREATED)
 def create_boitier_admin(payload: BoitierCreateDTO, db: Session = Depends(get_db)):
     """Enregistre un nouveau boîtier physique dans le parc en base."""
+    new_id = generate_uuid()
+    new_date = datetime.now(UTC)
     new_box = Boitier(
+        id=new_id,
         numero_serie=payload.serialNumber,
         modele=payload.modele,
         firmware=payload.versionFirmware,
@@ -497,14 +500,14 @@ def create_boitier_admin(payload: BoitierCreateDTO, db: Session = Depends(get_db
         wifi_ssid=payload.wifiSsid,
         ip_locale=payload.ipLocale,
         etablissement_id=payload.etablissementId,
-        derniere_synchro=datetime.now(UTC),
-        date_activation=datetime.now(UTC),
+        derniere_synchro=new_date,
+        date_activation=new_date,
     )
     db.add(new_box)
     db.commit()
     db.refresh(new_box)
     return {
-        "id": new_box.id,
+        "id": new_box.id or new_id,
         "serialNumber": new_box.numero_serie,
         "modele": new_box.modele,
         "etablissementId": new_box.etablissement_id or "",
@@ -606,25 +609,38 @@ def get_abonnements_admin(db: Session = Depends(get_db)):
 @router.post("/abonnements", status_code=status.HTTP_201_CREATED)
 def create_abonnement_admin(payload: dict[str, Any], db: Session = Depends(get_db)):
     """Crée une souscription d'abonnement en base."""
+    new_id = generate_uuid()
+    now_date = datetime.now(UTC)
+    exp_date = now_date + timedelta(days=365)
     new_sub = AbonnementUtilisateur(
+        id=new_id,
         apprenant_id=payload.get("apprenantId", "usr-parent-coulibaly"),
         offre_id="premium_famille",
         source="ACHAT_MOBILE_MONEY",
         statut="ACTIF",
-        date_debut=datetime.now(UTC),
-        date_expiration=datetime.now(UTC) + timedelta(days=365),
+        date_debut=now_date,
+        date_expiration=exp_date,
+        date_creation=now_date,
     )
     db.add(new_sub)
     db.commit()
     db.refresh(new_sub)
     return {
-        "id": new_sub.id,
+        "id": new_sub.id or new_id,
         "parentNom": payload.get("parentNom", "Client AlternIA"),
         "parentEmail": payload.get("parentEmail", "contact@altern.ia"),
         "type": payload.get("type", "Premium Famille"),
         "montant": payload.get("montant", 15000),
-        "dateDebut": new_sub.date_debut.isoformat(),
-        "dateRenouvellement": new_sub.date_expiration.isoformat(),
+        "dateDebut": (
+            new_sub.date_debut.isoformat()
+            if new_sub.date_debut
+            else now_date.isoformat()
+        ),
+        "dateRenouvellement": (
+            new_sub.date_expiration.isoformat()
+            if new_sub.date_expiration
+            else exp_date.isoformat()
+        ),
         "statut": "Actif",
         "autoRenouvellement": payload.get("autoRenouvellement", True),
     }
@@ -694,12 +710,15 @@ def create_parent_admin(payload: dict[str, Any], db: Session = Depends(get_db)):
     """Création d'un compte tuteur parent en base."""
     from backend.src.services.security import hash_password
 
+    new_id = generate_uuid()
+    new_date = datetime.now(UTC)
     tuteur_nom = payload.get("tuteur", "Parent d'Élève")
-    email = payload.get("email", f"parent_{generate_uuid()[:6]}@alternia.ml")
+    email = payload.get("email", f"parent_{new_id[:6]}@alternia.ml")
     telephone = payload.get("telephone", "+223 70 00 00 00")
     etablissement_nom = payload.get("etablissement", "Lycée de Référence")
 
     new_parent = Utilisateur(
+        id=new_id,
         email=email,
         nom_complet=tuteur_nom,
         role="parent",
@@ -707,17 +726,19 @@ def create_parent_admin(payload: dict[str, Any], db: Session = Depends(get_db)):
         telephone=telephone,
         etablissement_nom=etablissement_nom,
         actif=True,
+        date_creation=new_date,
+        dernier_acces=new_date,
     )
     db.add(new_parent)
     db.commit()
     db.refresh(new_parent)
     return {
-        "id": new_parent.id,
-        "nomFamille": tuteur_nom.split()[-1],
-        "tuteur": new_parent.nom_complet,
-        "email": new_parent.email,
-        "telephone": new_parent.telephone,
-        "etablissement": new_parent.etablissement_nom,
+        "id": new_parent.id or new_id,
+        "nomFamille": tuteur_nom.split()[-1] if tuteur_nom else "Famille",
+        "tuteur": new_parent.nom_complet or tuteur_nom,
+        "email": new_parent.email or email,
+        "telephone": new_parent.telephone or telephone,
+        "etablissement": new_parent.etablissement_nom or etablissement_nom,
         "enfantsRattaches": payload.get("enfantsRattaches", 1),
         "statut": "Actif",
         "derniereActivite": "À l'instant",
@@ -795,7 +816,10 @@ def get_pedagogie_ia_admin(db: Session = Depends(get_db)):
 @router.post("/pedagogie-ia/avatars", status_code=status.HTTP_201_CREATED)
 def create_avatar_admin(payload: dict[str, Any], db: Session = Depends(get_db)):
     """Crée un nouvel avatar pédagogique en base."""
+    new_id = generate_uuid()
+    new_date = datetime.now(UTC)
     avatar = AvatarPedagogique(
+        id=new_id,
         nom=payload.get("nom", "Nouvel Avatar"),
         matiere=payload.get("matiere", "Général"),
         style_pedagogique=payload.get("stylePedagogique", "Interactif et bienveillant"),
@@ -804,11 +828,12 @@ def create_avatar_admin(payload: dict[str, Any], db: Session = Depends(get_db)):
         photo_url=payload.get("photoUrl", "assets/avatars/vivienne.svg"),
         actif=payload.get("actif", True),
         par_defaut=payload.get("parDefaut", False),
+        date_creation=new_date,
     )
     db.add(avatar)
     db.commit()
     db.refresh(avatar)
-    return {**payload, "id": avatar.id}
+    return {**payload, "id": avatar.id or new_id}
 
 
 @router.put("/pedagogie-ia/avatars/{avatar_id}")
@@ -857,17 +882,28 @@ def get_statistiques_globales_admin(periode: str = "30 jours", db: Session = Dep
 
     # Matières les plus consultées d'après les statistiques pédagogiques réelles
     stats_matieres = db.query(StatistiquePedagogique).all()
-    matieres_map = {
-        "Mathématiques": {"pourcentage": 34, "heuresTotal": round(total_heures * 0.34), "croissance": 14.2},
-        "Physique-Chimie": {"pourcentage": 26, "heuresTotal": round(total_heures * 0.26), "croissance": 11.5},
-        "Biologie & SVT": {"pourcentage": 20, "heuresTotal": round(total_heures * 0.20), "croissance": 9.4},
-        "Histoire-Géo & Culture Malienne": {"pourcentage": 20, "heuresTotal": round(total_heures * 0.20), "croissance": 22.8},
-    }
-
-    matieres_plus_consultees = [
-        {"matiere": k, "pourcentage": v["pourcentage"], "heuresTotal": v["heuresTotal"], "croissance": v["croissance"]}
-        for k, v in matieres_map.items()
-    ]
+    if stats_matieres:
+        total_inter = sum(s.total_interactions for s in stats_matieres) or 1
+        matieres_plus_consultees = [
+            {
+                "matiere": s.matiere,
+                "pourcentage": round((s.total_interactions / total_inter) * 100),
+                "heuresTotal": round(s.total_temps_sec / 3600),
+                "croissance": round(s.taux_comprehension / 8, 1),
+            }
+            for s in stats_matieres
+        ]
+    else:
+        matieres_map = {
+            "Mathématiques": {"pourcentage": 34, "heuresTotal": round(total_heures * 0.34), "croissance": 14.2},
+            "Physique-Chimie": {"pourcentage": 26, "heuresTotal": round(total_heures * 0.26), "croissance": 11.5},
+            "Biologie & SVT": {"pourcentage": 20, "heuresTotal": round(total_heures * 0.20), "croissance": 9.4},
+            "Histoire-Géo & Culture Malienne": {"pourcentage": 20, "heuresTotal": round(total_heures * 0.20), "croissance": 22.8},
+        }
+        matieres_plus_consultees = [
+            {"matiere": k, "pourcentage": v["pourcentage"], "heuresTotal": v["heuresTotal"], "croissance": v["croissance"]}
+            for k, v in matieres_map.items()
+        ]
 
     # Sujets fréquents extraits des statistiques pédagogiques réelles
     sujets_frequents = [
