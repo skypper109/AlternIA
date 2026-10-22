@@ -26,6 +26,7 @@ from backend.src.routes.parrainage_routes import router as parrainage_router
 from backend.src.routes.abonnement_routes import router as abonnement_router
 from backend.src.routes.defi_national_routes import router as defi_national_router
 from backend.src.routes.admin_finance_routes import router as admin_finance_router
+from backend.src.routes.admin_routes import router as admin_router
 
 __all__ = [
     "chat_router",
@@ -53,4 +54,5 @@ __all__ = [
     "abonnement_router",
     "defi_national_router",
     "admin_finance_router",
+    "admin_router",
 ]

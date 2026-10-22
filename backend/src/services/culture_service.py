@@ -1696,3 +1696,485 @@ class CultureService:
         db.refresh(contrib)
         logger.info(f"Contribution {contrib.id} modérée avec statut : {decision_clean}")
         return _serialize_contribution(contrib)
+
+    # ==========================================================================
+    # SUPER ADMIN CMS CULTUREL & PASSEPORT
+    # ==========================================================================
+
+    @staticmethod
+    def get_all_cms_content(db: Session) -> list[dict[str, Any]]:
+        """
+        Récupère l'ensemble des contenus culturels unifiés pour le Super Admin (Catalogue CMS).
+        Garantit la conformité stricte avec ContenuCulturelDTO d'Angular.
+        """
+        items: list[dict[str, Any]] = []
+
+        # 1. Figures Historiques
+        for p in db.query(CulturePersonnage).all():
+            faits = []
+            chapitres = []
+            lies = []
+            try:
+                faits = json.loads(p.faits_marquants_json) if p.faits_marquants_json else []
+            except Exception:
+                faits = []
+            try:
+                chapitres = json.loads(p.chapitres_json) if p.chapitres_json else []
+            except Exception:
+                chapitres = []
+            try:
+                lies = json.loads(p.elements_lies_json) if p.elements_lies_json else []
+            except Exception:
+                lies = []
+
+            items.append({
+                "id": p.id,
+                "type": "figure",
+                "nom": p.nom,
+                "titreHonorifique": p.titre_honorifique or "Figure Historique",
+                "periode": p.periode or "Histoire du Mali",
+                "regionId": p.region_id or "bamako",
+                "regionNom": p.region_nom or "Tout le Mali",
+                "tag": p.tag or "Héros National",
+                "photoUrl": p.photo_url or "assets/images/culture/personnages/soundiata.jpg",
+                "photoCredits": p.photo_credits or "Archives Nationales du Mali",
+                "resume": p.resume or "",
+                "citationHistorique": p.citation_historique or "",
+                "faitsCles": faits if isinstance(faits, list) else [],
+                "chapitres": chapitres if isinstance(chapitres, list) else [],
+                "elementsConnexes": lies if isinstance(lies, list) else [],
+                "publie": True,
+                "dateCreation": p.date_creation.isoformat() if p.date_creation else "2026-01-01T00:00:00Z",
+                "dateModification": p.date_creation.isoformat() if p.date_creation else "2026-01-01T00:00:00Z",
+            })
+
+        # 2. Monuments
+        for m in db.query(CultureMonument).all():
+            items.append({
+                "id": m.id,
+                "type": "monument",
+                "nom": m.nom,
+                "sousTitre": m.sous_titre or m.nom,
+                "ere": m.epoque or "Époque contemporaine",
+                "regionId": m.region_id or "bamako",
+                "regionNom": m.region_nom or "Bamako",
+                "tag": m.tag or "Patrimoine National",
+                "photoUrl": m.photo_url or "assets/images/culture/monuments/tour_afrique.jpg",
+                "photoCredits": "Direction Nationale du Patrimoine Culturel",
+                "localisationDetails": m.details_localisation or m.ville,
+                "presentation": m.recit_historique or m.sous_titre,
+                "architectureEtMateriaux": m.style_architectural or "Architecture traditionnelle",
+                "pourquoiCestImportant": m.pourquoi_ce_lieu_compte or m.sous_titre,
+                "faitsCles": [{"titre": "Symbole Républicain", "description": m.secrets_et_mysteres or m.sous_titre, "anneeOuEpoque": m.epoque}],
+                "chapitres": [{"titre": "Histoire et Épopée", "contenu": m.recit_historique}],
+                "elementsConnexes": [],
+                "publie": True,
+                "dateCreation": m.date_mise_a_jour.isoformat() if m.date_mise_a_jour else "2026-01-01T00:00:00Z",
+                "dateModification": m.date_mise_a_jour.isoformat() if m.date_mise_a_jour else "2026-01-01T00:00:00Z",
+            })
+
+        # 3. Cités & Villes
+        for l in db.query(CultureLieu).all():
+            chapitres = []
+            lies = []
+            try:
+                chapitres = json.loads(l.chapitres_json) if l.chapitres_json else []
+            except Exception:
+                chapitres = []
+            try:
+                lies = json.loads(l.elements_lies_json) if l.elements_lies_json else []
+            except Exception:
+                lies = []
+
+            items.append({
+                "id": l.id,
+                "type": "ville",
+                "nom": l.nom,
+                "sousTitre": l.sous_titre or l.nom,
+                "regionId": l.region_id or "bamako",
+                "regionNom": l.region_nom or "Mali",
+                "tag": l.tag or "Cité Millénaire",
+                "photoUrl": l.photo_url or "assets/images/culture/monuments/tour_afrique.jpg",
+                "photoCredits": l.photo_credits or "Archives du Mali",
+                "fondation": l.fondation or "Fondation séculaire",
+                "resume": l.resume or "",
+                "identiteCulturelle": l.sous_titre or "",
+                "traditionsEtPatrimoine": l.resume or "",
+                "faitsCles": [{"titre": "Origine", "description": l.fondation}],
+                "chapitres": chapitres if isinstance(chapitres, list) else [],
+                "elementsConnexes": lies if isinstance(lies, list) else [],
+                "publie": True,
+                "dateCreation": l.date_creation.isoformat() if l.date_creation else "2026-01-01T00:00:00Z",
+                "dateModification": l.date_creation.isoformat() if l.date_creation else "2026-01-01T00:00:00Z",
+            })
+
+        # 4. Contes Interactifs
+        for c in db.query(CultureConte).all():
+            scenes = []
+            lies = []
+            try:
+                scenes = json.loads(c.scenes_json) if c.scenes_json else []
+            except Exception:
+                scenes = []
+            try:
+                lies = json.loads(c.elements_lies_json) if c.elements_lies_json else []
+            except Exception:
+                lies = []
+
+            items.append({
+                "id": c.id,
+                "type": "conte",
+                "titre": c.titre,
+                "sousTitre": c.sous_titre or "Conte traditionnel",
+                "origine": c.origine or "Tradition Orale Mandingue",
+                "regionId": c.region_id or "bamako",
+                "regionNom": c.region_nom or "Tout le Mali",
+                "tag": c.tag or "Conte Initiatique",
+                "photoUrl": c.photo_url or "assets/images/culture/contes/zoumana_lievre.jpg",
+                "photoCredits": c.photo_credits or "Tradition Orale",
+                "resume": c.resume or "",
+                "narrateur": c.conteur or "Griot AlternIA",
+                "dureeAudio": c.duree_audio or "5 min",
+                "dureeLecture": c.duree_lecture or "3 min",
+                "enVedette": True,
+                "morale": c.morale or "Leçon de sagesse",
+                "scenes": scenes if isinstance(scenes, list) else [],
+                "elementsConnexes": lies if isinstance(lies, list) else [],
+                "publie": True,
+                "dateCreation": c.date_creation.isoformat() if c.date_creation else "2026-01-01T00:00:00Z",
+                "dateModification": c.date_creation.isoformat() if c.date_creation else "2026-01-01T00:00:00Z",
+            })
+
+        # 5. Devinettes & Proverbes
+        for pr in db.query(CultureProverbe).all():
+            is_devinette = pr.theme == "Jeu de Devinettes" or "devinette" in pr.id
+            if is_devinette:
+                items.append({
+                    "id": pr.id,
+                    "type": "devinette",
+                    "formuleIntro": "« N'Da ! » — « N'Da n'sira ! »",
+                    "enigmeTexte": pr.texte,
+                    "indices": [f"Origine : {pr.origine}", f"Thème : {pr.theme}", f"Sagesse : {pr.signification}"],
+                    "options": [pr.morale, "L'Ombre sous le soleil", "La Rivière Djoliba", "Le Vent du Sahel"],
+                    "bonneReponse": pr.morale,
+                    "explicationCulturelle": pr.signification,
+                    "proverbe": pr.texte_original or pr.texte,
+                    "regionId": pr.region_id or "bamako",
+                    "regionNom": pr.region_nom or "Mali",
+                    "categorie": pr.theme or "Sagesse & Nature",
+                    "difficulte": "Apprenti",
+                    "recompenseXp": pr.xp_recompense or 40,
+                    "photoUrl": "assets/images/culture/devinettes/calebasse.jpg",
+                    "publie": True,
+                    "dateCreation": "2026-01-01T00:00:00Z",
+                    "dateModification": "2026-01-01T00:00:00Z",
+                })
+            else:
+                items.append({
+                    "id": pr.id,
+                    "type": "temoignage",
+                    "conteur": pr.orateur_nom or "Ancien du Village",
+                    "qualiteConteur": pr.orateur_role or "Gardien de la tradition",
+                    "lieu": pr.region_nom,
+                    "titreHistoire": pr.texte_original or pr.texte[:50],
+                    "duree": "2 min",
+                    "extrait": f"{pr.texte}\n\nSignification : {pr.signification}\nMorale : {pr.morale}",
+                    "avatarUrl": "assets/images/culture/conteurs/vieux_sage.jpg",
+                    "audioUrl": None,
+                    "epoqueOuAnnee": "Tradition Vivante",
+                    "regionId": pr.region_id or "bamako",
+                    "regionNom": pr.region_nom or "Mali",
+                    "publie": True,
+                    "dateCreation": "2026-01-01T00:00:00Z",
+                    "dateModification": "2026-01-01T00:00:00Z",
+                })
+
+        return items
+
+    @staticmethod
+    def get_tampons(db: Session) -> list[dict[str, Any]]:
+        """Fournit les tampons du Passeport Culturel pour les 11 régions administratives et historiques."""
+        return [
+            {
+                "id": "tampon_bamako",
+                "nom": "Monument de l'Indépendance",
+                "regionId": "bamako",
+                "regionNom": "Bamako",
+                "monumentOuFigure": "Monument de l'Indépendance & Place du 22 Septembre",
+                "symboleSvg": "star",
+                "conditionDeblocage": "Visiter ou scanner un monument de Bamako",
+                "xpRecompense": 50,
+                "rarete": "Commun",
+                "totalDebloquesParEleves": 1420,
+                "tauxDeblocage": 68,
+                "actif": True,
+                "couleurAccent": "#F1851F",
+            },
+            {
+                "id": "tampon_koulikoro",
+                "nom": "Monts du Mandé & Soundiata",
+                "regionId": "koulikoro",
+                "regionNom": "Koulikoro",
+                "monumentOuFigure": "Monts du Mandé & Épopée de Soundiata Keïta",
+                "symboleSvg": "mountain",
+                "conditionDeblocage": "Découvrir la geste du Mandé et la Charte de Kouroukan Fouga",
+                "xpRecompense": 60,
+                "rarete": "Commun",
+                "totalDebloquesParEleves": 1150,
+                "tauxDeblocage": 55,
+                "actif": True,
+                "couleurAccent": "#10B981",
+            },
+            {
+                "id": "tampon_kayes",
+                "nom": "Chutes de Félou & Tata de Koniakary",
+                "regionId": "kayes",
+                "regionNom": "Kayes",
+                "monumentOuFigure": "Chutes de Félou & Fort de Médine",
+                "symboleSvg": "droplet",
+                "conditionDeblocage": "Explorer le patrimoine fluvial et les royaumes du Khasso",
+                "xpRecompense": 70,
+                "rarete": "Rare",
+                "totalDebloquesParEleves": 820,
+                "tauxDeblocage": 39,
+                "actif": True,
+                "couleurAccent": "#6366F1",
+            },
+            {
+                "id": "tampon_sikasso",
+                "nom": "Mamelon & Tata de Tiéba",
+                "regionId": "sikasso",
+                "regionNom": "Sikasso",
+                "monumentOuFigure": "Mamelon de Sikasso & Remparts du Kénédougou",
+                "symboleSvg": "shield",
+                "conditionDeblocage": "Honorer le serment des héros de la résistance du Kénédougou",
+                "xpRecompense": 75,
+                "rarete": "Rare",
+                "totalDebloquesParEleves": 940,
+                "tauxDeblocage": 45,
+                "actif": True,
+                "couleurAccent": "#EC4899",
+            },
+            {
+                "id": "tampon_segou",
+                "nom": "Cité des Balanzans",
+                "regionId": "segou",
+                "regionNom": "Ségou",
+                "monumentOuFigure": "Ségou-Koro & Tombe de Biton Coulibaly",
+                "symboleSvg": "sun",
+                "conditionDeblocage": "Résoudre une devinette et écouter un conte du Royaume Bambara",
+                "xpRecompense": 80,
+                "rarete": "Rare",
+                "totalDebloquesParEleves": 880,
+                "tauxDeblocage": 42,
+                "actif": True,
+                "couleurAccent": "#8B5CF6",
+            },
+            {
+                "id": "tampon_mopti",
+                "nom": "Grande Mosquée de Djenné (UNESCO)",
+                "regionId": "mopti",
+                "regionNom": "Mopti",
+                "monumentOuFigure": "Mosquée en banco de Djenné & Falaise de Bandiagara",
+                "symboleSvg": "award",
+                "conditionDeblocage": "Visiter le joyau d'architecture banco du delta intérieur",
+                "xpRecompense": 100,
+                "rarete": "Épique",
+                "totalDebloquesParEleves": 620,
+                "tauxDeblocage": 30,
+                "actif": True,
+                "couleurAccent": "#F59E0B",
+            },
+            {
+                "id": "tampon_tombouctou",
+                "nom": "Cité des 333 Saints & Sankoré",
+                "regionId": "tombouctou",
+                "regionNom": "Tombouctou",
+                "monumentOuFigure": "Mosquée Sankoré & Institut Ahmed Baba",
+                "symboleSvg": "book-open",
+                "conditionDeblocage": "Consulter un extrait des manuscrits anciens de Tombouctou",
+                "xpRecompense": 120,
+                "rarete": "Légendaire",
+                "totalDebloquesParEleves": 410,
+                "tauxDeblocage": 19,
+                "actif": True,
+                "couleurAccent": "#EF4444",
+            },
+            {
+                "id": "tampon_gao",
+                "nom": "Tombeau des Askia & Empire Songhay",
+                "regionId": "gao",
+                "regionNom": "Gao",
+                "monumentOuFigure": "Tombeau pyramidal des Askia (UNESCO)",
+                "symboleSvg": "crown",
+                "conditionDeblocage": "Découvrir la grandeur de Sonni Ali Ber et de l'Askia Mohamed",
+                "xpRecompense": 110,
+                "rarete": "Épique",
+                "totalDebloquesParEleves": 480,
+                "tauxDeblocage": 23,
+                "actif": True,
+                "couleurAccent": "#14B8A6",
+            },
+            {
+                "id": "tampon_kidal",
+                "nom": "Adrar des Ifoghas",
+                "regionId": "kidal",
+                "regionNom": "Kidal",
+                "monumentOuFigure": "Massif de l'Adrar & Traditions Nomades",
+                "symboleSvg": "compass",
+                "conditionDeblocage": "Participer à une veillée sous la tente aux étoiles",
+                "xpRecompense": 90,
+                "rarete": "Rare",
+                "totalDebloquesParEleves": 310,
+                "tauxDeblocage": 15,
+                "actif": True,
+                "couleurAccent": "#06B6D4",
+            },
+            {
+                "id": "tampon_taoudenit",
+                "nom": "Caravanes de Sel de l'Azalaï",
+                "regionId": "taoudenit",
+                "regionNom": "Taoudénit",
+                "monumentOuFigure": "Salines ancestrales & Voie des Caravanes",
+                "symboleSvg": "feather",
+                "conditionDeblocage": "Compléter le grand périple saharien",
+                "xpRecompense": 130,
+                "rarete": "Légendaire",
+                "totalDebloquesParEleves": 190,
+                "tauxDeblocage": 9,
+                "actif": True,
+                "couleurAccent": "#84CC16",
+            },
+            {
+                "id": "tampon_menaka",
+                "nom": "Vallée d'Azaouagh & Boucle du Niger",
+                "regionId": "menaka",
+                "regionNom": "Ménaka",
+                "monumentOuFigure": "Terres Pastorales & Traditions de Fraternité",
+                "symboleSvg": "heart",
+                "conditionDeblocage": "Partager un proverbe de concorde communautaire",
+                "xpRecompense": 85,
+                "rarete": "Rare",
+                "totalDebloquesParEleves": 280,
+                "tauxDeblocage": 13,
+                "actif": True,
+                "couleurAccent": "#EAB308",
+            },
+        ]
+
+    @staticmethod
+    def get_niveaux(db: Session) -> list[dict[str, Any]]:
+        """Fournit les paliers de progression d'exploration du patrimoine malien."""
+        return [
+            {
+                "niveau": 1,
+                "titre": "Apprenti du Sahel",
+                "seuilXp": 0,
+                "badgeNom": "Premier Pas Patrimoine",
+                "couleur": "#10B981",
+                "nombreElevesAtteints": 2150,
+            },
+            {
+                "niveau": 2,
+                "titre": "Voyageur du Djoliba",
+                "seuilXp": 150,
+                "badgeNom": "Navigateur Fluvial",
+                "couleur": "#0284c7",
+                "nombreElevesAtteints": 1420,
+            },
+            {
+                "niveau": 3,
+                "titre": "Gardien du Mandé",
+                "seuilXp": 400,
+                "badgeNom": "Protecteur des Coutumes",
+                "couleur": "#8B5CF6",
+                "nombreElevesAtteints": 890,
+            },
+            {
+                "niveau": 4,
+                "titre": "Érudit de Tombouctou",
+                "seuilXp": 800,
+                "badgeNom": "Scribe des Manuscrits",
+                "couleur": "#F59E0B",
+                "nombreElevesAtteints": 430,
+            },
+            {
+                "niveau": 5,
+                "titre": "Maître Dozo du Patrimoine",
+                "seuilXp": 1500,
+                "badgeNom": "Grand Sage de la Nation",
+                "couleur": "#EF4444",
+                "nombreElevesAtteints": 125,
+            },
+        ]
+
+    @staticmethod
+    def seed_sample_contributions(db: Session) -> None:
+        """Garantit la présence de contributions citoyennes de démonstration prêtes pour la modération."""
+        if db.query(CultureContribution).count() == 0:
+            c1 = CultureContribution(
+                id="contrib-prov-001",
+                auteur_nom="Amadou Diallo",
+                auteur_id="appr-amadou-diallo",
+                auteur_role="Apprenant (11ème LBAD)",
+                type_contenu="proverbe",
+                texte="Mogoya de bè dounan kô (L'humanité et la noblesse d'âme surpassent toute richesse matérielle).",
+                texte_original="Mɔgɔya de bɛ dunan kɔ.",
+                signification="Ce proverbe enseigne que la dignité, le respect d'autrui et la solidarité sont les véritables richesses léguées par nos ancêtres.",
+                morale="Cultiver le Danbé (la dignité) et l'entraide communautaire.",
+                origine="Tradition Mandingue — Cercle de Kangaba",
+                theme="Sagesse & Dignité",
+                region_id="koulikoro",
+                region_nom="Koulikoro",
+                source_temoin="Transmis par mon grand-père cultivateur à Kangaba",
+                statut="EN_ATTENTE",
+                xp_attribues=50,
+                pieces_attribuees=25,
+                date_soumission=datetime.now(UTC),
+            )
+            c2 = CultureContribution(
+                id="contrib-dev-002",
+                auteur_nom="Fatoumata Traoré",
+                auteur_id="appr-fatou-traore",
+                auteur_role="Apprenante (Collège de Ségou)",
+                type_contenu="devinette",
+                texte="« N'Da ! » — « N'Da n'sira ! » Je cours sans jambes, je traverse les fleuves et les falaises sans me noyer, et nul ne peut m'enfermer dans une calebasse. Qui suis-je ?",
+                texte_original="« N'Da ! » — « N'Da n'sira ! »",
+                signification="Énigme populaire des veillées d'enfants au clair de lune le long du fleuve Niger à Ségou.",
+                morale="Le Vent (Fonyo)",
+                origine="Royaume Bambara de Ségou",
+                theme="Éléments de la Nature",
+                region_id="segou",
+                region_nom="Ségou",
+                source_temoin="Veillée de contes de mon arrière-grand-mère à Ségou-Koro",
+                statut="EN_ATTENTE",
+                xp_attribues=40,
+                pieces_attribuees=20,
+                date_soumission=datetime.now(UTC),
+            )
+            c3 = CultureContribution(
+                id="contrib-mon-003",
+                auteur_nom="Sékou Coulibaly",
+                auteur_id="appr-sekou-coulibaly",
+                auteur_role="Apprenant (Lycée Kénédougou)",
+                type_contenu="monument",
+                titre="Le Tata de Sikasso — Tracé des Remparts de Babemba",
+                texte="Le Tata de Sikasso est la formidable muraille défensive érigée par le roi Tiéba Traoré puis renforcée par son frère Babemba pour résister aux assauts de Samory Touré puis des troupes coloniales.",
+                texte_original="Sikaso Tata",
+                signification="Symbole de bravoure, de résistance inébranlable et du serment historique : « Sayi an ka fisa ni malo ye » (Plutôt la mort que la honte).",
+                morale="Résistance et sacrifice pour la patrie.",
+                origine="Royaume du Kénédougou",
+                theme="Patrimoine Militaire & Historique",
+                region_id="sikasso",
+                region_nom="Sikasso",
+                source_temoin="Visite guidée avec l'association des jeunes historiens de Sikasso",
+                photo_url="assets/images/culture/monuments/tata_sikasso.jpg",
+                statut="EN_ATTENTE",
+                xp_attribues=80,
+                pieces_attribuees=40,
+                date_soumission=datetime.now(UTC),
+            )
+            db.add_all([c1, c2, c3])
+            db.commit()
+            logger.info("Données de démonstration pour les contributions citoyennes insérées avec succès.")
+

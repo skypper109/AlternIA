@@ -58,6 +58,7 @@ from backend.src.routes import (
     abonnement_router,
     defi_national_router,
     admin_finance_router,
+    admin_router,
 )
 
 
@@ -149,6 +150,8 @@ app.include_router(parrainage_router)
 app.include_router(abonnement_router)
 app.include_router(defi_national_router)
 app.include_router(admin_finance_router)
+app.include_router(admin_router)
+
 
 
 
