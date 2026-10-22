@@ -129,37 +129,59 @@ def test_spa_index_serving():
 
 def test_inscription_etablissement():
     import uuid
+    from backend.src.db.database import SessionLocal
+    from backend.src.db.models import Utilisateur, Etablissement
+
     unique_id = uuid.uuid4().hex[:6]
+    test_email = f"horizon_{unique_id}@horizon.edu.ml"
     payload = {
         "nomEtablissement": f"Complexe Scolaire Horizon {unique_id}",
-        "email": f"horizon_{unique_id}@horizon.edu.ml",
+        "email": test_email,
         "motDePasse": "horizon2026",
         "nomResponsable": "M. Diallo",
         "ville": "Bamako",
     }
-    response = client.post("/api/auth/inscription-etablissement", json=payload)
-    assert response.status_code == 200
-    data = response.json()
-    assert data["succes"] is True
-    assert data["utilisateur"]["email"] == f"horizon_{unique_id}@horizon.edu.ml"
-    assert data["utilisateur"]["role"] == "admin_ecole"
+    try:
+        response = client.post("/api/auth/inscription-etablissement", json=payload)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["succes"] is True
+        assert data["utilisateur"]["email"] == test_email
+        assert data["utilisateur"]["role"] == "admin_ecole"
+    finally:
+        db = SessionLocal()
+        db.query(Utilisateur).filter(Utilisateur.email == test_email).delete()
+        db.query(Etablissement).filter(Etablissement.email == test_email).delete()
+        db.commit()
+        db.close()
 
 
 def test_inscription_parent():
     import uuid
+    from backend.src.db.database import SessionLocal
+    from backend.src.db.models import Utilisateur
+
     unique_id = uuid.uuid4().hex[:6]
+    test_email = f"aminata_{unique_id}@test.ml"
     payload = {
         "nom": "Cissé",
         "prenom": "Aminata",
-        "email": f"aminata_{unique_id}@test.ml",
+        "email": test_email,
         "motDePasse": "parent2026",
         "codeBoitier": f"ALT-HOME-{unique_id.upper()}",
     }
-    response = client.post("/api/auth/inscription-parent", json=payload)
-    assert response.status_code == 200
-    data = response.json()
-    assert data["succes"] is True
-    assert data["utilisateur"]["email"] == f"aminata_{unique_id}@test.ml"
-    assert data["utilisateur"]["role"] == "parent"
+    try:
+        response = client.post("/api/auth/inscription-parent", json=payload)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["succes"] is True
+        assert data["utilisateur"]["email"] == test_email
+        assert data["utilisateur"]["role"] == "parent"
+    finally:
+        db = SessionLocal()
+        db.query(Utilisateur).filter(Utilisateur.email == test_email).delete()
+        db.commit()
+        db.close()
+
 
 
