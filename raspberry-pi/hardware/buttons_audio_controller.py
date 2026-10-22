@@ -44,25 +44,23 @@ from pathlib import Path
 # ══════════════════════════════════════════════════════════════════════════════
 
 # 4 Boutons Poussoirs (Broches reliées à GND, pull-up interne du Pi 5 activée)
-PIN_BTN_NIV1 = int(os.environ.get("PIN_BTN_NIV1", 5))   # Pin physique 29
-PIN_BTN_NIV2 = int(os.environ.get("PIN_BTN_NIV2", 6))   # Pin physique 31
-PIN_BTN_NIV3 = int(os.environ.get("PIN_BTN_NIV3", 13))  # Pin physique 33
-PIN_BTN_MIC  = int(os.environ.get("PIN_BTN_MIC", 26))   # Pin physique 37
+PIN_BTN_NIV1 = int(os.environ.get("PIN_BTN_NIV1", "5"))   # Pin physique 29
+PIN_BTN_NIV2 = int(os.environ.get("PIN_BTN_NIV2", "6"))   # Pin physique 31
+PIN_BTN_NIV3 = int(os.environ.get("PIN_BTN_NIV3", "13"))  # Pin physique 33
+PIN_BTN_MIC  = int(os.environ.get("PIN_BTN_MIC", "26"))   # Pin physique 37
 
 # LED Tricolore RGB (Broches contiguës sur le connecteur 40 broches)
-PIN_LED_R = int(os.environ.get("PIN_LED_R", 17))       # Pin physique 11 (Canal Rouge)
-PIN_LED_G = int(os.environ.get("PIN_LED_G", 27))       # Pin physique 13 (Canal Vert)
-PIN_LED_B = int(os.environ.get("PIN_LED_B", 22))       # Pin physique 15 (Canal Bleu)
+PIN_LED_R = int(os.environ.get("PIN_LED_R", "17"))       # Pin physique 11 (Canal Rouge)
+PIN_LED_G = int(os.environ.get("PIN_LED_G", "27"))       # Pin physique 13 (Canal Vert)
+PIN_LED_B = int(os.environ.get("PIN_LED_B", "22"))       # Pin physique 15 (Canal Bleu)
 
 # Type de LED : True = Cathode Commune (GND), False = Anode Commune (+3.3V)
 LED_ACTIVE_HIGH = os.environ.get("LED_ACTIVE_HIGH", "1").lower() in ("1", "true", "yes")
 
 # Forcer l'affichage immédiat des logs dans journalctl (sans mise en mémoire tampon)
-try:
-    sys.stdout.reconfigure(line_buffering=True)
-    sys.stderr.reconfigure(line_buffering=True)
-except Exception:
-    pass
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        getattr(_stream, "reconfigure")(line_buffering=True)
 
 # Chemins de fichiers d'échange & drapeaux
 ACTIVITY_FLAG = Path("/tmp/alta_activity.flag")
