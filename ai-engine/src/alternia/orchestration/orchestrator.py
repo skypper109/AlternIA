@@ -237,7 +237,7 @@ class AlterniaOrchestrator:
         # Refuse les questions totalement hors-scolaires sans aucun lien avec le programme ou la conversation
         import re
         q_clean = question.strip().lower()
-        is_greeting_or_id = bool(re.search(r"^(bonjour|bonsoir|salut|coucou|qui es-tu|qui est-tu|tu es qui|présente-toi|presente toi|merci|d'accord|ok|au revoir)\b", q_clean))
+        is_greeting_or_id = bool(re.search(r"^(bonjour|bonsoir|salut|coucou|qui es-tu|qui est-tu|tu es qui|présente-toi|presente toi|merci|d'accord|ok|au revoir|qu'est-ce que tu peux faire|que peux-tu faire|que sais-tu faire|comment tu peux m'aider|aide|aide-moi)\b", q_clean))
         has_rag_sources = bool(context and getattr(context, "sources", []))
         
         is_conversation_followup = False
@@ -503,7 +503,7 @@ class AlterniaOrchestrator:
         # VÉRIFICATION DE LA PERTINENCE PÉDAGOGIQUE (Scope Guardrail)
         import re
         q_clean = question.strip().lower()
-        is_greeting_or_id = bool(re.search(r"^(bonjour|bonsoir|salut|coucou|qui es-tu|qui est-tu|tu es qui|présente-toi|presente toi|merci|d'accord|ok|au revoir)\b", q_clean))
+        is_greeting_or_id = bool(re.search(r"^(bonjour|bonsoir|salut|coucou|qui es-tu|qui est-tu|tu es qui|présente-toi|presente toi|merci|d'accord|ok|au revoir|qu'est-ce que tu peux faire|que peux-tu faire|que sais-tu faire|comment tu peux m'aider|aide|aide-moi)\b", q_clean))
         has_rag_sources = bool(context and getattr(context, "sources", []))
         
         is_conversation_followup = False
