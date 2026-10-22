@@ -90,8 +90,11 @@ for _env_candidate in [
         except Exception:
             pass
 
-# Serveurs cibles
-LOCAL_API_URL = os.environ.get("ALTERNIA_LOCAL_API", "http://127.0.0.1:8000")
+# User-Agent de type navigateur pour franchir Cloudflare sans blocage WAF (403 Forbidden)
+BROWSER_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
+
+# Serveurs cibles (Cloudflare api.alterniamali.com par défaut)
+LOCAL_API_URL = os.environ.get("ALTERNIA_LOCAL_API", "http://127.0.0.1")
 REMOTE_API_URL = os.environ.get("ALTERNIA_API_URL", "https://api.alterniamali.com")
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -660,6 +663,7 @@ class HardwareController:
                 print(f"📡 [STT] Envoi de l'audio ({len(content)} octets) vers : {url}...")
                 req = urllib.request.Request(url, data=body, method="POST")
                 req.add_header("Content-Type", f"multipart/form-data; boundary={boundary}")
+                req.add_header("User-Agent", BROWSER_USER_AGENT)
                 with urllib.request.urlopen(req, timeout=12) as resp:
                     data = json.loads(resp.read().decode("utf-8"))
                     text = data.get("text", "")
@@ -689,6 +693,7 @@ class HardwareController:
                 print(f"🧠 [IA] Envoi de la question vers : {url}...")
                 req = urllib.request.Request(url, data=payload, method="POST")
                 req.add_header("Content-Type", "application/json")
+                req.add_header("User-Agent", BROWSER_USER_AGENT)
                 with urllib.request.urlopen(req, timeout=15) as resp:
                     data = json.loads(resp.read().decode("utf-8"))
                     answer = data.get("response") or data.get("answer") or data.get("text") or ""
@@ -718,6 +723,7 @@ class HardwareController:
                 print(f"🎙️ [TTS] Synthèse de la voix vers : {url}...")
                 req = urllib.request.Request(url, data=payload, method="POST")
                 req.add_header("Content-Type", "application/json")
+                req.add_header("User-Agent", BROWSER_USER_AGENT)
                 with urllib.request.urlopen(req, timeout=15) as resp:
                     audio_bytes = resp.read()
                     if len(audio_bytes) > 500:
