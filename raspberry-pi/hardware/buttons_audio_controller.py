@@ -657,6 +657,7 @@ class HardwareController:
 
         for url in urls_to_try:
             try:
+                print(f"📡 [STT] Envoi de l'audio ({len(content)} octets) vers : {url}...")
                 req = urllib.request.Request(url, data=body, method="POST")
                 req.add_header("Content-Type", f"multipart/form-data; boundary={boundary}")
                 with urllib.request.urlopen(req, timeout=12) as resp:
@@ -664,7 +665,9 @@ class HardwareController:
                     text = data.get("text", "")
                     if text:
                         return text.strip()
-            except Exception:
+                    print(f"ℹ️ [STT] Réponse reçue de {url} mais texte vide : {data}")
+            except Exception as exc:
+                print(f"⚠️ [STT] Échec sur {url} : {exc}")
                 continue
         return ""
 
@@ -683,23 +686,22 @@ class HardwareController:
 
         for url in urls_to_try:
             try:
+                print(f"🧠 [IA] Envoi de la question vers : {url}...")
                 req = urllib.request.Request(url, data=payload, method="POST")
                 req.add_header("Content-Type", "application/json")
                 with urllib.request.urlopen(req, timeout=15) as resp:
                     data = json.loads(resp.read().decode("utf-8"))
-                    # Extraction du texte réponse
                     answer = data.get("response") or data.get("answer") or data.get("text") or ""
                     if answer:
                         return answer
-            except Exception:
+            except Exception as exc:
+                print(f"⚠️ [IA] Échec sur {url} : {exc}")
                 continue
         return ""
 
     def _synthesize_speech(self, text: str, output_path: Path) -> bool:
         """Génère le fichier audio MP3 de la réponse via /api/tts."""
-        # Nettoyage succinct du texte pour la parole
         clean_text = text.replace("**", "").replace("#", "").replace("`", "").strip()
-        # Limiter à 250 mots pour garder une réponse vocale concise et pédagogique
         words = clean_text.split()
         if len(words) > 80:
             clean_text = " ".join(words[:80]) + "..."
@@ -713,6 +715,7 @@ class HardwareController:
 
         for url in urls_to_try:
             try:
+                print(f"🎙️ [TTS] Synthèse de la voix vers : {url}...")
                 req = urllib.request.Request(url, data=payload, method="POST")
                 req.add_header("Content-Type", "application/json")
                 with urllib.request.urlopen(req, timeout=15) as resp:
@@ -720,7 +723,8 @@ class HardwareController:
                     if len(audio_bytes) > 500:
                         output_path.write_bytes(audio_bytes)
                         return True
-            except Exception:
+            except Exception as exc:
+                print(f"⚠️ [TTS] Échec sur {url} : {exc}")
                 continue
         return False
 
