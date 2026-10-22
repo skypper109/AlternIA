@@ -23,11 +23,13 @@ def seed_initial_data(db: Session, force: bool = False):
 
     from backend.src.db.seed_culture import seed_culture_data
     from backend.src.db.seed_noms import seed_noms_data
+    from backend.src.db.seed_admin_data import seed_super_admin_real_data
 
     try:
-        # Toujours garantir le peuplement du patrimoine culturel et des patronymes
+        # Toujours garantir le peuplement du patrimoine culturel, des patronymes et des données réelles Super Admin
         seed_culture_data(db, force=force)
         seed_noms_data(db, force=force)
+        seed_super_admin_real_data(db, force=force)
 
         # Vérification si les données utilisateurs existent déjà
         existing_users = db.query(Utilisateur).all()

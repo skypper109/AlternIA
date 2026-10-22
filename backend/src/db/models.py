@@ -36,6 +36,8 @@ class Utilisateur(Base):
     role: Mapped[str] = mapped_column(String(30), nullable=False, default="parent")  # 'admin_ecole', 'parent', 'enseignant'
     nom_complet: Mapped[str] = mapped_column(String(120), nullable=False)
     avatar: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    telephone: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    etablissement_nom: Mapped[str | None] = mapped_column(String(150), nullable=True)
     date_creation: Mapped[datetime | None] = mapped_column(DateTime, default=utc_now)
     dernier_acces: Mapped[datetime | None] = mapped_column(DateTime, default=utc_now)
     actif: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -100,6 +102,7 @@ class Apprenant(Base):
 
     etablissement_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("etablissements.id"), nullable=True)
     boitier_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("boitiers.id"), nullable=True)
+    parent_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("utilisateurs.id"), nullable=True)
 
     etablissement: Mapped[Optional["Etablissement"]] = relationship("Etablissement", back_populates="apprenants")
     boitier: Mapped[Optional["Boitier"]] = relationship("Boitier", back_populates="apprenants")
@@ -626,5 +629,50 @@ class JournalAuditSecurite(Base):
     details_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     adresse_ip: Mapped[str | None] = mapped_column(String(45), nullable=True)
     date_action: Mapped[datetime | None] = mapped_column(DateTime, default=utc_now)
+
+
+# ==============================================================================
+# GOUVERNANCE SUPER ADMIN & FLOTTE EDGE (CAMPAGNES OTA, CONFIGURATION, ALERTES)
+# ==============================================================================
+
+class CampagneOTA(Base):
+    __tablename__ = "campagnes_ota"
+
+    id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    nom: Mapped[str] = mapped_column(String(200), nullable=False)
+    version_cible: Mapped[str] = mapped_column(String(50), nullable=False)
+    type_contenu: Mapped[str] = mapped_column(String(50), nullable=False)  # 'Firmware Système', 'Pack Cours Pédagogiques', 'Pack Culture & Contes', 'Voix TTS'
+    taille_mo: Mapped[float] = mapped_column(Float, default=120.0)
+    total_cibles: Mapped[int] = mapped_column(Integer, default=10)
+    total_appliques: Mapped[int] = mapped_column(Integer, default=8)
+    total_en_attente: Mapped[int] = mapped_column(Integer, default=2)
+    statut: Mapped[str] = mapped_column(String(30), default="En cours")  # 'En cours', 'Planifiée', 'Terminée'
+    date_lancement: Mapped[datetime | None] = mapped_column(DateTime, default=utc_now)
+
+
+class ParametrePlateforme(Base):
+    __tablename__ = "parametres_plateforme"
+
+    cle: Mapped[str] = mapped_column(String(80), primary_key=True)
+    valeur: Mapped[str] = mapped_column(Text, nullable=False)
+    type_donnee: Mapped[str] = mapped_column(String(20), default="str")  # 'str', 'int', 'bool', 'json'
+    description: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    date_mise_a_jour: Mapped[datetime | None] = mapped_column(DateTime, default=utc_now)
+
+
+class NotificationAdmin(Base):
+    __tablename__ = "notifications_admin"
+
+    id: Mapped[str] = mapped_column(String(50), primary_key=True, default=generate_uuid)
+    type: Mapped[str] = mapped_column(String(30), default="info")  # 'succes', 'erreur', 'info', 'avertissement'
+    categorie: Mapped[str] = mapped_column(String(30), default="gouvernance")  # 'hardware', 'gouvernance', 'business', 'ia', 'systeme'
+    titre: Mapped[str] = mapped_column(String(200), nullable=False)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    lu: Mapped[bool] = mapped_column(Boolean, default=False)
+    source: Mapped[str] = mapped_column(String(100), default="AlternIA Core")
+    lien_route: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    lien_label: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    date_creation: Mapped[datetime | None] = mapped_column(DateTime, default=utc_now)
+
 
 
