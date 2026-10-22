@@ -793,7 +793,7 @@ class _DocumentsPageState extends ConsumerState<DocumentsPage>
             for (var i = 0; i < hints.length; i++) {
               final h = hints[i] as Map<String, dynamic>;
               parsedSteps.add({
-                'title': 'Étape ${i + 1} • ${(h['type'] as String? ?? 'Raisonnement').toUpperCase()}',
+                'title': h['title'] as String? ?? 'Étape ${i + 1} • ${(h['type'] as String? ?? 'Raisonnement').toUpperCase()}',
                 'content': h['text'] as String? ?? h['content'] as String? ?? 'Analyse en cours.',
                 'question': h['question'] as String? ?? 'Quelle est ton hypothèse pour cette étape ?',
               });

@@ -83,11 +83,17 @@ Dès l'allumage du Raspberry Pi 5, le réseau Wi-Fi apparaît automatiquement :
 * **Bande Wi-Fi** : `2.4 GHz` (canal 6, compatible avec 100% des smartphones au Mali)
 * **Adresse IP de la passerelle Boîtier** : `10.42.0.1`
 
-### Accès pour les élèves :
+### Accès Wi-Fi pour les élèves (Portail Captif automatique) :
 Dès qu'un élève se connecte au Wi-Fi `Alta-box1` depuis son téléphone ou sa tablette :
-* Il ouvre son navigateur sur **`http://10.42.0.1`** ou **`http://alta.box`** (ou `device.alterniamali.com`).
-* L'application Kiosk se charge instantanément depuis le cache local du Pi 5.
-* Les questions posées au tuteur IA sont relayées en temps réel vers votre serveur AWS `t3.xlarge` (`https://api.alterniamali.com`).
+* **Redirection automatique** : La détection de portail captif (Android, iOS/Apple CNA, Windows) redirige automatiquement l'appareil vers **`https://device.alterniamali.com`**.
+* Si l'élève tape manuellement `alta.box` ou `10.42.0.1` dans son navigateur, le serveur Nginx Edge renvoie immédiatement un code 302 vers **`https://device.alterniamali.com`**.
+* En cas de coupure Internet totale, un miroir local de secours (`/local/` ou `127.0.0.1`) permet la continuité pédagogique sans écran noir.
+
+### Sortie Vidéo HDMI (Écran TV / Kiosk Kiosque) :
+Dès le branchement du Raspberry Pi 5 sur une télévision ou un moniteur HDMI :
+* Le service systemd `alta-kiosk.service` exécute le script `kiosk/launch_kiosk.sh`.
+* Chromium démarre en plein écran (**mode Kiosk 1080p**) directement sur **`https://device.alterniamali.com`**.
+* L'option `--autoplay-policy=no-user-gesture-required` garantit la diffusion vocale immédiate des réponses sans nécessiter de clic préalable.
 
 ---
 
@@ -110,34 +116,46 @@ stateDiagram-v2
 
 ---
 
-## 6. Câblage Matériel : 4 Boutons + Micro + Haut-Parleur
+## 6. Câblage Matériel : 4 Boutons + Micro Toggle + LED Tricolore (RGB) + Haut-Parleur
 
-Le contrôleur matériel [`hardware/buttons_audio_controller.py`](file:///Users/ibrahimsorydiallo/Desktop/OSC/AlternIA/raspberry-pi/hardware/buttons_audio_controller.py) est déjà pré-câblé pour recevoir vos composants physiques :
+Le contrôleur matériel [`hardware/buttons_audio_controller.py`](file:///Users/ibrahimsorydiallo/Desktop/OSC/AlternIA/raspberry-pi/hardware/buttons_audio_controller.py) pilote l'ensemble des composants physiques de l'Alta-Box :
 
 ### Broches GPIO (Pinout Raspberry Pi 5) :
 
-| Composant | Broche BCM | Broche Physique | Raccordement électrique |
+| Composant | Broche BCM | Broche Physique | Raccordement électrique & Rôle |
 | :--- | :---: | :---: | :--- |
-| **Bouton 1 (Micro Push-to-Talk)** | **GPIO 5** | Pin 29 | Une patte sur GPIO 5, l'autre sur GND (Pin 30) |
-| **Bouton 2 (Répéter Réponse Audio)** | **GPIO 6** | Pin 31 | Une patte sur GPIO 6, l'autre sur GND (Pin 34) |
-| **Bouton 3 (Changer de Classe)** | **GPIO 13** | Pin 33 | Une patte sur GPIO 13, l'autre sur GND (Pin 39) |
-| **Bouton 4 (Défi Quizz National)** | **GPIO 19** | Pin 35 | Une patte sur GPIO 19, l'autre sur GND (Pin 39) |
-| **LED d'État Externe (Optionnelle)** | **GPIO 17** | Pin 11 | Anode (+) via résistance 330Ω sur GPIO 17, Cathode (-) sur GND |
+| **Bouton 1 (Niveau 1 — Fondamental)** | **GPIO 5** | Pin 29 | Une patte sur GPIO 5, l'autre sur GND (Pin 30). Cycle 6ème -> 7ème -> 8ème -> 9ème (DEF). |
+| **Bouton 2 (Niveau 2 — Secondaire)** | **GPIO 6** | Pin 31 | Une patte sur GPIO 6, l'autre sur GND (Pin 34). Bascule entre 10ème <-> 11ème. |
+| **Bouton 3 (Niveau 3 — Terminale)** | **GPIO 13** | Pin 33 | Une patte sur GPIO 13, l'autre sur GND (Pin 39). Active la classe de Terminale (BAC). |
+| **Bouton 4 (Micro Toggle Bistable)** | **GPIO 26** | Pin 37 | Une patte sur GPIO 26, l'autre sur GND (Pin 39). **1er clic** = Enregistrement, **2e clic** = Fin & Envoi IA. |
+| **LED Tricolore — Rouge (R)** | **GPIO 17** | Pin 11 | Anode Rouge via résistance 220-330Ω sur GPIO 17 |
+| **LED Tricolore — Vert (G)** | **GPIO 27** | Pin 13 | Anode Verte via résistance 220-330Ω sur GPIO 27 |
+| **LED Tricolore — Bleu (B)** | **GPIO 22** | Pin 15 | Anode Bleue via résistance 220-330Ω sur GPIO 22 |
+| **LED Tricolore — Masse Commune** | **GND** | Pin 9 ou 14 | Cathode commune reliée directement à la masse GND du Pi |
 
 > [!TIP]
-> Tous les boutons utilisent les **résistances de Pull-Up internes du Raspberry Pi 5**. Vous n'avez pas besoin d'ajouter de résistances externes pour les boutons : reliez simplement une patte au GPIO et l'autre à la masse (GND) !
+> **Résistances de Pull-Up internes :** Tous les boutons poussoirs exploitent les résistances pull-up intégrées du Raspberry Pi 5. Aucune résistance externe n'est requise pour les boutons (câbler directement entre le GPIO et GND).
+>
+> **Amplificateur I2S MAX98357A :** Les broches GPIO 18 (BCLK / Pin 12), GPIO 19 (LRCLK / Pin 35) et GPIO 21 (DIN / Pin 40) sont réservées exclusivement au DAC audio I2S.
+
+### Comportement Lumineux de la LED Tricolore :
+* 🟢 **Turquoise / Vert Émeraude** : Niveau 1 sélectionné (Fondamental / DEF).
+* 🔵 **Bleu Royal** : Niveau 2 sélectionné (Secondaire : 10ème / 11ème).
+* 🟠 **Ambre / Orange Doré** : Niveau 3 sélectionné (Terminale / Baccalauréat).
+* 🔴 **Rouge Vif Pulsant** : Enregistrement micro en cours (**1er clic** sur Bouton 4).
+* 🟣 **Violet Pulsant** : Traitement & réflexion IA en cours (**2ème clic**, attente de réponse).
+* 🌊 **Cyan Scintillant** : Dispositif en train de parler (synthèse vocale diffusée sur le haut-parleur).
+* 🔄 **Restauration automatique** : Dès la fin de parole, la LED revient à la couleur du niveau actif.
 
 ### Microphone & Haut-Parleur :
-* **Microphone** : 
-  * Brancher un microphone USB standard sur l'un des ports USB du Pi 5 (ou carte d'extension I2S / USB audio Jack).
-* **Haut-Parleur** :
-  * Brancher une enceinte Jack sur un adaptateur USB-Audio DAC, ou un module I2S DAC (type **MAX98357A**).
+* **Microphone** : Brancher un microphone USB standard sur l'un des ports USB 3.0/2.0 du Pi 5 (ou micro Jack).
+* **Haut-Parleur** : Brancher un haut-parleur 3W/5W sur le bornier du module I2S DAC **MAX98357A** (ou enceinte USB).
 
 ### Tester le matériel en direct :
 ```bash
 python3 /home/ubuntu/AlternIA/raspberry-pi/hardware/test_hardware.py
 ```
-Ce script émet un son de test, enregistre votre voix pendant 3 secondes et détecte l'appui sur chaque bouton en affichant un message coloré dans le terminal.
+Ce script teste le haut-parleur, le micro, cycle toutes les couleurs de la LED tricolore et détecte les appuis sur les 4 boutons en affichant un retour couleur dans le terminal.
 
 ---
 

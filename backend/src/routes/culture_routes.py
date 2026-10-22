@@ -52,6 +52,25 @@ class SageChatRequest(BaseModel):
         extra = "allow"
 
 
+class SageChatRequest(BaseModel):
+    user_message: Optional[str] = Field(None, description="Message de l'apprenant à Grand-mère Mah")
+    message: Optional[str] = Field(None, description="Message de l'apprenant (alias mobile)")
+    history: Optional[List[Dict[str, Any]]] = Field(default=[], description="Historique de la conversation")
+    additional_context: Optional[str] = Field(None, description="Contexte régional ou patrimonial")
+    context: Optional[str] = Field(None, description="Contexte régional ou patrimonial (alias mobile)")
+
+    @property
+    def effective_user_message(self) -> str:
+        return (self.user_message or self.message or "").strip()
+
+    @property
+    def effective_additional_context(self) -> Optional[str]:
+        return self.additional_context or self.context
+
+    class Config:
+        extra = "allow"
+
+
 class DiscoveryRecordRequest(BaseModel):
     monument_id: str = Field(..., description="ID du monument scanné")
     apprenant_id: str | None = Field(None, description="ID de l'apprenant")
@@ -329,18 +348,24 @@ def chat_with_grandmere_mah(payload: SageChatRequest, db: Session = Depends(get_
     Recherche et extrait en temps réel depuis la base de données alta_db l'histoire sacrée des
     patronymes (Jamu), prénoms, totems (Tanan) et cousinage à plaisanterie (Senankouya).
     """
+    msg = payload.effective_user_message
+    if not msg:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Le champ 'user_message' ou 'message' est requis",
+        )
     return CultureService.chat_grandmere_mah(
         db=db,
-        user_message=payload.user_message,
+        user_message=msg,
         history=payload.history,
-        additional_context=payload.additional_context,
+        additional_context=payload.effective_additional_context,
     )
 
 
 @router.get("/names")
 def get_malian_names(
-    type: str | None = Query(None, description="Filtrer par type : 'nom' (patronyme) ou 'prenom'"),
-    q: str | None = Query(None, description="Recherche textuelle libre"),
+    type: Optional[str] = Query(None, description="Filtrer par type : 'nom' (patronyme) ou 'prenom'"),
+    q: Optional[str] = Query(None, description="Recherche textuelle libre"),
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
     db: Session = Depends(get_db),
@@ -519,6 +544,4 @@ def toggle_passeport_tampon_actif(tampon_id: str, db: Session = Depends(get_db))
 def get_explorateur_niveaux(db: Session = Depends(get_db)):
     """Fournit les paliers de progression d'exploration du patrimoine malien."""
     return CultureService.get_niveaux(db)
-
-
 

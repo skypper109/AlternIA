@@ -288,13 +288,35 @@ class TTSEngine:
         """
         t = text.strip()
 
+        # Élimination absolue des caractères chinois/CJK et hallucinations
+        t = re.sub(r"[-\s]*O\s*代表的是汉字[^\n\.]*[\.\n]?", " , O représente l'atome d'oxygène et O2 la molécule de dioxygène , ", t, flags=re.IGNORECASE)
+        t = re.sub(r"^[-\s]*O\s*代表.*$", " , O représente l'atome d'oxygène et O2 la molécule de dioxygène , ", t, flags=re.MULTILINE)
+        t = re.sub(r"让我们继续翻译[^\n\.]*[\.\n]?", "", t)
+        t = re.sub(r"[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff\u3040-\u30ff\u3000-\u303f\uff00-\uffef]+", " ", t)
+
+        # Nettoyer les marqueurs de minutage dans les titres de parties (ex: (30–90s), (90s - 180s))
+        t = re.sub(r"\(\s*\d+\s*(?:s|sec|m|min)?\s*[-–—]\s*\d+\s*(?:s|sec|m|min)?\s*\)", " ", t)
+
+        # Formules chimiques et notations scientifiques en français oralisé fluide
+        t = re.sub(r"\b2H2\s*\+\s*O2\s*(?:->|→)\s*2H2O\b", "deux molécules de dihydrogène et une molécule de dioxygène forment deux molécules d'eau", t, flags=re.IGNORECASE)
+        t = re.sub(r"\b2H2O\b", "deux molécules d'eau", t, flags=re.IGNORECASE)
+        t = re.sub(r"\b2H2\b", "deux molécules de dihydrogène", t, flags=re.IGNORECASE)
+        t = re.sub(r"\bH2O\b", "molécule d'eau", t, flags=re.IGNORECASE)
+        t = re.sub(r"\bO2\b", "dioxygène", t, flags=re.IGNORECASE)
+        t = re.sub(r"\bH2\b", "dihydrogène", t, flags=re.IGNORECASE)
+        t = re.sub(r"\bCO2\b", "dioxyde de carbone", t, flags=re.IGNORECASE)
+        t = re.sub(r"\bN2\b", "diazote", t, flags=re.IGNORECASE)
+        t = re.sub(r"\bCH4\b", "méthane", t, flags=re.IGNORECASE)
+        t = re.sub(r"\bmol[ée]cule d'oxygen\b", "molécule d'oxygène", t, flags=re.IGNORECASE)
+        t = re.sub(r"\bdeux mol[ée]cull?es\b", "deux molécules", t, flags=re.IGNORECASE)
+
         # Supprimer le code markdown brut et balises
         t = re.sub(r"<think>[\s\S]*?</think>", "", t, flags=re.IGNORECASE)
         t = re.sub(r"```[\s\S]*?```", " , comme montré dans cette démonstration, ", t)
         t = re.sub(r"`([^`]+)`", r"\1", t)
-        t = re.sub(r"\*\*\*([^*]+)\*\*\*", r"\1", t)
-        t = re.sub(r"\*\*([^*]+)\*\*", r"\1", t)
-        t = re.sub(r"\*([^*]+)\*", r"\1", t)
+        t = re.sub(r"\*\*\*([^*]+)\*\*\*", r"\1. ", t)
+        t = re.sub(r"\*\*([^*]+)\*\*", r"\1. ", t)
+        t = re.sub(r"\*([^*]+)\*", r"\1, ", t)
         t = t.replace("***", "").replace("**", "").replace("*", "")
         t = re.sub(r"^#+\s*", "", t, flags=re.MULTILINE)
 
@@ -385,7 +407,7 @@ class TTSEngine:
         for attempt in range(1, 4):
             try:
                 import edge_tts
-                communicate = edge_tts.Communicate(clean_text, self.neural_voice, rate="+5%")
+                communicate = edge_tts.Communicate(clean_text, self.neural_voice, rate="-8%")
                 audio_chunks = []
                 async for chunk in communicate.stream():
                     if chunk["type"] == "audio" and "data" in chunk:
@@ -430,7 +452,7 @@ class TTSEngine:
                 text_hash = hashlib.md5(f"{self.neural_voice}_{clean_text}_{self.rate}".encode("utf-8")).hexdigest()
                 cached_path = self.cache_dir / f"{text_hash}.mp3"
                 if not (cached_path.exists() and cached_path.stat().st_size > 0):
-                    communicate = edge_tts.Communicate(clean_text, self.neural_voice, rate="+5%")
+                    communicate = edge_tts.Communicate(clean_text, self.neural_voice, rate="-8%")
                     loop.run_until_complete(communicate.save(str(cached_path)))
                 loop.close()
 

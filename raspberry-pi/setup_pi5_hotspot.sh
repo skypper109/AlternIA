@@ -87,6 +87,13 @@ nmcli connection modify "Alta-Hotspot" \
     ipv4.method shared \
     ipv4.addresses 10.42.0.1/24
 
+# Configuration du résolveur DNS local pour alta.box et redirection portail captif
+mkdir -p /etc/NetworkManager/dnsmasq-shared.d
+cat << 'EOF' > /etc/NetworkManager/dnsmasq-shared.d/alta-captive.conf
+address=/alta.box/10.42.0.1
+address=/alterniabox.local/10.42.0.1
+EOF
+
 # Démarrage immédiat du hotspot
 nmcli connection up "Alta-Hotspot" || true
 echo "✅ Point d'Accès Wi-Fi 'Alta-box1' actif sur $AP_IFACE (Pass : Bamako+223 | Passerelle : 10.42.0.1)."
@@ -98,6 +105,10 @@ net.ipv6.conf.all.forwarding=1
 EOF
 sysctl -p /etc/sysctl.d/90-alta-routing.conf > /dev/null
 
+# Règles de redirection du portail captif pour le Wi-Fi (redirection vers Nginx local -> https://device.alterniamali.com)
+iptables -t nat -C PREROUTING -i "$AP_IFACE" -p tcp --dport 80 -j DNAT --to-destination 10.42.0.1:80 2>/dev/null || \
+iptables -t nat -A PREROUTING -i "$AP_IFACE" -p tcp --dport 80 -j DNAT --to-destination 10.42.0.1:80
+
 # Règles de masquerade pour Wi-Fi bureau (wlan0), Ethernet (eth0) et clés 4G USB
 iptables -t nat -C POSTROUTING -o wlan0 -j MASQUERADE 2>/dev/null || iptables -t nat -A POSTROUTING -o wlan0 -j MASQUERADE
 iptables -t nat -C POSTROUTING -o eth0 -j MASQUERADE 2>/dev/null || iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
@@ -106,7 +117,7 @@ iptables -t nat -C POSTROUTING -o wwan0 -j MASQUERADE 2>/dev/null || iptables -t
 
 # Sauvegarde des règles iptables
 netfilter-persistent save 2>/dev/null || true
-echo "✅ Routage IP et Masquerading NAT activés."
+echo "✅ Routage IP, Masquerading NAT et Redirection Portail Captif activés."
 
 echo -e "\n${BLUE}[4/7] Déploiement du Kiosk Élève et Configuration de Nginx Edge...${NC}"
 mkdir -p /var/www/alta-kiosk /var/cache/nginx/alta_cache
@@ -173,9 +184,10 @@ echo -e "\n${GREEN}=============================================================
 echo -e "${GREEN}  🎉 LE BOÎTIER RASPBERRY PI 5 EST OPÉRATIONNEL & PRÊT AU DÉPLOIEMENT !     ${NC}"
 echo -e "${GREEN}==============================================================================${NC}"
 echo -e "Informations Réseau du Boîtier :"
-echo -e "  • Point d'Accès Wi-Fi : ${GREEN}Alta-box1${NC}"
-echo -e "  • Mot de passe Wi-Fi   : ${GREEN}Bamako+223${NC}"
-echo -e "  • Adresse Passerelle   : ${BLUE}http://10.42.0.1${NC} ou ${BLUE}http://alta.box${NC}"
+echo -e "  • Point d'Accès Wi-Fi : ${GREEN}Alta_box1${NC}"
+echo -e "  • Mot de passe Wi-Fi   : ${GREEN}Alta_box2026${NC}"
+echo -e "  • Redirection Wi-Fi    : ${BLUE}https://device.alterniamali.com${NC} (Portail Captif automatique)"
+echo -e "  • Sortie HDMI (Kiosk)  : ${GREEN}Chromium plein écran sur https://device.alterniamali.com${NC}"
 echo -e "  • Serveur Cloud Relié  : ${GREEN}https://api.alterniamali.com${NC}"
 echo -e "\nComportement de la LED d'activité :"
 echo -e "  • ${YELLOW}Clignotement lent (1 Hz)${NC}      : Démarrage / Recherche de connexion"

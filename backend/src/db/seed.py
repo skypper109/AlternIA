@@ -2,26 +2,27 @@
 Données initiales de démarrage pour alta_db (Établissements, Boîtiers, Apprenants, Avatars, Alertes).
 """
 
+from datetime import datetime, timedelta
 import json
-from datetime import UTC, datetime
-
-from backend.src.db.models import (
-    AlertePedagogique,
-    Apprenant,
-    AvatarPedagogique,
-    Boitier,
-    Etablissement,
-    StatistiquePedagogique,
-    Utilisateur,
-)
 from sqlalchemy.orm import Session
+from backend.src.db.models import (
+    Utilisateur,
+    Etablissement,
+    Boitier,
+    Apprenant,
+    SessionApprentissage,
+    AvatarPedagogique,
+    AlertePedagogique,
+    StatistiquePedagogique,
+)
 
 
 def seed_initial_data(db: Session, force: bool = False):
     """Insère les données de base si la base est vide et garantit le hachage des mots de passe."""
+    from backend.src.services.security import hash_password
+
     from backend.src.db.seed_culture import seed_culture_data
     from backend.src.db.seed_noms import seed_noms_data
-    from backend.src.services.security import hash_password
 
     try:
         # Toujours garantir le peuplement du patrimoine culturel et des patronymes
@@ -228,7 +229,7 @@ def seed_initial_data(db: Session, force: bool = False):
         db.add_all([alerte_1, alerte_2])
 
         # 7. Statistiques journalières pour les graphiques
-        today = datetime.now(UTC).strftime("%Y-%m-%d")
+        today = datetime.utcnow().strftime("%Y-%m-%d")
         stat_1 = StatistiquePedagogique(
             id="stat-11s",
             date_jour=today,
@@ -269,7 +270,7 @@ if __name__ == "__main__":
     if str(root_dir) not in sys.path:
         sys.path.insert(0, str(root_dir))
 
-    from backend.src.db.database import SessionLocal, init_db
+    from backend.src.db.database import init_db, SessionLocal
 
     print("[START] Initialisation et peuplement de la base alta_db...")
     init_db()

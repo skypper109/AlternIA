@@ -1,0 +1,33 @@
+[Unit]
+Description=AlternIA GPU Server - Moteur LLM Qwen Embarqué (Tesla T4) & Cloudflare Tunnel
+After=network.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/AlternIA
+Environment="PATH=/home/ubuntu/AlternIA/.venv/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+EnvironmentFile=-/home/ubuntu/AlternIA/.env
+Environment="PYTHONUNBUFFERED=1"
+Environment="LLM_PROVIDER=local"
+Environment="LLM_DEVICE=gpu"
+
+# Lancement automatique du serveur avec Qwen local et tunnel Cloudflare permanent
+ExecStart=/home/ubuntu/AlternIA/.venv/bin/python3 /home/ubuntu/AlternIA/cloud/colab_server.py --local --device gpu
+
+# Redémarrage automatique en cas de crash ou redémarrage de la machine AWS
+Restart=always
+RestartSec=5
+KillMode=mixed
+TimeoutStopSec=30
+
+LimitNOFILE=65536
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=alternia-gpu
+
+[Install]
+WantedBy=multi-user.target

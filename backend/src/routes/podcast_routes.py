@@ -57,6 +57,54 @@ class PodcastGenerateRequest(BaseModel):
 # ─────────────────────────────────────────────────────────────────────────────
 
 
+def sanitize_french_educational_text(text: str) -> str:
+    """
+    Nettoie et sécurise un texte pédagogique pour garantir une pureté totale
+    de la langue française (zéro caractère chinois/CJK, zéro hallucination linguistique).
+    """
+    if not text:
+        return ""
+    # 1. Remplacement de l'hallucination chinoise sur le symbole 'O' (oxygène)
+    text = re.sub(
+        r"[-\s]*O\s*代表的是汉字[^\n\.]*[\.\n]?",
+        "\n- O représente l'atome d'oxygène (et O2 la molécule de dioxygène).\n",
+        text,
+    )
+    text = re.sub(
+        r"^[-\s]*O\s*代表.*$",
+        "- O représente l'atome d'oxygène (et O2 la molécule de dioxygène).",
+        text,
+        flags=re.MULTILINE,
+    )
+    text = re.sub(r"让我们继续翻译[^\n\.]*[\.\n]?", "", text)
+
+    # 2. Élimination complète de tous les caractères CJK (Chinois, Japonais, Coréen)
+    text = re.sub(
+        r"[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff\u3040-\u30ff\u3000-\u303f\uff00-\uffef]+",
+        "",
+        text,
+    )
+
+    # 3. Suppression des méta-phrases en anglais (hors cours d'anglais)
+    text = re.sub(
+        r"(?i)\b(here is the (script|podcast)|sure, here is|let's continue to translate)\b[^\n]*",
+        "",
+        text,
+    )
+
+    # 4. Correction des coquilles fréquentes de traduction
+    text = re.sub(r"\bmol[ée]cule d'oxygen\b", "molécule d'oxygène", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bdeux mol[ée]cull?es\b", "deux molécules", text, flags=re.IGNORECASE)
+
+    # 5. Nettoyage des lignes orphelines (ex: tirets orphelins après suppression de texte)
+    text = re.sub(r"^\s*[-*•]\s*$", "", text, flags=re.MULTILINE)
+
+    # 6. Normalisation des sauts de ligne multiples et espaces
+    text = re.sub(r"[ \t]+", " ", text)
+    text = re.sub(r"\n\s*\n\s*\n+", "\n\n", text)
+    return text.strip()
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # 3. ROUTE DE GÉNÉRATION DE PODCAST PAR L'IA
 # ─────────────────────────────────────────────────────────────────────────────
@@ -76,11 +124,16 @@ async def generate_revision_podcast(req: PodcastGenerateRequest):
         "Tu es le Professeur IA d'AlternIA, le système d'excellence éducative au Mali. "
         "Ta mission est de concevoir un podcast de révision audio captivant, didactique et rigoureux "
         "destiné aux lycéens et collégiens du Mali préparant le DEF et le Baccalauréat malien.\n\n"
-        "Directives pédagogiques impératives :\n"
-        "1. Le ton doit être direct, bienveillant, clair et dynamique comme un vrai animateur radio / tuteur.\n"
-        "2. Utilise des analogies parlantes adaptées à la culture et au quotidien malien (fleuve Niger, transports, histoire locale, etc.).\n"
-        "3. Fournis des explications précises sur les définitions, formules et méthodes exigées par les correcteurs maliens.\n"
-        "4. Réponds STRICTEMENT au format JSON avec les clés suivantes :\n"
+        "Directives linguistiques et pédagogiques impératives :\n"
+        "1. RÈGLE LINGUISTIQUE STRICTE : Rédige STRICTEMENT et EXCLUSIVEMENT en FRANÇAIS. "
+        "AUCUN caractère chinois (Hanzi / CJK), AUCUN mot en anglais sauf pour le cours d'anglais. "
+        "Ne traduis JAMAIS les symboles chimiques ou mathématiques en idéogrammes ou en anglais. "
+        "Pour 'O' (oxygène), 'H' (hydrogène), formule '2H2 + O2 -> 2H2O', décris tout en français limpide.\n"
+        "2. Aucun méta-commentaire de modèle (ne dis jamais 'continuons de traduire ce script', 'voici le script', etc.).\n"
+        "3. Le ton doit être direct, apaisant, bienveillant, clair et dynamique comme un vrai animateur radio / tuteur.\n"
+        "4. Utilise des analogies parlantes adaptées à la culture et au quotidien malien (fleuve Niger, transports, histoire locale, etc.).\n"
+        "5. Fournis des explications précises sur les définitions, formules et méthodes exigées par les correcteurs maliens.\n"
+        "6. Réponds STRICTEMENT au format JSON avec les clés suivantes :\n"
         "   - 'title': titre fort et engageant du cours (ex: 'Dompter les Dérivées au Bac malien')\n"
         "   - 'summary': résumé synthétique de 2 phrases\n"
         "   - 'chapters': liste de 3 à 4 chapitres avec 'title' et 'timestamp_seconds' (0, 90, 180, 270)\n"
@@ -215,15 +268,21 @@ async def generate_revision_podcast(req: PodcastGenerateRequest):
                 ]
             return PodcastDto(
                 id=podcast_id,
-                title=title,
+                title=sanitize_french_educational_text(title),
                 subject=subject,
                 class_level=class_level,
                 duration_minutes=duration,
-                summary=summary,
+                summary=sanitize_french_educational_text(summary),
                 narrator="Professeur IA (AlternIA)",
-                chapters=chapters,
-                key_takeaways=key_takeaways,
-                full_script=full_script,
+                chapters=[
+                    PodcastChapterDto(
+                        title=sanitize_french_educational_text(c.title),
+                        timestamp_seconds=c.timestamp_seconds,
+                    )
+                    for c in chapters
+                ],
+                key_takeaways=[sanitize_french_educational_text(k) for k in key_takeaways],
+                full_script=sanitize_french_educational_text(full_script),
                 icon_name=_subject_to_icon(subject),
                 source="ia_alternia",
             )
@@ -563,15 +622,21 @@ async def _synthetiser_cours_en_podcast(
 
             return PodcastDto(
                 id=podcast_id,
-                title=data.get("title", f"Cours : {source_title}"),
+                title=sanitize_french_educational_text(data.get("title", f"Cours : {source_title}")),
                 subject=subject,
                 class_level=class_level,
                 duration_minutes=duration,
-                summary=data.get("summary", f"Podcast de révision extrait de {source_title}."),
+                summary=sanitize_french_educational_text(data.get("summary", f"Podcast de révision extrait de {source_title}.")),
                 narrator="Professeur IA (AlternIA)",
-                chapters=chapters,
-                key_takeaways=[str(k) for k in data.get("key_takeaways", []) if isinstance(k, str)],
-                full_script=str(data.get("full_script", "")).strip(),
+                chapters=[
+                    PodcastChapterDto(
+                        title=sanitize_french_educational_text(c.title),
+                        timestamp_seconds=c.timestamp_seconds,
+                    )
+                    for c in chapters
+                ],
+                key_takeaways=[sanitize_french_educational_text(str(k)) for k in data.get("key_takeaways", []) if isinstance(k, str)],
+                full_script=sanitize_french_educational_text(str(data.get("full_script", "")).strip()),
                 icon_name=_subject_to_icon(subject),
                 source="import_document_ia",
             )

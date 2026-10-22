@@ -191,7 +191,7 @@ def test_abonnements_catalog_and_status():
 
 
 def test_defi_national_flow():
-    """Teste la participation au Défi National officiel avec validation serveur."""
+    """Teste la participation au Défi National officiel avec validation serveur et rival fictif SoloLearn."""
     res_actifs = client.get("/api/defi-national/actifs?classe=12eme")
     assert res_actifs.status_code == 200
     defis = res_actifs.json()
@@ -199,8 +199,11 @@ def test_defi_national_flow():
     defi = defis[0]
     assert "questions" in defi
     assert "correct_index" not in defi["questions"][0]  # Anti-triche
+    assert "adversaire" in defi  # Rival fictif SoloLearn disponible instantanément
+    assert "nom" in defi["adversaire"]
+    assert "etablissement" in defi["adversaire"]
 
-    # Soumission des réponses
+    # 1. Soumission d'une victoire face au rival
     apprenant_id = f"eleve_defi_{uuid.uuid4().hex[:6]}"
     res_soum = client.post(
         "/api/defi-national/soumettre",
@@ -209,14 +212,62 @@ def test_defi_national_flow():
             "apprenant_id": apprenant_id,
             "apprenant_nom": "Amadou Cissé",
             "apprenant_classe": "12eme",
-            "reponses": {"q1": 0, "q2": 0, "q3": 0},
-            "temps_ecoule_sec": 120,
+            "reponses": {"q1": 0, "q2": 0, "q3": 0, "q4": 0},
+            "temps_ecoule_sec": 45,
+            "adversaire_nom": "Fatoumata Diarra",
+            "adversaire_score": 2,
+            "adversaire_temps_sec": 80,
         },
     )
     assert res_soum.status_code == 200
     resultat = res_soum.json()
     assert resultat["succes"] is True
+    assert resultat["est_victoire"] is True
     assert resultat["pieces_gagnees"] >= 50
+    assert resultat["xp_gagnes"] >= 250
+
+    # 2. Rejouabilité à tout moment pour faire grimper son score (sans blocage anti-rejeu)
+    res_rejouer = client.post(
+        "/api/defi-national/soumettre",
+        json={
+            "defi_id": defi["id"],
+            "apprenant_id": apprenant_id,
+            "apprenant_nom": "Amadou Cissé",
+            "apprenant_classe": "12eme",
+            "reponses": {"q1": 0, "q2": 0, "q3": 0, "q4": 0, "q5": 0},
+            "temps_ecoule_sec": 40,
+            "adversaire_nom": "Fatoumata Diarra",
+            "adversaire_score": 3,
+            "adversaire_temps_sec": 75,
+        },
+    )
+    assert res_rejouer.status_code == 200
+    res_rejouer_data = res_rejouer.json()
+    assert res_rejouer_data["succes"] is True
+    assert res_rejouer_data["score"] == 5
+    assert res_rejouer_data["nouveau_record"] is True
+
+    # 3. Test de défaite : si on ne gagne pas, 0 pièce mais juste des XP
+    autre_eleve = f"eleve_defaite_{uuid.uuid4().hex[:6]}"
+    res_defaite = client.post(
+        "/api/defi-national/soumettre",
+        json={
+            "defi_id": defi["id"],
+            "apprenant_id": autre_eleve,
+            "apprenant_nom": "Élève Débutant",
+            "apprenant_classe": "12eme",
+            "reponses": {"q1": 1, "q2": 1, "q3": 1},  # Mauvaises réponses
+            "temps_ecoule_sec": 120,
+            "adversaire_nom": "Amadou Konaté",
+            "adversaire_score": 4,
+            "adversaire_temps_sec": 50,
+        },
+    )
+    assert res_defaite.status_code == 200
+    data_defaite = res_defaite.json()
+    assert data_defaite["est_victoire"] is False
+    assert data_defaite["pieces_gagnees"] == 0  # AUCUNE PIÈCE en cas de défaite
+    assert data_defaite["xp_gagnes"] == 100     # UNIQUEMENT DES XPS
 
     # Classement officiel
     res_class = client.get(f"/api/defi-national/{defi['id']}/classement")

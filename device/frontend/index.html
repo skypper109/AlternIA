@@ -1,319 +1,579 @@
 <!DOCTYPE html>
-<html lang="fr" class="light">
+<html lang="fr">
+
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>AlternIA – Tuteur Pédagogique Intelligent</title>
-  <meta name="description" content="Interface tactile et vocale épurée du boîtier AlternIA pour les lycéens du Mali.">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>AlternIA – Ton tuteur pédagogique intelligent</title>
+  <meta name="description"
+    content="Boîtier AlternIA : un tuteur pédagogique vocal et tactile qui suit les programmes officiels du Mali, de la 6ème à la Terminale.">
   <meta name="theme-color" content="#FDFBF7">
+  <meta name="color-scheme" content="light">
 
-  <!-- Favicon -->
   <link rel="icon" type="image/x-icon" href="assets/icone.ico">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
 
-  <!-- Google Fonts -->
+  <!-- Polices (repli système si le boîtier est hors-ligne) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
 
-  <!-- Tailwind CSS CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          fontFamily: {
-            sans: ['Inter', 'sans-serif'],
-            display: ['Plus Jakarta Sans', 'Inter', 'sans-serif'],
-            mono: ['JetBrains Mono', 'monospace'],
-          },
-          colors: {
-            alternia: {
-              primaire: '#314999',
-              secondaire: '#F1851F',
-              innovation: '#0284C7',
-              dark: '#060911',
-              surface: '#0B1120',
-              card: '#0F172A',
-              border: '#1E293B'
-            }
-          }
-        }
-      }
-    }
-  </script>
-
-  <!-- KaTeX pour les formules scientifiques -->
+  <!-- KaTeX : formules scientifiques -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
 
-  <!-- Styles personnalisés épurés Kiosk -->
   <link rel="stylesheet" href="styles.css">
 </head>
 
-<body class="bg-[#FDFBF7] text-slate-800 font-display min-h-screen flex flex-col select-none">
+<body data-screen="welcome" data-cycle="none">
 
-  <!-- Arrière-plan lumineux d'ambiance -->
-  <div class="ambient-glow-layer">
-    <div class="ambient-orb orb-primary"></div>
-    <div class="ambient-orb orb-innovation"></div>
+  <!-- Décor d'ambiance aux couleurs de la charte (bleu / orange / turquoise) -->
+  <div class="backdrop" aria-hidden="true">
+    <span class="backdrop__blob backdrop__blob--blue"></span>
+    <span class="backdrop__blob backdrop__blob--orange"></span>
+    <span class="backdrop__blob backdrop__blob--teal"></span>
+    <span class="backdrop__grid"></span>
   </div>
 
-  <!-- =========================================================================
-       1. EN-TÊTE : LOGO + SÉLECTION RAPIDE DE CLASSE (10e / 11e / Terminale)
-       ========================================================================= -->
-  <header class="kiosk-topbar">
-    <div class="kiosk-brand flex items-center gap-2.5 sm:gap-3">
-      <img src="assets/Alternia.svg" alt="AlternIA" class="h-8 sm:h-9 w-auto object-contain rounded-lg shadow-sm">
-      <span class="text-base sm:text-lg font-bold text-[#314999] tracking-tight">AlternIA</span>
-    </div>
+  <!-- =====================================================================
+       ÉCRAN 1 — ACCUEIL : salutation, ce que je sais faire, choix du niveau
+       ===================================================================== -->
+  <section class="screen screen--welcome" data-screen="welcome" id="screen-welcome" aria-labelledby="welcome-title">
 
-    <!-- Sélecteur de Classe Minimaliste Direct (10ème, 11ème, Terminale) -->
-    <div class="class-selector-group" id="class-selector-tabs">
-      <button class="class-tab-btn class-tab--active" data-class="10eme" id="tab-class-10eme">
-        <span class="class-tab-badge">10ème</span>
-        <span class="class-tab-sub">Tronc Commun</span>
-      </button>
-      <button class="class-tab-btn" data-class="11eme" id="tab-class-11eme">
-        <span class="class-tab-badge">11ème</span>
-        <span class="class-tab-sub">Sciences / Lettres</span>
-      </button>
-      <button class="class-tab-btn" data-class="12eme" id="tab-class-12eme">
-        <span class="class-tab-badge">Terminale</span>
-        <span class="class-tab-sub">Baccalauréat</span>
-      </button>
-    </div>
-
-    <!-- Contrôles Épurés : Avatar / Son / Reset -->
-    <div class="kiosk-controls flex items-center gap-1.5 sm:gap-2">
-      <button id="btn-show-avatar" class="kiosk-icon-btn text-indigo-500" title="Écouter la présentation de l'Enseignant">
-        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-      </button>
-      <button id="btn-toggle-mute" class="kiosk-icon-btn text-cyan-500" title="Activer / Couper la voix">
-        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-          <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
-          <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
-        </svg>
-      </button>
-      <button id="btn-reset-session" class="kiosk-icon-btn text-amber-500" title="Nouvelle question">
-        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path>
-          <path d="M21 3v5h-5"></path>
-          <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path>
-          <path d="M8 16H3v5"></path>
-        </svg>
-      </button>
-    </div>
-  </header>
-
-  <!-- =========================================================================
-       2. CORPS CENTRAL : AVATAR 2.5D / VIDÉO MP4 + EXPLICATION PÉDAGOGIQUE
-       ========================================================================= -->
-  <main class="kiosk-body">
-
-    <!-- Colonne Gauche : Avatar Réactif Photoréaliste et Microphone -->
-    <div class="avatar-speaker-column">
-      
-      <div class="avatar-canvas-wrapper cursor-pointer" id="alta-vortex-hub" title="Toucher pour écouter la présentation du professeur">
-        <!-- Vidéo MP4 Haute Définition (LivePortrait / SadTalker) -->
-        <video id="alta-avatar-video" class="hidden avatar-canvas rounded-full shadow-[0_0_30px_rgba(2,132,199,0.35)] object-cover ring-2 ring-cyan-500/40" playsinline></video>
-        <!-- Canvas pour l'Avatar 2.5D Haute Définition avec Visèmes et cercles FFT -->
-        <canvas id="main-animated-logo-canvas" width="220" height="220" class="avatar-canvas"></canvas>
-        <div class="status-live-pill" id="status-pill">
-          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" id="status-dot"></span>
-          <span class="text-xs font-semibold text-slate-700" id="status-text">Prêt à répondre</span>
+    <header class="welcome-top">
+      <div class="brand">
+        <img src="assets/Alternia.svg" alt="" class="brand__mark" width="44" height="44">
+        <div class="brand__text">
+          <span class="brand__name">AlternIA</span>
+          <span class="brand__tagline">Tuteur pédagogique intelligent</span>
         </div>
       </div>
 
-      <div class="text-center mt-3 cursor-pointer" id="alta-avatar-name-box" title="Toucher pour écouter la présentation">
-        <h2 class="text-lg font-bold text-slate-800 flex items-center justify-center gap-1.5 font-display">
-          <span id="alta-avatar-name">Assistant AlternIA</span>
-          <span class="w-2 h-2 rounded-full bg-cyan-500 shadow-[0_0_8px_#0284C7]"></span>
-        </h2>
-        <p class="text-xs text-slate-500 font-medium" id="alta-class-sublabel">Programme Officiel du Mali</p>
+      <div class="welcome-top__meta">
+        <span class="net-pill" id="net-status" data-online="unknown">
+          <span class="net-pill__dot"></span>
+          <span class="net-pill__label" id="net-status-label">Connexion…</span>
+        </span>
+        <time class="clock" id="welcome-clock" aria-live="off">--:--</time>
       </div>
+    </header>
 
-      <!-- Grand Bouton Microphone Push-To-Talk -->
-      <div class="mt-6 flex flex-col items-center">
-        <button id="btn-mic-main" class="kiosk-mic-btn" title="Toucher pour parler">
-          <svg class="w-8 h-8 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
-            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-            <line x1="12" y1="19" x2="12" y2="22"></line>
+    <div class="welcome-grid">
+
+      <!-- Colonne gauche : salutation + capacités -->
+      <div class="welcome-hero">
+        <div class="hero-emblem" aria-hidden="true">
+          <span class="hero-emblem__ring hero-emblem__ring--1"></span>
+          <span class="hero-emblem__ring hero-emblem__ring--2"></span>
+          <span class="hero-emblem__ring hero-emblem__ring--3"></span>
+          <span class="hero-emblem__orbit">
+            <i class="orbit-dot orbit-dot--blue"></i>
+            <i class="orbit-dot orbit-dot--orange"></i>
+            <i class="orbit-dot orbit-dot--teal"></i>
+          </span>
+          <img src="assets/Alternia.svg" alt="" class="hero-emblem__logo" width="120" height="120">
+        </div>
+
+        <p class="eyebrow reveal" style="--d:0">
+          <span class="eyebrow__dot" aria-hidden="true"></span>
+          <span id="welcome-greeting">Bonjour !</span>
+        </p>
+        <h1 class="hero-title reveal" id="welcome-title" style="--d:1">
+          Je suis <span class="text-gradient">ALTA</span>,<br>ton tuteur personnel.
+        </h1>
+        <p class="hero-lead reveal" style="--d:2">
+          Je connais les programmes officiels du Mali, de la 6ème à la Terminale.
+          Parle-moi ou écris-moi&nbsp;: je t'explique tout, pas à pas.
+        </p>
+
+        <ul class="capabilities reveal" style="--d:3" aria-label="Ce que je peux faire pour toi">
+          <li class="capability" style="--accent: var(--brand-blue)">
+            <span class="capability__icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M2 4h6a4 4 0 0 1 4 4v12a3 3 0 0 0-3-3H2z" />
+                <path d="M22 4h-6a4 4 0 0 0-4 4v12a3 3 0 0 1 3-3h7z" />
+              </svg>
+            </span>
+            <span class="capability__text">
+              <strong>Expliquer tes leçons</strong>
+              <small>Toutes les matières du programme</small>
+            </span>
+          </li>
+          <li class="capability" style="--accent: var(--brand-orange)">
+            <span class="capability__icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="m3 17 2 2 4-4" />
+                <path d="m3 7 2 2 4-4" />
+                <path d="M13 6h8" />
+                <path d="M13 12h8" />
+                <path d="M13 18h8" />
+              </svg>
+            </span>
+            <span class="capability__text">
+              <strong>Résoudre pas à pas</strong>
+              <small>Exercices corrigés et méthodes</small>
+            </span>
+          </li>
+          <li class="capability" style="--accent: var(--brand-teal)">
+            <span class="capability__icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M18 7V4H6l6 8-6 8h12v-3" />
+              </svg>
+            </span>
+            <span class="capability__text">
+              <strong>Formules claires</strong>
+              <small>Maths, physique, chimie</small>
+            </span>
+          </li>
+          <li class="capability" style="--accent: var(--brand-blue)">
+            <span class="capability__icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M22 10 12 5 2 10l10 5 10-5z" />
+                <path d="M6 12v5c3 3 9 3 12 0v-5" />
+              </svg>
+            </span>
+            <span class="capability__text">
+              <strong>Préparer DEF &amp; BAC</strong>
+              <small>Révisions et sujets types</small>
+            </span>
+          </li>
+        </ul>
+
+        <!-- <button type="button" class="btn btn--ghost reveal" style="--d:4" id="btn-welcome-listen">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+            <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
           </svg>
-        </button>
-        <p class="text-[11px] text-slate-400 font-medium mt-3" id="mic-instruction-label">Appuyez pour parler, réappuyez pour envoyer</p>
+          <span>Écouter mon message d'accueil</span>
+        </button> -->
       </div>
 
+      <!-- Colonne droite : choix du niveau (3 cycles) -->
+      <div class="welcome-levels">
+        <div class="levels-panel">
+          <header class="levels-panel__head">
+            <span class="step-badge">Étape 1</span>
+            <h2 class="levels-title" id="levels-title" tabindex="-1">Choisis ton niveau</h2>
+            <p class="levels-sub">Je m'adapte à ta classe et à ton programme.</p>
+          </header>
+
+          <div class="level-list" id="level-list">
+
+            <!-- FONDAMENTAL : 6e → 9e -->
+            <article class="level-card" data-cycle="fondamental"
+              style="--cycle: var(--brand-teal); --cycle-ink: var(--brand-teal-ink); --cycle-soft: var(--brand-teal-soft)">
+              <button type="button" class="level-card__main" id="cycle-fondamental" data-cycle-btn="fondamental"
+                aria-expanded="false" aria-controls="grades-fondamental">
+                <span class="level-card__num">6<small>–</small>9</span>
+                <span class="level-card__body">
+                  <span class="level-card__title">Fondamental</span>
+                  <span class="level-card__grades">6ème · 7ème · 8ème · 9ème</span>
+                </span>
+                <span class="level-card__tag">Objectif DEF</span>
+                <svg class="level-card__chev" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="m9 18 6-6-6-6" />
+                </svg>
+              </button>
+              <div class="level-card__drawer" id="grades-fondamental" role="group"
+                aria-label="Choisis ta classe du fondamental">
+                <p class="drawer-label">Quelle classe exactement&nbsp;?</p>
+                <div class="grade-chips">
+                  <button type="button" class="grade-chip" data-grade="6eme" id="grade-6eme">6ème</button>
+                  <button type="button" class="grade-chip" data-grade="7eme" id="grade-7eme">7ème</button>
+                  <button type="button" class="grade-chip" data-grade="8eme" id="grade-8eme">8ème</button>
+                  <button type="button" class="grade-chip" data-grade="9eme" id="grade-9eme">9ème <em>DEF</em></button>
+                </div>
+              </div>
+            </article>
+
+            <!-- SECONDAIRE : 10e → 11e -->
+            <article class="level-card" data-cycle="secondaire"
+              style="--cycle: var(--brand-blue); --cycle-ink: var(--brand-blue); --cycle-soft: var(--brand-blue-soft)">
+              <button type="button" class="level-card__main" id="cycle-secondaire" data-cycle-btn="secondaire"
+                aria-expanded="false" aria-controls="grades-secondaire">
+                <span class="level-card__num">10<small>–</small>11</span>
+                <span class="level-card__body">
+                  <span class="level-card__title">Secondaire</span>
+                  <span class="level-card__grades">10ème · 11ème</span>
+                </span>
+                <span class="level-card__tag">Lycée</span>
+                <svg class="level-card__chev" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="m9 18 6-6-6-6" />
+                </svg>
+              </button>
+              <div class="level-card__drawer" id="grades-secondaire" role="group"
+                aria-label="Choisis ta classe du secondaire">
+                <p class="drawer-label">Quelle classe exactement&nbsp;?</p>
+                <div class="grade-chips">
+                  <button type="button" class="grade-chip" data-grade="10eme" id="grade-10eme">10ème <em>Tronc
+                      commun</em></button>
+                  <button type="button" class="grade-chip" data-grade="11eme" id="grade-11eme">11ème
+                    <em>Séries</em></button>
+                </div>
+              </div>
+            </article>
+
+            <!-- TERMINALE : 12e -->
+            <article class="level-card" data-cycle="terminale"
+              style="--cycle: var(--brand-orange); --cycle-ink: var(--brand-orange-ink); --cycle-soft: var(--brand-orange-soft)">
+              <button type="button" class="level-card__main" id="cycle-terminale" data-cycle-btn="terminale">
+                <span class="level-card__num">12</span>
+                <span class="level-card__body">
+                  <span class="level-card__title">Terminale</span>
+                  <span class="level-card__grades">12ème · toutes séries</span>
+                </span>
+                <span class="level-card__tag">Objectif BAC</span>
+                <svg class="level-card__chev" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="m9 18 6-6-6-6" />
+                </svg>
+              </button>
+            </article>
+
+          </div>
+        </div>
+      </div>
     </div>
 
-    <!-- Colonne Droite : Ce que dit le boîtier (Explication & Champ de saisie) -->
-    <div class="speech-display-column">
-      
-      <!-- Carte d'explication de l'enseignant -->
-      <div class="speech-bubble-card" id="main-speech-card">
-        
-        <!-- En-tête de la bulle -->
-        <div class="speech-card-header">
-          <div class="flex items-center gap-2">
-            <div class="icon-indicator">
-              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-                <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+    <footer class="welcome-foot" role="contentinfo">
+      <div class="welcome-dock">
+        <!-- Contrôles directs sur le boîtier / TV -->
+        <div class="welcome-dock__group welcome-dock__group--controls">
+          <span class="dock-badge-title">Sur cet écran</span>
+          <div class="dock-chips">
+            <span class="dock-chip" title="Écran tactile compatible">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M18 11V6a2 2 0 0 0-4 0v5" />
+                <path d="M14 10V4a2 2 0 0 0-4 0v6" />
+                <path d="M10 10.5V6a2 2 0 0 0-4 0v8" />
+                <path
+                  d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-6-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15" />
               </svg>
-            </div>
-            <span class="text-xs font-bold uppercase tracking-wider text-[#314999]" id="teacher-header-label">Explication Pédagogique</span>
+              <span>Tactile</span>
+            </span>
+            <span class="dock-chip" title="Commandes vocales au microphone">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                <line x1="12" y1="19" x2="12" y2="22" />
+              </svg>
+              <span>Vocal</span>
+            </span>
+            <span class="dock-chip" title="Télécommande ou clavier">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="5" y="2" width="14" height="20" rx="3" />
+                <circle cx="12" cy="7" r="1.5" />
+                <circle cx="12" cy="11" r="1.5" />
+                <path d="M9 16h6" />
+              </svg>
+              <span>Télécommande</span>
+            </span>
           </div>
+        </div>
 
-          <span class="text-[11px] text-slate-400 font-mono truncate max-w-[150px] sm:max-w-[260px] md:max-w-none inline-block" id="rag-source-badge" title="Source du programme officiel">
-            Programme Officiel du Mali
+        <div class="welcome-dock__divider" aria-hidden="true"></div>
+
+        <!-- Accès Wi-Fi depuis smartphone / tablette -->
+        <div class="welcome-dock__group welcome-dock__group--wifi">
+          <span class="wifi-radar-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <path d="M5 12.55a11 11 0 0 1 14.08 0" />
+              <path d="M1.42 9a16 16 0 0 1 21.16 0" />
+              <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
+              <line x1="12" y1="20" x2="12.01" y2="20" />
+            </svg>
+          </span>
+          <div class="wifi-callout">
+            <span class="wifi-callout__title">Accès smartphone &amp; tablette</span>
+            <span class="wifi-callout__text">Connecte-toi au Wi-Fi du boîtier puis ouvre <strong
+                class="wifi-callout__url">device.alterniamali.com</strong></span>
+          </div>
+        </div>
+      </div>
+    </footer>
+  </section>
+
+  <!-- =====================================================================
+       ÉCRAN 2 — ESPACE DE TRAVAIL : tuteur + conversation
+       ===================================================================== -->
+  <section class="screen screen--workspace" data-screen="workspace" id="screen-workspace"
+    aria-labelledby="workspace-title" hidden>
+
+    <header class="topbar">
+      <div class="brand brand--compact">
+        <img src="assets/Alternia.svg" alt="" class="brand__mark" width="36" height="36">
+        <span class="brand__name">AlternIA</span>
+      </div>
+
+      <div class="level-switch">
+        <button type="button" class="level-pill" id="btn-change-level" title="Changer de niveau">
+          <span class="level-pill__dot"></span>
+          <span class="level-pill__text">
+            <span class="level-pill__cycle" id="level-pill-cycle">Niveau</span>
+            <span class="level-pill__grade" id="level-pill-grade">—</span>
+          </span>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="m7 15 5 5 5-5" />
+            <path d="m7 9 5-5 5 5" />
+          </svg>
+        </button>
+        <div class="grade-segment" id="grade-segment" role="group" aria-label="Changer de classe"></div>
+      </div>
+
+      <div class="topbar__actions">
+        <time class="clock clock--small" id="topbar-clock">--:--</time>
+        <button type="button" class="icon-btn icon-btn--labelled icon-btn--primary" id="btn-show-avatar"
+          title="Ouvrir le mode Professeur vidéo">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="m22 8-6 4 6 4V8z" />
+            <rect x="2" y="6" width="14" height="12" rx="2" />
+          </svg>
+          <span>Mode Professeur</span>
+        </button>
+        <button type="button" class="icon-btn" id="btn-toggle-mute" title="Couper / activer la voix"
+          aria-pressed="false">
+          <svg class="icon-on" viewBox="0 0 24 24" aria-hidden="true">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+            <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+          </svg>
+          <svg class="icon-off" viewBox="0 0 24 24" aria-hidden="true">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+            <line x1="22" y1="9" x2="16" y2="15" />
+            <line x1="16" y1="9" x2="22" y2="15" />
+          </svg>
+        </button>
+        <button type="button" class="icon-btn" id="btn-reset-session" title="Nouvelle conversation">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+            <path d="M3 3v5h5" />
+          </svg>
+        </button>
+        <button type="button" class="icon-btn" id="btn-home" title="Retour à l'accueil">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" />
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <main class="workspace">
+
+      <!-- Panneau Tuteur : avatar animé + micro -->
+      <aside class="tutor-panel" aria-label="Tuteur AlternIA">
+        <div class="tutor-stage" id="alta-vortex-hub" role="button" tabindex="0"
+          title="Toucher pour écouter la présentation">
+          <span class="tutor-stage__halo" aria-hidden="true"></span>
+          <video id="alta-avatar-video" class="hidden tutor-stage__media" playsinline></video>
+          <canvas id="main-animated-logo-canvas" width="260" height="260" class="tutor-stage__media"></canvas>
+          <span class="status-pill" id="status-pill">
+            <span class="bg-emerald-400" id="status-dot"></span>
+            <span id="status-text">Prêt à répondre</span>
           </span>
         </div>
 
-        <!-- Aperçu de la question posée par l'élève -->
-        <div id="student-query-preview" class="student-query-box hidden">
-          <p class="text-xs text-amber-800 font-medium">
-            <span class="font-bold text-amber-900">Votre question :</span> <em id="student-query-text"></em>
-          </p>
+        <div class="tutor-id" id="alta-avatar-name-box">
+          <h2 class="tutor-id__name" id="workspace-title" tabindex="-1">
+            <span id="alta-avatar-name">Assistant ALTA</span>
+          </h2>
+          <p class="tutor-id__sub" id="alta-class-sublabel">Programme officiel du Mali</p>
         </div>
 
-        <!-- Zone du texte de la réponse (Support KaTeX + Markdown) -->
-        <div id="speech-content-area" class="speech-content-area">
-          <div class="speech-welcome-text">
-            <div>
-              <h3 class="text-xl font-bold text-slate-800 mb-2">Bienvenue sur votre tuteur AlternIA !</h3>
-              <p class="text-base text-slate-600 leading-relaxed">
-                Sélectionnez votre classe ci-dessus (10ème, 11ème ou Terminale), puis <strong>touchez le micro orange</strong> ou écrivez une question pour réviser avec les manuels officiels du Mali.
-              </p>
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-      <!-- Barre de saisie intégrée en bas de la colonne de réponse -->
-      <div class="kiosk-input-bar">
-        <input 
-          type="text" 
-          id="question-input" 
-          class="kiosk-input" 
-          placeholder="Ou écrivez votre question ici..."
-          autocomplete="off"
-        >
-        <button id="btn-send" class="kiosk-send-btn" title="Envoyer la question">
-          <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <line x1="22" y1="2" x2="11" y2="13"></line>
-            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-          </svg>
-        </button>
-      </div>
-
-    </div>
-
-  </main>
-
-  <!-- =========================================================================
-       3. MODALES (FORMULES KATEX & AVATAR INTERACTIF)
-       ========================================================================= -->
-
-  <!-- Formule Plein Écran Modal -->
-  <div id="formula-modal" class="formula-modal-overlay hidden">
-    <div class="formula-modal-content">
-      <div class="flex items-center justify-between border-b border-black/10 pb-3 mb-3">
-        <h3 class="text-base font-bold text-slate-800">Formule Officielle</h3>
-        <button id="btn-close-formula-modal" class="text-slate-500 hover:text-slate-800 text-lg">✕</button>
-      </div>
-      <div id="formula-modal-math" class="text-2xl text-center py-4 text-[#314999] font-mono"></div>
-      <div id="formula-modal-source" class="text-xs text-slate-500 text-right italic font-mono mt-2"></div>
-    </div>
-  </div>
-
-  <!-- Avatar Interactif Plein Écran Modal (Mode Clair Épuré & Élégant) -->
-  <div id="avatar-fullscreen-modal" class="hidden fixed inset-0 z-50 flex flex-col bg-[#FDFBF7] p-4 md:p-6 select-none overflow-hidden">
-    
-    <!-- En-tête Avatar Modal -->
-    <div class="w-full flex items-center justify-between border-b border-slate-200 pb-3 shrink-0">
-      <div class="flex items-center gap-3">
-        <div id="modal-status-dot" class="w-3 h-3 rounded-full bg-emerald-500 shrink-0"></div>
-        <div>
-          <div class="flex items-center gap-2">
-            <h2 id="modal-avatar-title" class="text-xl md:text-2xl font-bold text-slate-900 tracking-tight">Professeur Virtuel AlternIA</h2>
-            <span id="modal-status-text" class="text-xs text-slate-400 font-medium ml-1">Prêt</span>
-          </div>
-          <p id="modal-avatar-subtitle" class="text-xs md:text-sm text-[#314999] font-medium">Tuteur Pédagogique Officiel</p>
-        </div>
-      </div>
-      <div class="flex items-center gap-3">
-        <button id="btn-close-avatar" class="w-10 h-10 md:w-11 md:h-11 bg-white hover:bg-slate-100 active:scale-95 rounded-full flex items-center justify-center text-slate-600 hover:text-slate-900 text-lg transition-all cursor-pointer border border-slate-200 shadow-sm" title="Fermer le mode plein écran">✕</button>
-      </div>
-    </div>
-
-    <!-- Corps Principal en 2 Colonnes : Gauche = Avatar (Vrai Carré Plein Espace) | Droite = Transcription -->
-    <div class="flex-1 w-full grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-5 my-2 sm:my-3 min-h-0 overflow-y-auto lg:overflow-hidden items-stretch">
-      
-      <!-- =========================================================================
-           COLONNE GAUCHE : AVATAR VIDÉO / CANVAS (VRAI CARRÉ PLEIN CADRE) & MICROPHONE (~42%)
-           ========================================================================= -->
-      <div class="lg:col-span-5 flex flex-col justify-between bg-white border border-slate-200/90 rounded-2xl sm:rounded-3xl p-3 sm:p-5 shadow-sm min-h-0 overflow-hidden">
-        
-        <!-- Boîte Avatar : Vrai Carré Immersif Occupant Tout Son Espace -->
-        <div class="relative w-full flex-1 min-h-[170px] sm:min-h-[240px] lg:min-h-[300px] rounded-xl sm:rounded-3xl overflow-hidden bg-slate-950 border border-slate-200/90 shadow-inner group" id="modal-avatar-wrapper">
-          <video id="modal-avatar-video" class="absolute inset-0 w-full h-full object-cover object-top z-20 opacity-0 transition-opacity duration-500" autoplay playsinline muted></video>
-          <audio id="simli-audio" autoplay hidden muted></audio>
-          <canvas id="modal-avatar-canvas" width="720" height="720" class="absolute inset-0 w-full h-full object-cover z-10"></canvas>
-        </div>
-
-        <!-- Contrôle Microphone Push-To-Talk -->
-        <div class="flex flex-col items-center gap-2 pt-4 shrink-0 w-full">
-          <button id="btn-mic-modal" class="w-16 h-16 md:w-18 md:h-18 rounded-full bg-gradient-to-tr from-[#314999] via-[#0284C7] to-[#314999] flex items-center justify-center shadow-lg active:scale-95 transition-all text-white hover:scale-105 cursor-pointer ring-4 ring-[#314999]/20" title="Toucher pour parler">
-            <svg class="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
-              <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-              <line x1="12" y1="19" x2="12" y2="22"></line>
+        <div class="mic-zone">
+          <button type="button" class="mic-btn" id="btn-mic-main" title="Toucher pour parler" aria-pressed="false">
+            <span class="mic-btn__ripple" aria-hidden="true"></span>
+            <svg class="icon-mic" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+              <line x1="12" y1="19" x2="12" y2="22" />
+            </svg>
+            <svg class="icon-stop" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="6" y="6" width="12" height="12" rx="2.5" />
             </svg>
           </button>
-          <span id="modal-mic-label" class="text-xs md:text-sm text-slate-500 font-medium text-center transition-colors">
-            Touchez pour parler
-          </span>
+          <p class="mic-zone__label" id="mic-instruction-label">Touche pour parler, retouche pour envoyer</p>
         </div>
 
-      </div>
+        <button type="button" class="btn btn--soft btn--block" id="btn-open-avatar-panel">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="m22 8-6 4 6 4V8z" />
+            <rect x="2" y="6" width="14" height="12" rx="2" />
+          </svg>
+          <span>Parler au professeur vidéo</span>
+        </button>
+      </aside>
 
-      <!-- =========================================================================
-           COLONNE DROITE : TRANSCRIPTION & EXPLICATION DU COURS (~58%)
-           ========================================================================= -->
-      <div class="lg:col-span-7 flex flex-col bg-white border border-slate-200/90 rounded-3xl p-5 md:p-6 shadow-sm min-h-0 overflow-hidden">
-        
-        <!-- En-tête de la boîte de dialogue -->
-        <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-100 shrink-0">
-          <div class="flex items-center gap-2.5 text-[#314999]">
-            <div class="w-7 h-7 rounded-lg bg-[#314999]/10 flex items-center justify-center text-[#314999]">
-              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+      <!-- Panneau Conversation -->
+      <section class="convo-panel" aria-label="Conversation">
+        <header class="convo-panel__head">
+          <div class="convo-panel__title">
+            <span class="convo-panel__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
               </svg>
-            </div>
-            <div>
-              <h3 class="text-sm font-bold text-slate-900 tracking-tight">Transcription & Explications</h3>
-              <p class="text-[11px] text-slate-400 font-medium">Réponses en direct & formules scientifiques</p>
-            </div>
+            </span>
+            <span id="teacher-header-label">Explications pédagogiques</span>
           </div>
+          <span class="source-badge" id="rag-source-badge" title="Source du programme officiel">Programme officiel du
+            Mali</span>
+        </header>
+
+        <div class="convo-scroll" id="speech-content-area" aria-live="polite">
+          <!-- État initial -->
+          <div class="convo-empty" id="conversation-empty">
+            <p class="convo-empty__hello" id="empty-hello">Bonjour !</p>
+            <h3 class="convo-empty__title" id="empty-title">Je suis prêt pour ta classe.</h3>
+            <p class="convo-empty__text">Touche le <strong>micro orange</strong> pour parler, écris ta question en bas,
+              ou choisis une idée&nbsp;:</p>
+            <div class="suggestions" id="suggestions"></div>
+          </div>
+          <!-- Fil de discussion -->
+          <ol class="thread" id="conversation-thread"></ol>
         </div>
 
-        <!-- Zone de texte scrollable pour la transcription -->
-        <div class="flex-1 overflow-y-auto pr-3 custom-transcription-scroll min-h-0 flex flex-col justify-start">
-          <div id="avatar-fullscreen-transcription" class="text-base sm:text-lg text-slate-700 leading-relaxed space-y-3 pt-1 font-normal">
-            Touchez le micro pour poser votre question au professeur.
-          </div>
+        <div class="listening-banner" id="listening-banner" hidden>
+          <span class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+          <span class="listening-banner__text" id="listening-text">Je t'écoute… parle maintenant</span>
         </div>
+
+        <form class="composer" id="main-composer" autocomplete="off">
+          <label class="sr-only" for="question-input">Ta question</label>
+          <input type="text" id="question-input" class="composer__input" placeholder="Écris ta question ici…"
+            enterkeyhint="send">
+          <button type="submit" class="composer__send" id="btn-send" title="Envoyer la question">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <line x1="22" y1="2" x2="11" y2="13" />
+              <polygon points="22 2 15 22 11 13 2 9 22 2" />
+            </svg>
+          </button>
+        </form>
+      </section>
+    </main>
+  </section>
+
+  <!-- =====================================================================
+       MODALE — FORMULE PLEIN ÉCRAN (utilisée par KaTeXRenderer)
+       ===================================================================== -->
+  <div id="formula-modal" class="formula-modal hidden">
+    <div class="formula-modal__card">
+      <div class="formula-modal__head">
+        <h3>Formule officielle</h3>
+        <button type="button" class="icon-btn" id="btn-close-formula-modal" title="Fermer">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M18 6 6 18M6 6l12 12" />
+          </svg>
+        </button>
       </div>
-
+      <div id="formula-modal-math" class="formula-modal__math"></div>
+      <div id="formula-modal-source" class="formula-modal__source"></div>
     </div>
-
   </div>
 
-  <!-- Logique applicative modulaire -->
+  <!-- =====================================================================
+       MODALE — PROFESSEUR VIDÉO (avatar + transcription + saisie texte)
+       ===================================================================== -->
+  <dialog id="avatar-fullscreen-modal" class="avatar-dialog" aria-labelledby="modal-avatar-title">
+    <div class="avatar-dialog__inner">
+
+      <header class="avatar-dialog__head">
+        <div class="avatar-dialog__who">
+          <span class="bg-emerald-400" id="modal-status-dot"></span>
+          <div>
+            <h2 id="modal-avatar-title">Professeur virtuel AlternIA</h2>
+            <p>
+              <span id="modal-avatar-subtitle">Tuteur pédagogique officiel</span>
+              <span class="sep" aria-hidden="true">•</span>
+              <span id="modal-status-text">Prêt</span>
+            </p>
+          </div>
+        </div>
+        <div class="avatar-dialog__tools">
+          <span class="level-chip" id="modal-level-badge">—</span>
+          <button type="button" class="icon-btn icon-btn--lg" id="btn-close-avatar" title="Fermer le mode Professeur">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M18 6 6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <div class="avatar-dialog__body">
+
+        <!-- Gauche : avatar + micro -->
+        <div class="avatar-col">
+          <div class="avatar-frame" id="modal-avatar-wrapper">
+            <video id="modal-avatar-video" class="avatar-frame__media avatar-frame__video opacity-0" autoplay
+              playsinline muted></video>
+            <audio id="simli-audio" autoplay hidden muted></audio>
+            <canvas id="modal-avatar-canvas" width="720" height="720" class="avatar-frame__media"></canvas>
+          </div>
+          <div class="avatar-col__mic">
+            <button type="button" class="mic-btn mic-btn--blue" id="btn-mic-modal" title="Toucher pour parler"
+              aria-pressed="false">
+              <span class="mic-btn__ripple" aria-hidden="true"></span>
+              <svg class="icon-mic" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                <line x1="12" y1="19" x2="12" y2="22" />
+              </svg>
+              <svg class="icon-stop" viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="6" y="6" width="12" height="12" rx="2.5" />
+              </svg>
+            </button>
+            <span class="mic-zone__label" id="modal-mic-label">Touche pour parler</span>
+          </div>
+        </div>
+
+        <!-- Droite : transcription + saisie -->
+        <div class="transcript-col">
+          <div class="transcript-col__head">
+            <span class="convo-panel__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+            </span>
+            <div>
+              <h3>Transcription &amp; explications</h3>
+              <p>Pose ta question à la voix ou par écrit</p>
+            </div>
+          </div>
+
+          <div class="convo-scroll" id="modal-transcript-scroll" aria-live="polite">
+            <div class="convo-empty convo-empty--compact" id="modal-empty">
+              <p class="convo-empty__text">Touche le micro ou écris ta question ci-dessous&nbsp;: le professeur te
+                répond en vidéo.</p>
+            </div>
+            <ol class="thread" id="avatar-fullscreen-transcription"></ol>
+          </div>
+
+          <div class="suggestions suggestions--row" id="modal-suggestions"></div>
+
+          <div class="listening-banner" id="modal-listening-banner" hidden>
+            <span class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+            <span class="listening-banner__text" id="modal-listening-text">Je t'écoute… parle maintenant</span>
+          </div>
+
+          <form class="composer" id="modal-composer" autocomplete="off">
+            <label class="sr-only" for="modal-question-input">Ta question au professeur</label>
+            <input type="text" id="modal-question-input" class="composer__input"
+              placeholder="Écris ta question au professeur…" enterkeyhint="send">
+            <button type="submit" class="composer__send" id="btn-modal-send" title="Envoyer la question">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <line x1="22" y1="2" x2="11" y2="13" />
+                <polygon points="22 2 15 22 11 13 2 9 22 2" />
+              </svg>
+            </button>
+          </form>
+        </div>
+
+      </div>
+    </div>
+  </dialog>
+
   <script type="module" src="app.js"></script>
 </body>
+
 </html>

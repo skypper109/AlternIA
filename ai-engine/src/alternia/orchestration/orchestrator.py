@@ -401,6 +401,83 @@ class AlterniaOrchestrator:
     # PIPELINE PRINCIPAL
     # =========================================================
 
+    @staticmethod
+    def validate_followup_question(
+        question: str,
+        answer: str,
+        intent: str,
+        raw_should_ask: bool,
+        followup_q: str | None,
+    ) -> tuple[bool, str | None]:
+        """
+        Vérifie scrupuleusement si une relance/conseil AlternIA (ex: demande d'exemple)
+        est pertinente par rapport à la réponse réellement fournie.
+        
+        RÈGLES IMPÉRATIVES :
+        1. Si la réponse est un refus, un rappel hors-programme ou concerne un sujet hors cursus (ex: Harry Potter),
+           INTERDICTION STRICTE de demander un exemple.
+        2. Si la réponse contient DÉJÀ un exemple ("par exemple", "exemple :", etc.), ne pas redemander.
+        3. Si la question est une salutation, une politesse, ou un accord simple ("oui", "merci"), pas de relance d'exemple.
+        4. La relance ne doit JAMAIS être automatique : elle doit être réservée aux explications théoriques
+           du programme malien où un exemple apporte une réelle valeur pédagogique ajoutée.
+        """
+        if not raw_should_ask or not followup_q:
+            return False, None
+
+        ans_lower = answer.lower()
+        q_lower = question.lower()
+
+        # 1. Sujet hors-programme ou refus explicite
+        out_of_scope_cues = [
+            "ne fait pas partie du programme",
+            "ne font pas partie du programme",
+            "hors programme",
+            "hors-programme",
+            "pas au programme",
+            "hors du cadre",
+            "hors du programme",
+            "ne figure pas au programme",
+            "je ne peux pas répondre",
+            "personnage fictif",
+            "n'est pas au programme",
+            "n'est pas inscrit au programme",
+            "n'hésite pas à me poser une question sur le programme",
+        ]
+        if any(cue in ans_lower for cue in out_of_scope_cues):
+            return False, None
+
+        # 2. Salutations, présentations ou politesses courtes
+        greeting_cues = ["bonjour", "salut", "qui es-tu", "tu es qui", "présente-toi", "presente-toi", "au revoir", "merci"]
+        if any(q_lower.startswith(g) for g in greeting_cues) and len(q_lower.split()) <= 4:
+            return False, None
+
+        # 3. La réponse donne DÉJÀ un exemple concret
+        example_cues = [
+            "par exemple",
+            "prenons l'exemple",
+            "à titre d'exemple",
+            "a titre d'exemple",
+            "comme exemple",
+            "exemple :",
+            "exemple concret",
+            "illustrons cela",
+            "dans la vie quotidienne",
+            "dans la vie courante",
+        ]
+        if any(cue in ans_lower for cue in example_cues):
+            return False, None
+
+        # 4. La question demandait DÉJÀ un exemple ou validait un exemple précédent
+        import re
+        if re.search(r"^(oui|ouais|d'accord|dac|dacc|ok|vas-y|vas y|je veux bien|donne(-moi)? un exemple)\b", q_lower):
+            return False, None
+
+        # 5. Intentions qui ne justifient pas d'exemple
+        if intent in {"out_of_scope", "exercise_solution", "greeting", "farewell"}:
+            return False, None
+
+        return True, followup_q
+
     def ask(
         self,
         question: str,
@@ -602,8 +679,16 @@ class AlterniaOrchestrator:
             )
 
         # -----------------------------------------------------
-        # 6. RÉPONSE STRUCTURÉE
+        # 6. RÉPONSE STRUCTURÉE AVEC VALIDATION DE COHÉRENCE DU CONSEIL
         # -----------------------------------------------------
+
+        final_should_ask, final_followup = self.validate_followup_question(
+            question=question,
+            answer=answer,
+            intent=pedagogical_response.intent,
+            raw_should_ask=pedagogical_response.should_ask_followup,
+            followup_q=pedagogical_response.followup_question,
+        )
 
         return {
             "answer": answer,
@@ -622,15 +707,9 @@ class AlterniaOrchestrator:
                 pedagogical_response.sources
             ),
 
-            "should_ask_followup": (
-                pedagogical_response
-                .should_ask_followup
-            ),
+            "should_ask_followup": final_should_ask,
 
-            "followup_question": (
-                pedagogical_response
-                .followup_question
-            ),
+            "followup_question": final_followup,
 
             "metadata": {
                 **pedagogical_response.metadata,

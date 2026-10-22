@@ -621,6 +621,28 @@ class CultureService:
                 f"DEVISE OU LOUANGE : {matched_nom.devise_ou_louange or 'Gardiens de la dignité (Danbé)'}"
             )
 
+        # ── 0. RECHERCHE DANS LES NOMS ET PATRONYMES DU MALI (GRAND-MÈRE MAH) ──
+        matched_nom = CultureService.find_culture_nom_by_keyword(db, norm_q)
+        if matched_nom:
+            matched_item_name = f"{matched_nom.nom} ({matched_nom.type})"
+            matched_item_type = "nom_patronyme"
+            context_item = _serialize_culture_nom(matched_nom)
+            sources = [
+                f"Généalogie Ancestrale du Mali — {matched_nom.nom}",
+                f"Terroir : {matched_nom.ethnie_ou_region}",
+                "Tradition Orale des Griots du Mandé",
+            ]
+            facts_blocks.append(
+                f"PATRONYME / PRÉNOM DU MALI : {matched_nom.nom} (Type: {matched_nom.type})\n"
+                f"TERROIR ET BERCEAU : {matched_nom.ethnie_ou_region}\n"
+                f"SIGNIFICATION AUTHENTIQUE : {matched_nom.signification}\n"
+                f"RÔLE DU CLAN / CASTE : {matched_nom.clan_role}\n"
+                f"ANIMAL TOTEM SACRÉ (TANAN) : {matched_nom.totem or 'Respect de la parole'}\n"
+                f"COUSINAGE À PLAISANTERIE (SENANKOUYA) : {matched_nom.senankouya or 'Fraternité universelle'}\n"
+                f"RÉCIT ET ANECDOTE HISTORIQUE : {matched_nom.anecdote}\n"
+                f"DEVISE OU LOUANGE : {matched_nom.devise_ou_louange or 'Gardiens de la dignité (Danbé)'}"
+            )
+
         # ── 1. RECHERCHE DANS LES MONUMENTS (Scoring spécifique par mot discriminant) ──
         STOP_WORDS = {
             "de", "du", "la", "le", "les", "des", "un", "une", "a", "au", "aux", "en", "sur",
@@ -628,7 +650,7 @@ class CultureService:
             "raconte", "parle", "moi", "qui", "est", "quoi", "c'est", "ce", "cette"
         }
 
-        target_monument: CultureMonument | None = None
+        target_monument: Optional[CultureMonument] = None
         if monument_id and not matched_nom:
             target_monument = db.query(CultureMonument).filter(CultureMonument.id == monument_id).first()
 
@@ -939,28 +961,28 @@ class CultureService:
             
             if matched_nom:
                 reponse = _build_grandmere_mah_speech_for_nom(matched_nom)
+            elif target_monument:
+                corps = (
+                    f"{target_monument.nom} ({target_monument.sous_titre}) veille fièrement sur {target_monument.ville}, "
+                    f"dans la région de {target_monument.region_nom}. {target_monument.recit_historique}\n\n"
+                    f"Sur le plan architectural, il illustre avec majesté : {target_monument.style_architectural}. "
+                    f"Comme le racontent les anciens sous le clair de lune : {target_monument.secrets_et_mysteres}\n\n"
+                    f"Ce lieu compte profondément pour notre nation : {target_monument.pourquoi_ce_lieu_compte}"
+                )
+            elif matched_item_name:
+                corps = f"Concernant {matched_item_name} :\n\n{facts_text}"
             else:
-                if target_monument:
-                    corps = (
-                        f"{target_monument.nom} ({target_monument.sous_titre}) veille fièrement sur {target_monument.ville}, "
-                        f"dans la région de {target_monument.region_nom}. {target_monument.recit_historique}\n\n"
-                        f"Sur le plan architectural, il illustre avec majesté : {target_monument.style_architectural}. "
-                        f"Comme le racontent les anciens sous le clair de lune : {target_monument.secrets_et_mysteres}\n\n"
-                        f"Ce lieu compte profondément pour notre nation : {target_monument.pourquoi_ce_lieu_compte}"
-                    )
-                elif matched_item_name:
-                    corps = f"Concernant {matched_item_name} :\n\n{facts_text}"
-                else:
-                    corps = (
-                        "Le Mali est le berceau des grands bâtisseurs et des poètes de la parole. "
-                        "De la Charte de Kouroukan Fouga (1236) aux monuments de Bamako et aux merveilles de Djenné et Tombouctou, "
-                        "notre patrimoine est une source inépuisable de fierté et de concorde."
-                    )
+                corps = (
+                    "Le Mali est le berceau des grands bâtisseurs et des poètes de la parole. "
+                    "De la Charte de Kouroukan Fouga (1236) aux monuments de Bamako et aux merveilles de Djenné et Tombouctou, "
+                    "notre patrimoine est une source inépuisable de fierté et de concorde."
+                )
 
+            if not matched_nom:
                 outro_list = [
                     "Quelle autre merveille de notre terre souhaites-tu explorer avec moi ?",
                     "La parole est comme l'eau du fleuve, elle fertilise l'esprit de qui sait écouter. Pose-moi une autre question quand tu le désires !",
-                    "Sous cet arbre à palabres, mes souvenirs restent éveillés pour éclairer tes prochains pas. À très bientôt, voyageur !",
+                    "Sous cet arbre à palabres, mes souvenirs restent éveillés pour éclairer tes prochains pas. À très bientôt, voyageur !"
                 ]
                 reponse = f"{intro}\n\n{corps}\n\n{random.choice(outro_list)}"
 
@@ -1246,11 +1268,11 @@ class CultureService:
     @staticmethod
     def get_noms(
         db: Session,
-        type: str | None = None,
-        query: str | None = None,
+        type: Optional[str] = None,
+        query: Optional[str] = None,
         skip: int = 0,
         limit: int = 50,
-    ) -> list[dict[str, Any]]:
+    ) -> List[Dict[str, Any]]:
         """Récupère le catalogue des patronymes et prénoms traditionnels du Mali."""
         q = db.query(CultureNom)
         if type:
@@ -1270,7 +1292,7 @@ class CultureService:
         return [_serialize_culture_nom(n) for n in noms]
 
     @staticmethod
-    def get_nom_by_id_or_exact_name(db: Session, identifier: str) -> dict[str, Any] | None:
+    def get_nom_by_id_or_exact_name(db: Session, identifier: str) -> Optional[Dict[str, Any]]:
         """Récupère la fiche détaillée d'un patronyme ou prénom par son identifiant ou libellé exact."""
         clean = identifier.strip()
         norm = _normalize_text(clean)
@@ -1286,7 +1308,7 @@ class CultureService:
         return _serialize_culture_nom(nom) if nom else None
 
     @staticmethod
-    def find_culture_nom_by_keyword(db: Session, query: str) -> CultureNom | None:
+    def find_culture_nom_by_keyword(db: Session, query: str) -> Optional[CultureNom]:
         """
         Détection et extraction haute précision d'un patronyme ou prénom malien dans un texte libre.
         Gère les minuscules, les accents et les variantes orthographiques courantes.
@@ -1327,9 +1349,9 @@ class CultureService:
     def chat_grandmere_mah(
         db: Session,
         user_message: str,
-        history: list[dict[str, str]] | None = None,
-        additional_context: str | None = None,
-    ) -> dict[str, Any]:
+        history: Optional[List[Dict[str, str]]] = None,
+        additional_context: Optional[str] = None,
+    ) -> Dict[str, Any]:
         """
         Logique métier complète du Chat avec Grand-mère Mah sous le grand baobab au coin du feu.
         Interroge directement la base de données pour les vrais sens des noms, prénoms,

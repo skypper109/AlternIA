@@ -169,7 +169,7 @@ class ConversationManager:
         topic: str | None,
     ) -> ConversationSession:
 
-        session = self.get_session(
+        session = self.get_or_create(
             session_id
         )
 
