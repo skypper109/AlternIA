@@ -33,6 +33,7 @@ import math
 import uuid
 import subprocess
 import threading
+import tempfile
 import urllib.request
 import urllib.parse
 import json
@@ -57,12 +58,37 @@ PIN_LED_B = int(os.environ.get("PIN_LED_B", 22))       # Pin physique 15 (Canal 
 # Type de LED : True = Cathode Commune (GND), False = Anode Commune (+3.3V)
 LED_ACTIVE_HIGH = os.environ.get("LED_ACTIVE_HIGH", "1").lower() in ("1", "true", "yes")
 
+# Forcer l'affichage immédiat des logs dans journalctl (sans mise en mémoire tampon)
+try:
+    sys.stdout.reconfigure(line_buffering=True)
+    sys.stderr.reconfigure(line_buffering=True)
+except Exception:
+    pass
+
 # Chemins de fichiers d'échange & drapeaux
 ACTIVITY_FLAG = Path("/tmp/alta_activity.flag")
 LED_STATE_FILE = Path("/tmp/alta_led_state.json")
 CURRENT_CLASS_FILE = Path("/tmp/alta_current_class")
 AUDIO_RECORDING_PATH = Path("/tmp/alta_voice_input.wav")
+AUDIO_RAW_RECORDING_PATH = Path("/tmp/alta_voice_raw.wav")
 AUDIO_OUTPUT_PATH = Path("/tmp/alta_voice_output.mp3")
+
+# Chargement automatique du fichier d'environnement .env
+for _env_candidate in [
+    Path("/home/ubuntu/Alternia/raspberry-pi/.env"),
+    Path("/home/ubuntu/AlternIA/raspberry-pi/.env"),
+    Path(__file__).resolve().parent.parent / ".env",
+]:
+    if _env_candidate.exists():
+        try:
+            for _line in _env_candidate.read_text(encoding="utf-8").splitlines():
+                _line = _line.strip()
+                if _line and not _line.startswith("#") and "=" in _line:
+                    _k, _v = _line.split("=", 1)
+                    os.environ.setdefault(_k.strip(), _v.strip().strip('"').strip("'"))
+            break
+        except Exception:
+            pass
 
 # Serveurs cibles
 LOCAL_API_URL = os.environ.get("ALTERNIA_LOCAL_API", "http://127.0.0.1:8000")
@@ -490,12 +516,13 @@ class HardwareController:
         self.is_recording = True
         self.recording_start_time = time.time()
 
-        # Supprimer le fichier précédent
-        try:
-            if AUDIO_RECORDING_PATH.exists():
-                AUDIO_RECORDING_PATH.unlink()
-        except Exception:
-            pass
+        # Supprimer les fichiers précédents
+        for p in (AUDIO_RECORDING_PATH, AUDIO_RAW_RECORDING_PATH):
+            try:
+                if p.exists():
+                    p.unlink()
+            except Exception:
+                pass
 
         # LED Tricolore -> Rouge Vif Pulsant
         self.led.set_recording()
@@ -506,17 +533,17 @@ class HardwareController:
         print("═" * 70)
 
         try:
-            # ALSA 16kHz Mono 16-bit (compatible Faster-Whisper et Qwen)
+            # Enregistrement natif INMP441 sur I2S (plughw:2,0 en 48kHz, S32_LE, Stéréo)
             self.record_process = subprocess.Popen([
                 "arecord",
-                "-D", "default",
-                "-f", "S16_LE",
-                "-r", "16000",
-                "-c", "1",
-                str(AUDIO_RECORDING_PATH)
+                "-D", "plughw:2,0",
+                "-f", "S32_LE",
+                "-r", "48000",
+                "-c", "2",
+                str(AUDIO_RAW_RECORDING_PATH)
             ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         except Exception as exc:
-            print(f"⚠️ Erreur démarrage arecord : {exc} (Micro USB ou Jack branché ?)")
+            print(f"⚠️ Erreur démarrage arecord : {exc} (Micro I2S branché ?)")
 
     def stop_recording_and_process(self):
         """Coupe l'enregistrement audio et démarre le traitement IA."""
@@ -539,6 +566,19 @@ class HardwareController:
                 except Exception:
                     pass
             self.record_process = None
+
+        # Conversion et normalisation automatique 16kHz Mono pour Whisper STT
+        if AUDIO_RAW_RECORDING_PATH.exists() and AUDIO_RAW_RECORDING_PATH.stat().st_size > 1000:
+            try:
+                subprocess.run([
+                    "ffmpeg", "-y", "-i", str(AUDIO_RAW_RECORDING_PATH),
+                    "-ar", "16000",
+                    "-ac", "1",
+                    "-af", "volume=12dB",
+                    str(AUDIO_RECORDING_PATH)
+                ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+            except Exception:
+                pass
 
         # Passer immédiatement la LED en mode Réflexion IA (Violet pulsant)
         self.led.set_thinking()
@@ -703,12 +743,18 @@ class HardwareController:
         # 2. Activer l'animation lumineuse SPEAKING sur la LED tricolore
         self.led.set_speaking()
 
-        # 3. Lecture audio matérielle
+        # 3. Lecture audio matérielle optimisée pour MAX98357A (Boost +13dB et 48kHz)
         try:
-            if str(audio_file).endswith(".mp3"):
-                subprocess.run(["mpg123", "-q", str(audio_file)], check=False)
-            else:
-                subprocess.run(["aplay", "-q", str(audio_file)], check=False)
+            boosted_wav = Path(tempfile.gettempdir()) / "tts_playback_boosted.wav"
+            res = subprocess.run([
+                "ffmpeg", "-y", "-i", str(audio_file),
+                "-af", "volume=13dB",
+                "-ar", "48000",
+                str(boosted_wav)
+            ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+
+            target_to_play = boosted_wav if (res.returncode == 0 and boosted_wav.exists()) else audio_file
+            subprocess.run(["aplay", "-D", "plughw:2,0", "-q", str(target_to_play)], check=False)
         except Exception as exc:
             print(f"⚠️ Erreur lecture audio physique : {exc}")
         finally:

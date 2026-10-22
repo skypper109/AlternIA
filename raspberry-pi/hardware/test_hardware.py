@@ -36,15 +36,20 @@ except Exception as e:
 print("\n[2/4] Test du Microphone...")
 test_wav = Path("/tmp/test_mic.wav")
 try:
-    print("🎙️ Enregistrement de 3 secondes (Parlez à voix haute)...")
+    print("🎙️ Enregistrement de 3 secondes sur le micro I2S (Parlez à voix haute)...")
     subprocess.run([
-        "arecord", "-D", "default", "-f", "S16_LE", "-r", "16000", "-d", "3", str(test_wav)
+        "arecord", "-D", "plughw:2,0", "-f", "S32_LE", "-r", "48000", "-c", "2", "-d", "3", str(test_wav)
     ], check=True)
-    print("🔊 Réécoute immédiate de l'enregistrement...")
-    subprocess.run(["aplay", str(test_wav)], check=True)
+    boosted_wav = Path("/tmp/test_mic_boosted.wav")
+    subprocess.run([
+        "ffmpeg", "-y", "-i", str(test_wav), "-ar", "48000", "-af", "volume=12dB", str(boosted_wav)
+    ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+    target = boosted_wav if boosted_wav.exists() else test_wav
+    print("🔊 Réécoute immédiate de l'enregistrement dans le haut-parleur...")
+    subprocess.run(["aplay", "-D", "plughw:2,0", "-q", str(target)], check=True)
     print("✅ Si vous avez entendu votre voix, le microphone fonctionne parfaitement.")
 except Exception as e:
-    print(f"⚠️ Erreur test microphone : {e} (Assurez-vous qu'un micro USB ou Jack est branché)")
+    print(f"⚠️ Erreur test microphone : {e} (Assurez-vous que le micro I2S est branché)")
 
 # 3. Test de la LED Tricolore RGB
 print("\n[3/4] Test de la LED Tricolore RGB (GPIO 17=Rouge, 27=Vert, 22=Bleu)...")

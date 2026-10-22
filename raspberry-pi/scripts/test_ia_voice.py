@@ -53,20 +53,21 @@ def main():
         print(f"❌ Échec téléchargement audio : {e}")
         return
 
-    # 3. Lecture audio sur le haut-parleur
+    # 3. Lecture audio sur le haut-parleur (avec boost numérique +12dB et 48kHz)
     print("📢 Diffusion dans le haut-parleur noir...")
-    # Tenter avec mpg123
+    boosted_wav = Path("/tmp/alternia_presentation_boosted.wav")
     try:
-        res = subprocess.run(["mpg123", "-a", AUDIO_CARD, str(out_file)], check=False)
+        subprocess.run([
+            "ffmpeg", "-y", "-i", str(out_file),
+            "-af", "volume=12dB",
+            "-ar", "48000",
+            str(boosted_wav)
+        ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+        target = boosted_wav if boosted_wav.exists() else out_file
+        res = subprocess.run(["aplay", "-D", AUDIO_CARD, "-q", str(target)], check=False)
         if res.returncode == 0:
             print("\n🎉 Présentation terminée avec succès !")
             return
-    except FileNotFoundError:
-        pass
-
-    # Secours avec ffplay ou aplay
-    try:
-        subprocess.run(["ffplay", "-nodisp", "-autoexit", "-i", str(out_file)], check=False)
     except Exception:
         pass
 

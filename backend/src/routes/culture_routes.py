@@ -43,9 +43,19 @@ class AskGuideRequest(BaseModel):
 
 
 class SageChatRequest(BaseModel):
-    user_message: str = Field(..., description="Message de l'apprenant à Grand-mère Mah")
-    history: Optional[List[Dict[str, str]]] = Field(default=[], description="Historique de la conversation")
+    user_message: Optional[str] = Field(None, description="Message de l'apprenant à Grand-mère Mah")
+    message: Optional[str] = Field(None, description="Message de l'apprenant (alias mobile)")
+    history: Optional[List[Dict[str, Any]]] = Field(default=[], description="Historique de la conversation")
     additional_context: Optional[str] = Field(None, description="Contexte régional ou patrimonial")
+    context: Optional[str] = Field(None, description="Contexte régional ou patrimonial (alias mobile)")
+
+    @property
+    def effective_user_message(self) -> str:
+        return (self.user_message or self.message or "").strip()
+
+    @property
+    def effective_additional_context(self) -> Optional[str]:
+        return self.additional_context or self.context
 
     class Config:
         extra = "allow"
@@ -301,11 +311,17 @@ def chat_with_grandmere_mah(payload: SageChatRequest, db: Session = Depends(get_
     Recherche et extrait en temps réel depuis la base de données alta_db l'histoire sacrée des
     patronymes (Jamu), prénoms, totems (Tanan) et cousinage à plaisanterie (Senankouya).
     """
+    msg = payload.effective_user_message
+    if not msg:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Le champ 'user_message' ou 'message' est requis",
+        )
     return CultureService.chat_grandmere_mah(
         db=db,
-        user_message=payload.user_message,
+        user_message=msg,
         history=payload.history,
-        additional_context=payload.additional_context,
+        additional_context=payload.effective_additional_context,
     )
 
 

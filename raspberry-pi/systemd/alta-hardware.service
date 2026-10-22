@@ -6,8 +6,9 @@ Wants=sound.target
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/home/ubuntu/AlternIA/raspberry-pi
-ExecStart=/usr/bin/python3 /home/ubuntu/AlternIA/raspberry-pi/hardware/buttons_audio_controller.py
+WorkingDirectory=/home/ubuntu
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/bin/bash -c "for d in /home/ubuntu/Alternia/raspberry-pi /home/ubuntu/AlternIA/raspberry-pi; do if [ -d \"$d\" ]; then cd \"$d\" && exec /usr/bin/python3 hardware/buttons_audio_controller.py; fi; done"
 Restart=always
 RestartSec=5
 StandardOutput=journal

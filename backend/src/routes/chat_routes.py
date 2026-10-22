@@ -2,6 +2,7 @@
 Routes API pour le chat pédagogique, streaming SSE, curriculum et profil apprenant.
 """
 
+from typing import Any
 import asyncio
 import json
 import time
@@ -83,6 +84,56 @@ def _is_culture_request(req: ChatRequest) -> bool:
     return False
 
 
+def _prepare_session_and_subject(
+    orch,
+    req: ChatRequest,
+    norm_class: str,
+    session_id: str,
+    core_question: str,
+) -> tuple[Any, str | None]:
+    """
+    Synchronise l'historique transmis par le client dans la session du ConversationManager,
+    maintient la matière (subject) à travers les tours de parole et mémorise le sujet (topic).
+    """
+    session = orch.conversation_manager.get_or_create(
+        session_id=session_id,
+        student_id=req.student_id,
+        student_class=norm_class,
+        subject=req.subject,
+    )
+
+    if req.history:
+        session.messages = []
+        for item in req.history:
+            role_mapped = "student" if item.role in {"user", "student"} else "assistant"
+            session.add_message(role=role_mapped, content=item.text)
+
+    # Détection automatique de matière selon le programme malien si mode général ou non spécifié
+    effective_subject = req.subject
+    if effective_subject in {None, "", "général", "general", "toutes", "tous"}:
+        if session and session.subject:
+            effective_subject = session.subject
+        if not effective_subject:
+            effective_subject = detect_malian_curriculum_subject(core_question)
+        if not effective_subject and session and session.messages:
+            for m in reversed(session.messages):
+                detected = detect_malian_curriculum_subject(m.content)
+                if detected:
+                    effective_subject = detected
+                    break
+
+    if effective_subject and session:
+        session.subject = effective_subject
+
+    # Mémorisation du sujet principal si question substantielle et non-suivi
+    if not QueryContextualizer.is_follow_up(core_question):
+        topic = QueryContextualizer.clean_core_terms(core_question)
+        if topic:
+            session.current_topic = topic
+
+    return session, effective_subject
+
+
 @router.post("/api/chat", response_model=ChatResponse)
 @router.post("/api/ask", response_model=ChatResponse)
 def chat_endpoint(req: ChatRequest):
@@ -136,18 +187,23 @@ def chat_endpoint(req: ChatRequest):
 
     print(f"\n\033[36m⏱️  [chat_routes.py]\033[0m Requête API reçue : \"{req.question}\" -> Question coeur : \"{core_question}\" (Classe: {norm_class})")
 
-    # Détection automatique de matière selon le programme malien si mode général
-    effective_subject = req.subject
-    if effective_subject in {None, "", "général", "general", "toutes", "tous"}:
-        effective_subject = detect_malian_curriculum_subject(core_question)
+    # Préparation de la session, synchronisation d'historique et préservation de la matière
+    session, effective_subject = _prepare_session_and_subject(
+        orch=orch,
+        req=req,
+        norm_class=norm_class,
+        session_id=session_id,
+        core_question=core_question,
+    )
 
     # Contexte RAG avec contextualisation multi-tours
     context = None
     if req.enable_rag and orch.rag_service:
         rag_query = core_question
-        session = orch.conversation_manager.get(session_id)
         if session and session.messages:
             student_past_msgs = [m.content for m in session.messages if m.role == "student"]
+            if not student_past_msgs:
+                student_past_msgs = [m.content for m in session.messages if m.content]
             rag_query = QueryContextualizer.contextualize(
                 current_question=core_question,
                 past_student_messages=student_past_msgs,
@@ -286,18 +342,23 @@ async def chat_stream_endpoint(req: ChatRequest):
 
     print(f"\n\033[36m⏱️  [chat_routes.py]\033[0m Requête SSE reçue : \"{req.question}\" -> Question coeur : \"{core_question}\" (Classe: {norm_class})")
 
-    # Détection automatique de matière selon le programme malien si mode général
-    effective_subject = req.subject
-    if effective_subject in {None, "", "général", "general", "toutes", "tous"}:
-        effective_subject = detect_malian_curriculum_subject(core_question)
+    # Préparation de la session, synchronisation d'historique et préservation de la matière
+    session, effective_subject = _prepare_session_and_subject(
+        orch=orch,
+        req=req,
+        norm_class=norm_class,
+        session_id=session_id,
+        core_question=core_question,
+    )
 
     # Contexte RAG avec contextualisation multi-tours
     context = None
     if req.enable_rag and orch.rag_service:
         rag_query = core_question
-        session = orch.conversation_manager.get(session_id)
         if session and session.messages:
             student_past_msgs = [m.content for m in session.messages if m.role == "student"]
+            if not student_past_msgs:
+                student_past_msgs = [m.content for m in session.messages if m.content]
             rag_query = QueryContextualizer.contextualize(
                 current_question=core_question,
                 past_student_messages=student_past_msgs,
