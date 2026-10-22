@@ -5,7 +5,7 @@ de dialogue RAG culturel et de synchronisation des packs hors ligne.
 """
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import FileResponse

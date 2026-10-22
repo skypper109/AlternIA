@@ -451,24 +451,6 @@ class CultureContribution(Base):
     date_moderation: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
-class CultureNom(Base):
-    __tablename__ = "culture_noms"
-
-    id: Mapped[str] = mapped_column(String(100), primary_key=True)  # ex: 'nom_keita', 'prenom_fatoumata'
-    nom: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
-    nom_normalise: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
-    type: Mapped[str] = mapped_column(String(20), nullable=False, default="nom")  # 'nom' ou 'prenom'
-    ethnie_ou_region: Mapped[str] = mapped_column(String(150), nullable=False)
-    signification: Mapped[str] = mapped_column(Text, nullable=False)
-    clan_role: Mapped[str] = mapped_column(String(200), nullable=False)
-    totem: Mapped[str] = mapped_column(String(150), nullable=False)  # Tanan ancestral
-    senankouya: Mapped[str] = mapped_column(String(255), nullable=False)  # Cousinage à plaisanterie
-    devise_ou_louange: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # Louange griotique
-    anecdote: Mapped[str] = mapped_column(Text, nullable=False)
-    variantes_json: Mapped[str] = mapped_column(Text, nullable=False, default="[]")  # JSON list
-    date_creation: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
-
-
 # ==============================================================================
 # MODÈLES MODULE F & G : PORTEFEUILLE CENTRAL, TRANSACTIONS & RETRAITS MOBILE MONEY
 # ==============================================================================
