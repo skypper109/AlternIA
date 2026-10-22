@@ -26,19 +26,18 @@ Ce module gère l'ensemble des entrées/sorties physiques du boîtier AlternIA :
 Broches I2S réservées pour l'amplificateur MAX98357A : GPIO 18 (BCLK), 19 (LRCLK), 21 (DIN).
 """
 
-import os
-import sys
-import time
-import math
-import uuid
-import subprocess
-import threading
-import tempfile
-import urllib.request
-import urllib.parse
 import json
+import math
+import os
+import subprocess
+import sys
+import tempfile
+import threading
+import time
+import urllib.parse
+import urllib.request
+import uuid
 from pathlib import Path
-from typing import Optional, Tuple, Dict, Any
 
 # ══════════════════════════════════════════════════════════════════════════════
 # CONFIGURATION MATÉRIELLE & BROCHES GPIO (BCM)
@@ -166,8 +165,8 @@ class TricolorLedController:
         self.active_high = active_high
 
         self.current_mode = self.MODE_CLASS_IDLE
-        self.class_color: Tuple[float, float, float] = CYCLES_CONFIG["niveau_2"]["color"]
-        self.current_rgb: Tuple[float, float, float] = self.class_color
+        self.class_color: tuple[float, float, float] = CYCLES_CONFIG["niveau_2"]["color"]
+        self.current_rgb: tuple[float, float, float] = self.class_color
         self.class_name: str = "10eme"
         
         self.running = True
@@ -196,7 +195,7 @@ class TricolorLedController:
             self.hardware_type = "GPIOZERO_PWM"
             print(f"💡 [LED RGB] Module PWM actif sur GPIO {self.pin_r}(R), {self.pin_g}(G), {self.pin_b}(B).")
             return
-        except Exception as exc:
+        except Exception:
             pass
 
         # Fallback 1 : gpiozero sans PWM (LED classiques Tout-Ou-Rien)
@@ -215,7 +214,7 @@ class TricolorLedController:
 
         # Fallback 2 : Mode Simulation (pour dev sur PC / Mac sans GPIO)
         self.hardware_type = "SIMULATION"
-        print(f"💡 [LED RGB] Mode simulation actif (LED visuelle console).")
+        print("💡 [LED RGB] Mode simulation actif (LED visuelle console).")
 
     def _apply_raw_rgb(self, r: float, g: float, b: float):
         """Applique les intensités [0.0 - 1.0] sur les broches matérielles."""
@@ -298,7 +297,7 @@ class TricolorLedController:
             t += 0.04
             time.sleep(0.04)
 
-    def set_class_color(self, color_tuple: Tuple[float, float, float], class_name: str = ""):
+    def set_class_color(self, color_tuple: tuple[float, float, float], class_name: str = ""):
         """Définit la couleur du niveau actif et repasse la LED en veille active."""
         self.class_color = color_tuple
         if class_name:
@@ -331,7 +330,7 @@ class TricolorLedController:
         self.current_mode = self.MODE_OFF
         self._apply_raw_rgb(0.0, 0.0, 0.0)
 
-    def _log_state_change(self, label: str, color: Tuple[float, float, float], symbol: str = "💡"):
+    def _log_state_change(self, label: str, color: tuple[float, float, float], symbol: str = "💡"):
         """Affiche un log stylé en direct dans le terminal sans le saturer."""
         if self._last_log_state == label:
             return
@@ -369,7 +368,7 @@ class HardwareController:
 
         # État d'enregistrement bistable (Toggle)
         self.is_recording = False
-        self.record_process: Optional[subprocess.Popen] = None
+        self.record_process: subprocess.Popen | None = None
         self.recording_start_time = 0.0
 
         # Contrôleur LED
@@ -396,11 +395,6 @@ class HardwareController:
             self.btn_niv2 = Button(PIN_BTN_NIV2, pull_up=True, bounce_time=0.08)
             self.btn_niv3 = Button(PIN_BTN_NIV3, pull_up=True, bounce_time=0.08)
             self.btn_mic  = Button(PIN_BTN_MIC,  pull_up=True, bounce_time=0.08)
-            from gpiozero import Button  # type: ignore
-            self.btn_mic = Button(PIN_BTN_MIC, pull_up=True, bounce_time=0.05)
-            self.btn_repeat = Button(PIN_BTN_REPEAT, pull_up=True, bounce_time=0.05)
-            self.btn_class = Button(PIN_BTN_CLASS, pull_up=True, bounce_time=0.05)
-            self.btn_quiz = Button(PIN_BTN_QUIZ, pull_up=True, bounce_time=0.05)
 
             # Assignation des callbacks
             self.btn_niv1.when_pressed = self.on_press_niveau_1
@@ -651,12 +645,12 @@ class HardwareController:
         content = wav_path.read_bytes()
         boundary = f"----AltaBoundary{uuid.uuid4().hex}"
         body = bytearray()
-        body.extend(f"--{boundary}\r\n".encode("utf-8"))
+        body.extend(f"--{boundary}\r\n".encode())
         body.extend(b'Content-Disposition: form-data; name="audio"; filename="recording.wav"\r\n')
         body.extend(b"Content-Type: audio/wav\r\n\r\n")
         body.extend(content)
         body.extend(b"\r\n")
-        body.extend(f"--{boundary}--\r\n".encode("utf-8"))
+        body.extend(f"--{boundary}--\r\n".encode())
 
         urls_to_try = [
             f"{LOCAL_API_URL.rstrip('/')}/api/stt",
@@ -784,7 +778,7 @@ class HardwareController:
         try:
             url = f"{LOCAL_API_URL.rstrip('/')}/api/esp32/tts-speaking?speaking={'true' if is_speaking else 'false'}"
             req = urllib.request.Request(url, method="POST")
-            with urllib.request.urlopen(req, timeout=1.0) as resp:
+            with urllib.request.urlopen(req, timeout=1.0):
                 pass
         except Exception:
             pass

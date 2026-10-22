@@ -6,7 +6,7 @@ attribue les pièces automatiquement dans le portefeuille unique,
 et établit le classement national en temps réel.
 """
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 import json
 import logging
 from typing import Any, Dict, List, Optional
@@ -259,7 +259,7 @@ def init_defis_nationaux_si_besoin(db: Session):
     Initialise ou réactive les défis nationaux afin qu'à TOUT MOMENT,
     un élève puisse trouver une session ouverte 24h/24 sans attendre d'autres élèves en ligne.
     """
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     # 1. Vérifier si des défis sont expirés et les prolonger pour maintenir la disponibilité 24/7
     defis_expires = db.query(DefiNational).filter(DefiNational.date_fin <= now).all()
     for d in defis_expires:
@@ -299,7 +299,7 @@ def get_defis_actifs(db: Session, classe: Optional[str] = None, periode: Optiona
     afin qu'un élève puisse concourir à tout moment sans attendre d'autres camarades en ligne.
     """
     init_defis_nationaux_si_besoin(db)
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     query = db.query(DefiNational).filter(
         DefiNational.statut == "EN_COURS",
         DefiNational.date_fin > now,
@@ -487,7 +487,7 @@ def soumettre_reponses_defi(
             deja_participe.score = score
             deja_participe.temps_secondes = temps_ecoule_sec
             deja_participe.reponses_soumises_json = json.dumps(reponses)
-            deja_participe.soumis_a = datetime.utcnow()
+            deja_participe.soumis_a = datetime.now(UTC)
 
         # Cumul de l'expérience et des pièces
         deja_participe.xp_remportes += xp_gagnes
@@ -507,14 +507,14 @@ def soumettre_reponses_defi(
             pieces_remportees=pieces_gagnees,
             xp_remportes=xp_gagnes,
             reponses_soumises_json=json.dumps(reponses),
-            soumis_a=datetime.utcnow(),
+            soumis_a=datetime.now(UTC),
         )
         db.add(participation)
         nouveau_record = True
 
     # 2. Créditer les pièces dans le portefeuille UNIQUEMENT si l'élève a gagné (pieces_gagnees > 0)
     if pieces_gagnees > 0:
-        tentative_ts = int(datetime.utcnow().timestamp())
+        tentative_ts = int(datetime.now(UTC).timestamp())
         credit_coins(
             db=db,
             student_id=apprenant_id,

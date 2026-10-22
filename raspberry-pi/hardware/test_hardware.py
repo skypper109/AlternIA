@@ -14,9 +14,8 @@ Usage :
 """
 
 import os
-import sys
-import time
 import subprocess
+import time
 from pathlib import Path
 
 print("=" * 76)
@@ -53,9 +52,9 @@ except Exception as e:
 
 # 3. Test de la LED Tricolore RGB
 print("\n[3/4] Test de la LED Tricolore RGB (GPIO 17=Rouge, 27=Vert, 22=Bleu)...")
-pin_r = int(os.environ.get("PIN_LED_R", 17))
-pin_g = int(os.environ.get("PIN_LED_G", 27))
-pin_b = int(os.environ.get("PIN_LED_B", 22))
+pin_r = int(os.environ.get("PIN_LED_R", "17"))
+pin_g = int(os.environ.get("PIN_LED_G", "27"))
+pin_b = int(os.environ.get("PIN_LED_B", "22"))
 
 test_colors = [
     ("🔴 Rouge (Enregistrement Micro)", (1.0, 0.0, 0.0)),
