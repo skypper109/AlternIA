@@ -5,7 +5,6 @@ AlternIA — Lanceur Hybride Universel (Local & Cloud GPU).
 Permet de démarrer le serveur en local ou de basculer l'interface vers un serveur Cloud GPU (RunPod / Colab / AWS).
 """
 
-import os
 import sys
 import webbrowser
 from pathlib import Path
@@ -34,7 +33,6 @@ def print_banner():
 def start_local_server(port: int = 8000, open_browser: bool = True):
     """Lance le serveur FastAPI local avec RAG, Base SQLite et Kiosk."""
     import uvicorn
-    from backend.src.main import app
 
     url = f"http://127.0.0.1:{port}/device/"
     print(f"\n🚀 Démarrage du serveur local AlternIA sur \033[1;32m{url}\033[0m...")
@@ -48,7 +46,7 @@ def start_local_server(port: int = 8000, open_browser: bool = True):
         except Exception:
             pass
 
-    uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
+    uvicorn.run("backend.src.main:app", host="0.0.0.0", port=port, log_level="info", reload=True)
 
 
 def connect_to_cloud():

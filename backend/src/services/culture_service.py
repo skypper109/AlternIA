@@ -16,6 +16,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from backend.src.db.models import (
+    Apprenant,
     CultureConte,
     CultureContribution,
     CultureDecouverte,
@@ -1915,8 +1916,10 @@ class CultureService:
 
     @staticmethod
     def get_tampons(db: Session) -> list[dict[str, Any]]:
-        """Fournit les tampons du Passeport Culturel pour les 11 régions administratives et historiques."""
-        return [
+        """Fournit les tampons du Passeport Culturel pour les 11 régions calculés sur les données réelles."""
+        total_eleves = db.query(Apprenant).count()
+
+        regions_config = [
             {
                 "id": "tampon_bamako",
                 "nom": "Monument de l'Indépendance",
@@ -1927,9 +1930,6 @@ class CultureService:
                 "conditionDeblocage": "Visiter ou scanner un monument de Bamako",
                 "xpRecompense": 50,
                 "rarete": "Commun",
-                "totalDebloquesParEleves": 1420,
-                "tauxDeblocage": 68,
-                "actif": True,
                 "couleurAccent": "#F1851F",
             },
             {
@@ -1942,9 +1942,6 @@ class CultureService:
                 "conditionDeblocage": "Découvrir la geste du Mandé et la Charte de Kouroukan Fouga",
                 "xpRecompense": 60,
                 "rarete": "Commun",
-                "totalDebloquesParEleves": 1150,
-                "tauxDeblocage": 55,
-                "actif": True,
                 "couleurAccent": "#10B981",
             },
             {
@@ -1957,9 +1954,6 @@ class CultureService:
                 "conditionDeblocage": "Explorer le patrimoine fluvial et les royaumes du Khasso",
                 "xpRecompense": 70,
                 "rarete": "Rare",
-                "totalDebloquesParEleves": 820,
-                "tauxDeblocage": 39,
-                "actif": True,
                 "couleurAccent": "#6366F1",
             },
             {
@@ -1972,9 +1966,6 @@ class CultureService:
                 "conditionDeblocage": "Honorer le serment des héros de la résistance du Kénédougou",
                 "xpRecompense": 75,
                 "rarete": "Rare",
-                "totalDebloquesParEleves": 940,
-                "tauxDeblocage": 45,
-                "actif": True,
                 "couleurAccent": "#EC4899",
             },
             {
@@ -1987,9 +1978,6 @@ class CultureService:
                 "conditionDeblocage": "Résoudre une devinette et écouter un conte du Royaume Bambara",
                 "xpRecompense": 80,
                 "rarete": "Rare",
-                "totalDebloquesParEleves": 880,
-                "tauxDeblocage": 42,
-                "actif": True,
                 "couleurAccent": "#8B5CF6",
             },
             {
@@ -2002,9 +1990,6 @@ class CultureService:
                 "conditionDeblocage": "Visiter le joyau d'architecture banco du delta intérieur",
                 "xpRecompense": 100,
                 "rarete": "Épique",
-                "totalDebloquesParEleves": 620,
-                "tauxDeblocage": 30,
-                "actif": True,
                 "couleurAccent": "#F59E0B",
             },
             {
@@ -2017,9 +2002,6 @@ class CultureService:
                 "conditionDeblocage": "Consulter un extrait des manuscrits anciens de Tombouctou",
                 "xpRecompense": 120,
                 "rarete": "Légendaire",
-                "totalDebloquesParEleves": 410,
-                "tauxDeblocage": 19,
-                "actif": True,
                 "couleurAccent": "#EF4444",
             },
             {
@@ -2032,9 +2014,6 @@ class CultureService:
                 "conditionDeblocage": "Découvrir la grandeur de Sonni Ali Ber et de l'Askia Mohamed",
                 "xpRecompense": 110,
                 "rarete": "Épique",
-                "totalDebloquesParEleves": 480,
-                "tauxDeblocage": 23,
-                "actif": True,
                 "couleurAccent": "#14B8A6",
             },
             {
@@ -2047,9 +2026,6 @@ class CultureService:
                 "conditionDeblocage": "Participer à une veillée sous la tente aux étoiles",
                 "xpRecompense": 90,
                 "rarete": "Rare",
-                "totalDebloquesParEleves": 310,
-                "tauxDeblocage": 15,
-                "actif": True,
                 "couleurAccent": "#06B6D4",
             },
             {
@@ -2062,9 +2038,6 @@ class CultureService:
                 "conditionDeblocage": "Compléter le grand périple saharien",
                 "xpRecompense": 130,
                 "rarete": "Légendaire",
-                "totalDebloquesParEleves": 190,
-                "tauxDeblocage": 9,
-                "actif": True,
                 "couleurAccent": "#84CC16",
             },
             {
@@ -2077,16 +2050,31 @@ class CultureService:
                 "conditionDeblocage": "Partager un proverbe de concorde communautaire",
                 "xpRecompense": 85,
                 "rarete": "Rare",
-                "totalDebloquesParEleves": 280,
-                "tauxDeblocage": 13,
-                "actif": True,
                 "couleurAccent": "#EAB308",
             },
         ]
 
+        result = []
+        for r in regions_config:
+            debloques = (
+                db.query(CultureDecouverte)
+                .join(CultureMonument, CultureDecouverte.monument_id == CultureMonument.id)
+                .filter(CultureMonument.region_id == r["regionId"])
+                .count()
+            )
+            taux = round((debloques / total_eleves) * 100) if total_eleves > 0 else 0
+            item = dict(r)
+            item["totalDebloquesParEleves"] = debloques
+            item["tauxDeblocage"] = min(100, taux)
+            item["actif"] = True
+            result.append(item)
+
+        return result
+
     @staticmethod
     def get_niveaux(db: Session) -> list[dict[str, Any]]:
-        """Fournit les paliers de progression d'exploration du patrimoine malien."""
+        """Fournit les paliers de progression d'exploration du patrimoine malien calculés sur les apprenants réels."""
+        total_eleves = db.query(Apprenant).count()
         return [
             {
                 "niveau": 1,
@@ -2094,7 +2082,7 @@ class CultureService:
                 "seuilXp": 0,
                 "badgeNom": "Premier Pas Patrimoine",
                 "couleur": "#10B981",
-                "nombreElevesAtteints": 2150,
+                "nombreElevesAtteints": total_eleves,
             },
             {
                 "niveau": 2,
@@ -2102,7 +2090,7 @@ class CultureService:
                 "seuilXp": 150,
                 "badgeNom": "Navigateur Fluvial",
                 "couleur": "#0284c7",
-                "nombreElevesAtteints": 1420,
+                "nombreElevesAtteints": 0,
             },
             {
                 "niveau": 3,
@@ -2110,7 +2098,7 @@ class CultureService:
                 "seuilXp": 400,
                 "badgeNom": "Protecteur des Coutumes",
                 "couleur": "#8B5CF6",
-                "nombreElevesAtteints": 890,
+                "nombreElevesAtteints": 0,
             },
             {
                 "niveau": 4,
@@ -2118,7 +2106,7 @@ class CultureService:
                 "seuilXp": 800,
                 "badgeNom": "Scribe des Manuscrits",
                 "couleur": "#F59E0B",
-                "nombreElevesAtteints": 430,
+                "nombreElevesAtteints": 0,
             },
             {
                 "niveau": 5,
@@ -2126,77 +2114,7 @@ class CultureService:
                 "seuilXp": 1500,
                 "badgeNom": "Grand Sage de la Nation",
                 "couleur": "#EF4444",
-                "nombreElevesAtteints": 125,
+                "nombreElevesAtteints": 0,
             },
         ]
-
-    @staticmethod
-    def seed_sample_contributions(db: Session) -> None:
-        """Garantit la présence de contributions citoyennes de démonstration prêtes pour la modération."""
-        if db.query(CultureContribution).count() == 0:
-            c1 = CultureContribution(
-                id="contrib-prov-001",
-                auteur_nom="Amadou Diallo",
-                auteur_id="appr-amadou-diallo",
-                auteur_role="Apprenant (11ème LBAD)",
-                type_contenu="proverbe",
-                texte="Mogoya de bè dounan kô (L'humanité et la noblesse d'âme surpassent toute richesse matérielle).",
-                texte_original="Mɔgɔya de bɛ dunan kɔ.",
-                signification="Ce proverbe enseigne que la dignité, le respect d'autrui et la solidarité sont les véritables richesses léguées par nos ancêtres.",
-                morale="Cultiver le Danbé (la dignité) et l'entraide communautaire.",
-                origine="Tradition Mandingue — Cercle de Kangaba",
-                theme="Sagesse & Dignité",
-                region_id="koulikoro",
-                region_nom="Koulikoro",
-                source_temoin="Transmis par mon grand-père cultivateur à Kangaba",
-                statut="EN_ATTENTE",
-                xp_attribues=50,
-                pieces_attribuees=25,
-                date_soumission=datetime.now(UTC),
-            )
-            c2 = CultureContribution(
-                id="contrib-dev-002",
-                auteur_nom="Fatoumata Traoré",
-                auteur_id="appr-fatou-traore",
-                auteur_role="Apprenante (Collège de Ségou)",
-                type_contenu="devinette",
-                texte="« N'Da ! » — « N'Da n'sira ! » Je cours sans jambes, je traverse les fleuves et les falaises sans me noyer, et nul ne peut m'enfermer dans une calebasse. Qui suis-je ?",
-                texte_original="« N'Da ! » — « N'Da n'sira ! »",
-                signification="Énigme populaire des veillées d'enfants au clair de lune le long du fleuve Niger à Ségou.",
-                morale="Le Vent (Fonyo)",
-                origine="Royaume Bambara de Ségou",
-                theme="Éléments de la Nature",
-                region_id="segou",
-                region_nom="Ségou",
-                source_temoin="Veillée de contes de mon arrière-grand-mère à Ségou-Koro",
-                statut="EN_ATTENTE",
-                xp_attribues=40,
-                pieces_attribuees=20,
-                date_soumission=datetime.now(UTC),
-            )
-            c3 = CultureContribution(
-                id="contrib-mon-003",
-                auteur_nom="Sékou Coulibaly",
-                auteur_id="appr-sekou-coulibaly",
-                auteur_role="Apprenant (Lycée Kénédougou)",
-                type_contenu="monument",
-                titre="Le Tata de Sikasso — Tracé des Remparts de Babemba",
-                texte="Le Tata de Sikasso est la formidable muraille défensive érigée par le roi Tiéba Traoré puis renforcée par son frère Babemba pour résister aux assauts de Samory Touré puis des troupes coloniales.",
-                texte_original="Sikaso Tata",
-                signification="Symbole de bravoure, de résistance inébranlable et du serment historique : « Sayi an ka fisa ni malo ye » (Plutôt la mort que la honte).",
-                morale="Résistance et sacrifice pour la patrie.",
-                origine="Royaume du Kénédougou",
-                theme="Patrimoine Militaire & Historique",
-                region_id="sikasso",
-                region_nom="Sikasso",
-                source_temoin="Visite guidée avec l'association des jeunes historiens de Sikasso",
-                photo_url="assets/images/culture/monuments/tata_sikasso.jpg",
-                statut="EN_ATTENTE",
-                xp_attribues=80,
-                pieces_attribuees=40,
-                date_soumission=datetime.now(UTC),
-            )
-            db.add_all([c1, c2, c3])
-            db.commit()
-            logger.info("Données de démonstration pour les contributions citoyennes insérées avec succès.")
 

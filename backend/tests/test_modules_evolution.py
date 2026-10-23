@@ -16,9 +16,8 @@ if str(root_dir) not in sys.path:
 from backend.src.main import app
 from backend.src.db.database import init_db, SessionLocal
 from backend.src.services.wallet_service import (
-    get_or_create_wallet,
     credit_coins,
-    get_wallet_summary,
+    get_or_create_wallet,
 )
 
 client = TestClient(app)
@@ -299,3 +298,39 @@ def test_podcast_generation_from_text():
     assert "full_script" in data
     assert len(data["chapters"]) >= 2
     assert len(data["key_takeaways"]) >= 2
+
+
+def teardown_module():
+    """Nettoie toutes les données temporaires créées par la suite de tests pour ne pas polluer la base."""
+    from backend.src.db.database import SessionLocal
+    from backend.src.db.models import (
+        AbonnementUtilisateur,
+        Apprenant,
+        DemandeRetrait,
+        JournalAuditSecurite,
+        ParrainageCode,
+        ParrainageFilleul,
+        ParticipationDefiNational,
+        Portefeuille,
+        TransactionPiece,
+    )
+
+    db = SessionLocal()
+    try:
+        real_learners = [r[0] for r in db.query(Apprenant.id).all()]
+        db.query(TransactionPiece).filter(TransactionPiece.apprenant_id.notin_(real_learners)).delete(synchronize_session=False)
+        db.query(DemandeRetrait).filter(DemandeRetrait.apprenant_id.notin_(real_learners)).delete(synchronize_session=False)
+        db.query(ParrainageFilleul).filter(ParrainageFilleul.parrain_id.notin_(real_learners)).delete(synchronize_session=False)
+        db.query(ParrainageCode).filter(ParrainageCode.apprenant_id.notin_(real_learners)).delete(synchronize_session=False)
+        db.query(AbonnementUtilisateur).filter(AbonnementUtilisateur.apprenant_id.notin_(real_learners)).delete(synchronize_session=False)
+        db.query(ParticipationDefiNational).filter(ParticipationDefiNational.apprenant_id.notin_(real_learners)).delete(synchronize_session=False)
+        db.query(Portefeuille).filter(Portefeuille.apprenant_id.notin_(real_learners)).delete(synchronize_session=False)
+        db.query(JournalAuditSecurite).filter(
+            (JournalAuditSecurite.adresse_ip == "testclient")
+            | (JournalAuditSecurite.admin_id_ou_systeme.like("test%"))
+            | (JournalAuditSecurite.admin_id_ou_systeme == "admin_test")
+        ).delete(synchronize_session=False)
+        db.commit()
+    finally:
+        db.close()
+

@@ -11,7 +11,6 @@ Vérifie la présence et le bon fonctionnement de tous les endpoints :
 
 import sys
 from pathlib import Path
-import pytest
 from fastapi.testclient import TestClient
 
 root_dir = Path(__file__).resolve().parents[2]
@@ -222,3 +221,20 @@ def test_contributions_all_pillars():
         )
         assert mod.status_code == 200, f"Erreur modération pilier {p['type_contenu']}: {mod.text}"
         assert mod.json()["statut"] == "APPROUVE"
+
+
+def teardown_module():
+    """Supprime les contributions temporaires créées par la suite de tests."""
+    from backend.src.db.database import SessionLocal
+    from backend.src.db.models import CultureContribution
+
+    db = SessionLocal()
+    try:
+        db.query(CultureContribution).filter(
+            (CultureContribution.auteur_id == None)
+            | (CultureContribution.auteur_nom.in_(["Amadou Diarra", "Contributeur AlternIA"]))
+        ).delete(synchronize_session=False)
+        db.commit()
+    finally:
+        db.close()
+

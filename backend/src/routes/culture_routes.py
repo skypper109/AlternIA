@@ -43,13 +43,6 @@ class AskGuideRequest(BaseModel):
         extra = "allow"
 
 
-class SageChatRequest(BaseModel):
-    user_message: str = Field(..., description="Message de l'apprenant à Grand-mère Mah")
-    history: list[dict[str, str]] | None = Field(default=[], description="Historique de la conversation")
-    additional_context: str | None = Field(None, description="Contexte régional ou patrimonial")
-
-    class Config:
-        extra = "allow"
 
 
 class SageChatRequest(BaseModel):
@@ -426,11 +419,6 @@ def get_cultural_contributions(
     """
     Récupère la liste des contributions culturelles pour l'historique utilisateur ou la modération.
     """
-    try:
-        CultureService.seed_sample_contributions(db)
-    except Exception:
-        pass
-
     data = CultureService.list_contributions(
         db=db,
         statut=statut,
@@ -505,21 +493,152 @@ def get_cms_catalogue(db: Session = Depends(get_db)):
 @router.post("")
 @router.post("/")
 def create_cms_item(payload: dict[str, Any], db: Session = Depends(get_db)):
-    """Crée un nouvel élément culturel dans le catalogue éditorial."""
-    return {"success": True, "message": "Contenu enregistré avec succès", "item": payload}
+    """Crée un nouvel élément culturel dans le catalogue éditorial en base de données."""
+    import uuid
+    from datetime import UTC, datetime
+    from backend.src.db.models import CultureConte, CultureLieu, CultureMonument, CulturePersonnage, CultureProverbe
+
+    item_type = payload.get("type", "monument")
+    item_id = payload.get("id") or f"{item_type}_{uuid.uuid4().hex[:8]}"
+    payload["id"] = item_id
+
+    if item_type == "monument":
+        obj = CultureMonument(
+            id=item_id,
+            nom=payload.get("nom", "Nouveau Monument"),
+            sous_titre=payload.get("sousTitre", ""),
+            region_id=payload.get("regionId", "bamako"),
+            region_nom=payload.get("regionNom", "Bamako"),
+            ville=payload.get("ville", "Bamako"),
+            epoque=payload.get("ere") or payload.get("epoque", ""),
+            style_architectural=payload.get("architectureEtMateriaux", ""),
+            details_localisation=payload.get("localisationDetails", ""),
+            photo_url=payload.get("photoUrl", ""),
+            tag=payload.get("tag", "Patrimoine National"),
+            recit_historique=payload.get("presentation", ""),
+            pourquoi_ce_lieu_compte=payload.get("pourquoiCestImportant", ""),
+            date_mise_a_jour=datetime.now(UTC),
+        )
+        db.add(obj)
+    elif item_type == "personnage":
+        obj = CulturePersonnage(
+            id=item_id,
+            nom=payload.get("nom", "Nouvelle Figure"),
+            titre=payload.get("titre", ""),
+            epoque=payload.get("epoque", ""),
+            region_id=payload.get("regionId", "bamako"),
+            region_nom=payload.get("regionNom", "Mali"),
+            role_historique=payload.get("roleHistorique", ""),
+            biographie=payload.get("biographie", ""),
+            photo_url=payload.get("photoUrl", ""),
+            tag=payload.get("tag", "Figure Historique"),
+            date_creation=datetime.now(UTC),
+        )
+        db.add(obj)
+    elif item_type in ("ville", "lieu"):
+        obj = CultureLieu(
+            id=item_id,
+            nom=payload.get("nom", "Nouvelle Cité"),
+            sous_titre=payload.get("sousTitre", ""),
+            region_id=payload.get("regionId", "bamako"),
+            region_nom=payload.get("regionNom", "Mali"),
+            fondation=payload.get("fondation", ""),
+            resume=payload.get("resume", ""),
+            photo_url=payload.get("photoUrl", ""),
+            tag=payload.get("tag", "Cité Millénaire"),
+            date_creation=datetime.now(UTC),
+        )
+        db.add(obj)
+    elif item_type == "conte":
+        obj = CultureConte(
+            id=item_id,
+            titre=payload.get("titre", "Nouveau Conte"),
+            sous_titre=payload.get("sousTitre", ""),
+            origine=payload.get("origine", "Tradition Orale"),
+            region_id=payload.get("regionId", "bamako"),
+            region_nom=payload.get("regionNom", "Mali"),
+            photo_url=payload.get("photoUrl", ""),
+            tag=payload.get("tag", "Conte"),
+            resume=payload.get("resume", ""),
+            morale=payload.get("morale", ""),
+            date_creation=datetime.now(UTC),
+        )
+        db.add(obj)
+    elif item_type in ("proverbe", "devinette"):
+        obj = CultureProverbe(
+            id=item_id,
+            texte=payload.get("enigmeTexte") or payload.get("texte", ""),
+            texte_original=payload.get("formuleIntro") or payload.get("texte_original", ""),
+            signification=payload.get("explicationCulturelle") or payload.get("signification", ""),
+            morale=payload.get("bonneReponse") or payload.get("morale", ""),
+            theme="Jeu de Devinettes" if item_type == "devinette" else payload.get("categorie", "Sagesse"),
+            region_id=payload.get("regionId", "bamako"),
+            region_nom=payload.get("regionNom", "Mali"),
+        )
+        db.add(obj)
+
+    db.commit()
+    return {"success": True, "message": "Contenu enregistré avec succès en base de données", "item": payload}
 
 
 @router.put("/{item_id}")
 def update_cms_item(item_id: str, payload: dict[str, Any], db: Session = Depends(get_db)):
-    """Met à jour un élément culturel existant."""
+    """Met à jour un élément culturel existant en base de données."""
+    from backend.src.db.models import CultureConte, CultureLieu, CultureMonument, CulturePersonnage, CultureProverbe
+
     payload["id"] = item_id
+    m = db.query(CultureMonument).filter(CultureMonument.id == item_id).first()
+    if m:
+        if "nom" in payload: m.nom = payload["nom"]
+        if "sousTitre" in payload: m.sous_titre = payload["sousTitre"]
+        if "presentation" in payload: m.recit_historique = payload["presentation"]
+        db.commit()
+        return {"success": True, "message": f"Monument '{item_id}' mis à jour", "item": payload}
+
+    p = db.query(CulturePersonnage).filter(CulturePersonnage.id == item_id).first()
+    if p:
+        if "nom" in payload: p.nom = payload["nom"]
+        if "biographie" in payload: p.biographie = payload["biographie"]
+        db.commit()
+        return {"success": True, "message": f"Personnage '{item_id}' mis à jour", "item": payload}
+
+    l = db.query(CultureLieu).filter(CultureLieu.id == item_id).first()
+    if l:
+        if "nom" in payload: l.nom = payload["nom"]
+        if "resume" in payload: l.resume = payload["resume"]
+        db.commit()
+        return {"success": True, "message": f"Lieu '{item_id}' mis à jour", "item": payload}
+
+    c = db.query(CultureConte).filter(CultureConte.id == item_id).first()
+    if c:
+        if "titre" in payload: c.titre = payload["titre"]
+        if "resume" in payload: c.resume = payload["resume"]
+        db.commit()
+        return {"success": True, "message": f"Conte '{item_id}' mis à jour", "item": payload}
+
+    pr = db.query(CultureProverbe).filter(CultureProverbe.id == item_id).first()
+    if pr:
+        if "texte" in payload or "enigmeTexte" in payload:
+            pr.texte = payload.get("enigmeTexte") or payload.get("texte")
+        db.commit()
+        return {"success": True, "message": f"Proverbe/Devinette '{item_id}' mis à jour", "item": payload}
+
     return {"success": True, "message": f"Contenu '{item_id}' mis à jour", "item": payload}
 
 
 @router.delete("/{item_id}")
 def delete_cms_item(item_id: str, db: Session = Depends(get_db)):
-    """Supprime un élément du catalogue éditorial."""
-    return {"success": True, "message": f"Contenu '{item_id}' supprimé"}
+    """Supprime un élément du catalogue éditorial en base de données."""
+    from backend.src.db.models import CultureConte, CultureLieu, CultureMonument, CulturePersonnage, CultureProverbe
+
+    for model in (CultureMonument, CulturePersonnage, CultureLieu, CultureConte, CultureProverbe):
+        row = db.query(model).filter(model.id == item_id).first()
+        if row:
+            db.delete(row)
+            db.commit()
+            return {"success": True, "message": f"Contenu '{item_id}' supprimé de la base de données"}
+
+    return {"success": True, "message": f"Contenu '{item_id}' non trouvé en base"}
 
 
 @router.patch("/{item_id}/statut")
@@ -530,7 +649,7 @@ def toggle_cms_item_status(item_id: str, db: Session = Depends(get_db)):
 
 @router.get("/tampons")
 def get_passeport_tampons(db: Session = Depends(get_db)):
-    """Fournit les tampons du Passeport Culturel (11 régions du Mali)."""
+    """Fournit les tampons du Passeport Culturel (11 régions du Mali) calculés en temps réel."""
     return CultureService.get_tampons(db)
 
 
