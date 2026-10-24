@@ -75,6 +75,16 @@ def get_device_info():
     }
 
 
+_tts_instances: dict[str, TTSEngine] = {}
+
+
+def get_cached_tts_engine(voice: str) -> TTSEngine:
+    global _tts_instances
+    if voice not in _tts_instances:
+        _tts_instances[voice] = TTSEngine(voice=voice)
+    return _tts_instances[voice]
+
+
 @router.post("/api/tts")
 async def tts_post_endpoint(req: TTSRequest):
     """Synthèse vocale neurale haute fidélité (POST JSON body)."""
@@ -82,12 +92,16 @@ async def tts_post_endpoint(req: TTSRequest):
         raise HTTPException(status_code=400, detail="Texte manquant pour la synthèse vocale")
 
     voice_name = req.voice or settings.tts_voice or "vivienne"
-    tts_engine = TTSEngine(voice=voice_name)
+    tts_engine = get_cached_tts_engine(voice=voice_name)
     try:
         audio_bytes = await tts_engine.synthesize_to_bytes(req.text)
         if not audio_bytes:
             raise HTTPException(status_code=500, detail="Échec de la synthèse vocale")
-        return Response(content=audio_bytes, media_type="audio/mpeg")
+        return Response(
+            content=audio_bytes,
+            media_type="audio/mpeg",
+            headers={"Content-Length": str(len(audio_bytes))}
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur TTS : {str(e)}")
 
@@ -98,12 +112,16 @@ async def tts_get_endpoint(text: str, voice: Optional[str] = "vivienne"):
     if not text.strip():
         raise HTTPException(status_code=400, detail="Texte manquant pour la synthèse vocale")
 
-    tts_engine = TTSEngine(voice=voice or settings.tts_voice or "vivienne")
+    tts_engine = get_cached_tts_engine(voice=voice or settings.tts_voice or "vivienne")
     try:
         audio_bytes = await tts_engine.synthesize_to_bytes(text)
         if not audio_bytes:
             raise HTTPException(status_code=500, detail="Échec de la synthèse vocale")
-        return Response(content=audio_bytes, media_type="audio/mpeg")
+        return Response(
+            content=audio_bytes,
+            media_type="audio/mpeg",
+            headers={"Content-Length": str(len(audio_bytes))}
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur TTS : {str(e)}")
 

@@ -701,10 +701,11 @@ class HardwareController:
         body.extend(b"\r\n")
         body.extend(f"--{boundary}--\r\n".encode("utf-8"))
 
-        urls_to_try = [
-            f"{LOCAL_API_URL.rstrip('/')}/api/stt",
-            f"{REMOTE_API_URL.rstrip('/')}/api/stt"
-        ]
+        urls_to_try = []
+        if REMOTE_API_URL:
+            urls_to_try.append(f"{REMOTE_API_URL.rstrip('/')}/api/stt")
+        if LOCAL_API_URL and LOCAL_API_URL != REMOTE_API_URL:
+            urls_to_try.append(f"{LOCAL_API_URL.rstrip('/')}/api/stt")
 
         for url in urls_to_try:
             try:
@@ -712,7 +713,7 @@ class HardwareController:
                 req = urllib.request.Request(url, data=body, method="POST")
                 req.add_header("Content-Type", f"multipart/form-data; boundary={boundary}")
                 req.add_header("User-Agent", BROWSER_USER_AGENT)
-                with urllib.request.urlopen(req, timeout=12) as resp:
+                with urllib.request.urlopen(req, timeout=20) as resp:
                     data = json.loads(resp.read().decode("utf-8"))
                     text = data.get("text", "")
                     if text:
@@ -731,10 +732,11 @@ class HardwareController:
             "session_id": "box_voice_session"
         }).encode("utf-8")
 
-        urls_to_try = [
-            f"{LOCAL_API_URL.rstrip('/')}/api/ask",
-            f"{REMOTE_API_URL.rstrip('/')}/api/ask"
-        ]
+        urls_to_try = []
+        if REMOTE_API_URL:
+            urls_to_try.append(f"{REMOTE_API_URL.rstrip('/')}/api/ask")
+        if LOCAL_API_URL and LOCAL_API_URL != REMOTE_API_URL:
+            urls_to_try.append(f"{LOCAL_API_URL.rstrip('/')}/api/ask")
 
         for url in urls_to_try:
             try:
@@ -742,7 +744,7 @@ class HardwareController:
                 req = urllib.request.Request(url, data=payload, method="POST")
                 req.add_header("Content-Type", "application/json")
                 req.add_header("User-Agent", BROWSER_USER_AGENT)
-                with urllib.request.urlopen(req, timeout=15) as resp:
+                with urllib.request.urlopen(req, timeout=25) as resp:
                     data = json.loads(resp.read().decode("utf-8"))
                     answer = data.get("response") or data.get("answer") or data.get("text") or ""
                     if answer:
@@ -752,33 +754,63 @@ class HardwareController:
                 continue
         return ""
 
+    @staticmethod
+    def _extract_vocal_summary(text: str, max_words: int = 35) -> str:
+        """
+        Extrait une formulation vocale concise et percutante (1-2 phrases, max 30-35 mots).
+        Parfait pour le haut-parleur physique :
+        - Synthèse ultra-rapide (2 à 3 secondes)
+        - Élocution claire et dynamique sans noyer l'élève sous un pavé de texte.
+        """
+        import re
+        clean = text.replace("**", "").replace("#", "").replace("`", "").replace("---", "").strip()
+        clean = re.sub(r"^[-*•]\s+", "", clean, flags=re.MULTILINE)
+        sentences = re.split(r'(?<=[.!?])\s+', clean)
+        chosen = []
+        words_count = 0
+        for s in sentences:
+            s_str = s.strip()
+            if not s_str:
+                continue
+            cnt = len(s_str.split())
+            if words_count + cnt <= max_words or not chosen:
+                chosen.append(s_str)
+                words_count += cnt
+            else:
+                break
+        res = " ".join(chosen).strip()
+        return res if res else clean[:150]
+
     def _synthesize_speech(self, text: str, output_path: Path) -> bool:
         """Génère le fichier audio MP3 de la réponse via /api/tts."""
-        clean_text = text.replace("**", "").replace("#", "").replace("`", "").strip()
-        words = clean_text.split()
-        if len(words) > 80:
-            clean_text = " ".join(words[:80]) + "..."
+        clean_text = self._extract_vocal_summary(text, max_words=32)
+        print(f"🎙️ [TTS Extrait Parlé] « {clean_text} » ({len(clean_text.split())} mots)")
 
         payload = json.dumps({"text": clean_text, "voice": "vivienne"}).encode("utf-8")
 
-        urls_to_try = [
-            f"{LOCAL_API_URL.rstrip('/')}/api/tts",
-            f"{REMOTE_API_URL.rstrip('/')}/api/tts"
-        ]
+        urls_to_try = []
+        if REMOTE_API_URL:
+            urls_to_try.append(f"{REMOTE_API_URL.rstrip('/')}/api/tts")
+        if LOCAL_API_URL and LOCAL_API_URL != REMOTE_API_URL:
+            urls_to_try.append(f"{LOCAL_API_URL.rstrip('/')}/api/tts")
 
         for url in urls_to_try:
+            t0 = time.time()
             try:
                 print(f"🎙️ [TTS] Synthèse de la voix vers : {url}...")
                 req = urllib.request.Request(url, data=payload, method="POST")
                 req.add_header("Content-Type", "application/json")
                 req.add_header("User-Agent", BROWSER_USER_AGENT)
-                with urllib.request.urlopen(req, timeout=15) as resp:
+                with urllib.request.urlopen(req, timeout=30) as resp:
                     audio_bytes = resp.read()
                     if len(audio_bytes) > 500:
                         output_path.write_bytes(audio_bytes)
+                        elapsed = time.time() - t0
+                        print(f"✅ [TTS] Audio reçu en {elapsed:.2f}s ({len(audio_bytes)} octets)")
                         return True
             except Exception as exc:
-                print(f"⚠️ [TTS] Échec sur {url} : {exc}")
+                elapsed = time.time() - t0
+                print(f"⚠️ [TTS] Échec sur {url} après {elapsed:.2f}s : {exc}")
                 continue
         return False
 
