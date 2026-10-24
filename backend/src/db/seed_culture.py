@@ -369,7 +369,7 @@ MONUMENTS_DATA = [
         "statut_validation": "Validé",
     },
     {
-        "id": "monument_grande_mosquee_bamako",
+        "id": "monument_mosquee_bamako",
         "nom": "Grande Mosquée de Bamako",
         "sous_titre": "Le Phare Spirituel au Cœur du Bozola",
         "region_id": "bamako",
@@ -394,7 +394,7 @@ MONUMENTS_DATA = [
         "recit_historique": "Point de ralliement des grandes prières du vendredi et des fêtes de l'Aïd, elle est le principal édifice musulman de la capitale.",
         "narration_audio_texte": "La Grande Mosquée de Bamako dresse ses minarets au cœur du quartier historique de Bozola. Elle symbolise la foi profonde et le rayonnement de la culture islamique malienne.",
         "pourquoi_ce_lieu_compte": "Épicentre de la vie religieuse et communautaire de Bamako.",
-        "route_path": "/culture/monument/monument_grande_mosquee_bamako",
+        "route_path": "/culture/monument/monument_mosquee_bamako",
         "modele_3d_url": None,
         "ar_disponible": False,
         "statut_validation": "Validé",
@@ -885,7 +885,7 @@ PERSONNAGES_DATA = [
         ],
     },
     {
-        "id": "perso_babemba_traore",
+        "id": "perso_babemba",
         "nom": "Babemba Traoré",
         "titre_honorifique": "Le Roi Héroïque du Kénédougou & Héros de Sikasso",
         "periode": "1855 – 1898",
@@ -1239,7 +1239,9 @@ def seed_culture_data(db: Session, force: bool = False):
 
         # 1. Insertion des Monuments (Bamako & National)
         for m in MONUMENTS_DATA:
-            existing = db.query(CultureMonument).filter(CultureMonument.id == m["id"]).first()
+            existing = db.query(CultureMonument).filter(
+                (CultureMonument.id == m["id"]) | (CultureMonument.nom == m["nom"])
+            ).first()
             if not existing:
                 db.add(CultureMonument(
                     id=m["id"],
@@ -1272,7 +1274,9 @@ def seed_culture_data(db: Session, force: bool = False):
 
         # 2. Insertion des Personnages
         for p in PERSONNAGES_DATA:
-            existing = db.query(CulturePersonnage).filter(CulturePersonnage.id == p["id"]).first()
+            existing = db.query(CulturePersonnage).filter(
+                (CulturePersonnage.id == p["id"]) | (CulturePersonnage.nom == p["nom"])
+            ).first()
             if not existing:
                 db.add(CulturePersonnage(
                     id=p["id"],
@@ -1294,7 +1298,9 @@ def seed_culture_data(db: Session, force: bool = False):
 
         # 3. Insertion des Villes et Terroirs
         for l in LIEUX_DATA:
-            existing = db.query(CultureLieu).filter(CultureLieu.id == l["id"]).first()
+            existing = db.query(CultureLieu).filter(
+                (CultureLieu.id == l["id"]) | (CultureLieu.nom == l["nom"])
+            ).first()
             if not existing:
                 db.add(CultureLieu(
                     id=l["id"],
@@ -1317,7 +1323,9 @@ def seed_culture_data(db: Session, force: bool = False):
 
         # 4. Insertion des Contes
         for c in CONTES_DATA:
-            existing = db.query(CultureConte).filter(CultureConte.id == c["id"]).first()
+            existing = db.query(CultureConte).filter(
+                (CultureConte.id == c["id"]) | (CultureConte.titre == c["titre"])
+            ).first()
             if not existing:
                 db.add(CultureConte(
                     id=c["id"],

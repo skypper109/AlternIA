@@ -224,9 +224,12 @@ def test_contributions_all_pillars():
 
 
 def teardown_module():
-    """Supprime les contributions temporaires créées par la suite de tests."""
+    """Supprime les contributions temporaires créées par la suite de tests ainsi que les promotions test."""
     from backend.src.db.database import SessionLocal
-    from backend.src.db.models import CultureContribution
+    from backend.src.db.models import (
+        CultureContribution, CultureMonument, CulturePersonnage,
+        CultureLieu, CultureConte, CultureProverbe
+    )
 
     db = SessionLocal()
     try:
@@ -234,7 +237,13 @@ def teardown_module():
             (CultureContribution.auteur_id == None)
             | (CultureContribution.auteur_nom.in_(["Amadou Diarra", "Contributeur AlternIA"]))
         ).delete(synchronize_session=False)
+
+        # Nettoyage rigoureux des entités promues lors des tests
+        for model in (CultureMonument, CulturePersonnage, CultureLieu, CultureConte, CultureProverbe):
+            db.query(model).filter(model.id.like("contrib_%")).delete(synchronize_session=False)
+
         db.commit()
     finally:
         db.close()
+
 
