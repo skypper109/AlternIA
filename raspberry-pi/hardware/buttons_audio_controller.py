@@ -401,6 +401,8 @@ class HardwareController:
 
         # Processus de lecture audio en cours pour interruption propre
         self.current_player_proc: Optional[subprocess.Popen] = None
+        self.is_speaking = False
+        self.active_cycle_id: Optional[str] = None
 
         # Contrôleur LED
         self.led = TricolorLedController(
@@ -548,22 +550,27 @@ class HardwareController:
 
     def on_press_mic_toggle(self):
         """
-        Bouton 4 : Micro Bistable (Toggle)
-        • 1er Clic : Démarre l'enregistrement audio (LED passe en ROUGE vif pulsant)
-        • 2ème Clic : Coupe l'enregistrement et déclenche l'envoi au tuteur IA
+        Bouton 4 : Micro (Interruption instantanée & Écoute)
+        • Si ALTA est en train de parler OU de réfléchir : on coupe immédiatement et on passe en écoute !
+        • Si ALTA est en cours d'enregistrement (LED rouge) : 2ème clic = fin et envoi.
+        • Si ALTA est en veille : 1er clic = début d'enregistrement.
         """
         notify_activity()
 
-        if not self.is_recording:
-            # ── 1er CLIC : DÉBUT D'ENREGISTREMENT ──
-            self.start_recording()
-        else:
+        if self.is_recording:
             # ── 2ème CLIC : FIN ET ENVOI ──
             self.stop_recording_and_process()
+        else:
+            # ── 1er CLIC OU INTERRUPTION DE PAROLE : ÉCOUTE IMMÉDIATE ──
+            self.start_recording()
 
     def start_recording(self):
-        """Démarre la capture audio ALSA et active la LED rouge."""
-        self.stop_sound()  # Coupe immédiatement la parole d'ALTA si elle parlait
+        """Démarre la capture audio ALSA et active la LED rouge (avec interruption prioritaire)."""
+        # 1. Annuler tout cycle IA en cours (pensée, synthèse ou parole)
+        self.active_cycle_id = None
+        self.stop_sound()
+        time.sleep(0.12)  # Laisser le temps au noyau ALSA de libérer le périphérique plughw:2,0
+
         self.is_recording = True
         self.recording_start_time = time.time()
 
@@ -579,7 +586,7 @@ class HardwareController:
         self.led.set_recording()
 
         print("\n" + "═" * 70)
-        print("🎙️ [Micro - Clic 1] ENREGISTREMENT DÉMARRÉ ! Parlez maintenant...")
+        print("🎙️ [Micro - Écoute active] ENREGISTREMENT DÉMARRÉ ! Parlez maintenant...")
         print("   👉 Cliquez à nouveau sur le bouton Micro pour couper et envoyer.")
         print("═" * 70)
 
@@ -634,26 +641,32 @@ class HardwareController:
         # Passer immédiatement la LED en mode Réflexion IA (Violet pulsant)
         self.led.set_thinking()
 
+        # Attribuer un identifiant unique à ce cycle pour annulation en cas d'interruption
+        cycle_id = uuid.uuid4().hex
+        self.active_cycle_id = cycle_id
+
         # Traitement complet en tâche de fond pour garder les boutons réactifs
-        threading.Thread(target=self._process_and_respond, daemon=True).start()
+        threading.Thread(target=self._process_and_respond, args=(cycle_id,), daemon=True).start()
 
     # ──────────────────────────────────────────────────────────────────────────
     # TRAITEMENT VOCAL COMPLET (STT -> QUESTION IA -> TTS -> HAUT-PARLEUR)
     # ──────────────────────────────────────────────────────────────────────────
 
-    def _process_and_respond(self):
+    def _process_and_respond(self, cycle_id: str):
         """Exécute la chaîne complète vocale de bout en bout."""
         time.sleep(0.1)  # Laisser le temps à ALSA de finaliser le fichier WAV
 
         if not AUDIO_RECORDING_PATH.exists():
             print("⚠️ Aucun fichier audio enregistré trouvé.")
-            self.led.restore_idle()
+            if not self.is_recording:
+                self.led.restore_idle()
             return
 
         file_size = AUDIO_RECORDING_PATH.stat().st_size
         if file_size < 1200:
             print(f"⚠️ Enregistrement trop court ({file_size} octets). Parlez un peu plus longtemps.")
-            self.led.restore_idle()
+            if not self.is_recording:
+                self.led.restore_idle()
             return
 
         notify_activity()
@@ -661,33 +674,49 @@ class HardwareController:
         try:
             # 1. Étape Transcription (STT)
             transcription = self._transcribe_audio(AUDIO_RECORDING_PATH)
+            if self.active_cycle_id != cycle_id or self.is_recording:
+                print("ℹ️ [Cycle IA] Interrompu pendant la transcription.")
+                return
+
             if not transcription or not transcription.strip():
                 print("ℹ️ Aucune parole intelligible détectée.")
-                self.led.restore_idle()
+                if not self.is_recording:
+                    self.led.restore_idle()
                 return
 
             print(f"📝 [Transcription Écolier] « {transcription} »")
 
             # 2. Étape Consultation Tuteur IA (/api/ask)
             ai_answer = self._ask_tutor(transcription, self.current_class)
-            if not ai_answer or not ai_answer.strip():
-                print("⚠️ Réponse du tuteur vide.")
-                self.led.restore_idle()
+            if self.active_cycle_id != cycle_id or self.is_recording:
+                print("ℹ️ [Cycle IA] Interrompu pendant la consultation de l'IA.")
                 return
 
-            print(f"💡 [Réponse Tuteur IA] « {ai_answer[:120]}... »")
+            if not ai_answer or not ai_answer.strip():
+                print("⚠️ Réponse du tuteur vide.")
+                if not self.is_recording:
+                    self.led.restore_idle()
+                return
 
-            # 3. Étape Synthèse Vocale (TTS)
+            print(f"💡 [Réponse Tuteur IA] « {ai_answer[:140]}... »")
+
+            # 3. Étape Synthèse Vocale (TTS) avec détails complets
             tts_success = self._synthesize_speech(ai_answer, AUDIO_OUTPUT_PATH)
+            if self.active_cycle_id != cycle_id or self.is_recording:
+                print("ℹ️ [Cycle IA] Interrompu pendant la synthèse vocale.")
+                return
+
             if tts_success and AUDIO_OUTPUT_PATH.exists():
                 # 4. Étape Lecture Haut-Parleur avec interaction LED
                 self.play_sound(AUDIO_OUTPUT_PATH)
             else:
-                self.led.restore_idle()
+                if not self.is_recording:
+                    self.led.restore_idle()
 
         except Exception as exc:
             print(f"⚠️ Erreur lors du cycle de traitement vocal : {exc}")
-            self.led.restore_idle()
+            if not self.is_recording:
+                self.led.restore_idle()
 
     def _transcribe_audio(self, wav_path: Path) -> str:
         """Transcrit le fichier audio via l'endpoint /api/stt local ou cloud."""
@@ -755,36 +784,37 @@ class HardwareController:
         return ""
 
     @staticmethod
-    def _extract_vocal_summary(text: str, max_words: int = 35) -> str:
+    def _clean_for_speech(text: str) -> str:
         """
-        Extrait une formulation vocale concise et percutante (1-2 phrases, max 30-35 mots).
-        Parfait pour le haut-parleur physique :
-        - Synthèse ultra-rapide (2 à 3 secondes)
-        - Élocution claire et dynamique sans noyer l'élève sous un pavé de texte.
+        Nettoie et formate le texte pédagogique complet pour la parole (SANS couper l'explication).
+        - Convertit les titres Markdown en phrases d'introduction fluides
+        - Supprime le balisage (gras, astérisques, puces, balises de code)
+        - Conserve l'intégralité des détails, explications et exemples pédagogiques
         """
         import re
-        clean = text.replace("**", "").replace("#", "").replace("`", "").replace("---", "").strip()
-        clean = re.sub(r"^[-*•]\s+", "", clean, flags=re.MULTILINE)
-        sentences = re.split(r'(?<=[.!?])\s+', clean)
-        chosen = []
-        words_count = 0
-        for s in sentences:
-            s_str = s.strip()
-            if not s_str:
-                continue
-            cnt = len(s_str.split())
-            if words_count + cnt <= max_words or not chosen:
-                chosen.append(s_str)
-                words_count += cnt
-            else:
-                break
-        res = " ".join(chosen).strip()
-        return res if res else clean[:150]
+        # Remplacer les titres ### par une phrase avec ponctuation
+        t = re.sub(r'#{1,6}\s*([^\n]+)', r'\1. ', text)
+        # Supprimer gras, italique, code, séparateurs
+        t = t.replace('**', '').replace('__', '').replace('*', '').replace('`', '').replace('---', '')
+        # Convertir les puces et listes numérotées en transitions orales
+        t = re.sub(r'^\s*[-•*]\s+', ', ', t, flags=re.MULTILINE)
+        t = re.sub(r'^\s*\d+\.\s+', ', ', t, flags=re.MULTILINE)
+        # Nettoyer les sauts de ligne
+        t = re.sub(r'\n+', '. ', t)
+        # Normaliser les doubles ponctuations
+        t = re.sub(r'\s*\.\s*\.', '.', t)
+        t = re.sub(r'\s+', ' ', t)
+
+        # Conserver jusqu'à 250 mots complets (couvre l'intégralité de l'explication détaillée)
+        words = t.split()
+        if len(words) > 250:
+            t = " ".join(words[:250]) + "."
+        return t.strip()
 
     def _synthesize_speech(self, text: str, output_path: Path) -> bool:
-        """Génère le fichier audio MP3 de la réponse via /api/tts."""
-        clean_text = self._extract_vocal_summary(text, max_words=32)
-        print(f"🎙️ [TTS Extrait Parlé] « {clean_text} » ({len(clean_text.split())} mots)")
+        """Génère le fichier audio MP3 de l'explication complète via /api/tts."""
+        clean_text = self._clean_for_speech(text)
+        print(f"🎙️ [TTS Texte Parlé Intégral] « {clean_text[:140]}... » ({len(clean_text.split())} mots)")
 
         payload = json.dumps({"text": clean_text, "voice": "vivienne"}).encode("utf-8")
 
@@ -801,12 +831,13 @@ class HardwareController:
                 req = urllib.request.Request(url, data=payload, method="POST")
                 req.add_header("Content-Type", "application/json")
                 req.add_header("User-Agent", BROWSER_USER_AGENT)
-                with urllib.request.urlopen(req, timeout=30) as resp:
+                # Timeout de 60s pour télécharger l'explication détaillée complète
+                with urllib.request.urlopen(req, timeout=60) as resp:
                     audio_bytes = resp.read()
                     if len(audio_bytes) > 500:
                         output_path.write_bytes(audio_bytes)
                         elapsed = time.time() - t0
-                        print(f"✅ [TTS] Audio reçu en {elapsed:.2f}s ({len(audio_bytes)} octets)")
+                        print(f"✅ [TTS] Audio complet reçu en {elapsed:.2f}s ({len(audio_bytes)} octets)")
                         return True
             except Exception as exc:
                 elapsed = time.time() - t0
@@ -815,12 +846,13 @@ class HardwareController:
         return False
 
     def stop_sound(self):
-        """Interrompt immédiatement toute lecture audio en cours (aplay)."""
+        """Interrompt immédiatement toute lecture audio en cours (aplay) et libère la carte son."""
+        self.is_speaking = False
         proc = getattr(self, "current_player_proc", None)
         if proc and proc.poll() is None:
             try:
                 proc.terminate()
-                proc.wait(timeout=0.3)
+                proc.wait(timeout=0.2)
             except Exception:
                 try:
                     proc.kill()
@@ -859,29 +891,30 @@ class HardwareController:
                         pass
 
         if target_file and target_file.exists():
-            self.play_sound(target_file)
+            # Ne jouer que si l'utilisateur n'a pas appuyé sur le micro entre temps
+            if not self.is_recording:
+                self.play_sound(target_file)
 
     def play_sound(self, audio_file: Path):
         """
         Lit un fichier audio sur le haut-parleur physique (I2S MAX98357A, USB ou Jack).
         Pendant toute l'élocution, la LED tricolore scintille en CYAN (SPEAKING).
         À la fin de la parole, la LED revient automatiquement à la couleur de la classe active !
+        Interrompu instantanément si l'utilisateur appuie sur le bouton micro.
         """
-        if not audio_file.exists():
-            self.led.restore_idle()
+        if not audio_file.exists() or self.is_recording:
+            if not self.is_recording:
+                self.led.restore_idle()
             return
 
         self.stop_sound()
         notify_activity()
         print("🔊 [Haut-Parleur] Élocution de la réponse vocale en cours...")
 
-        # 1. Signaler au backend que le dispositif parle
+        self.is_speaking = True
         self._notify_speaking_status(True)
-
-        # 2. Activer l'animation lumineuse SPEAKING sur la LED tricolore
         self.led.set_speaking()
 
-        # 3. Lecture audio matérielle optimisée pour MAX98357A (Boost +13dB et 48kHz)
         try:
             boosted_wav = Path(tempfile.gettempdir()) / f"tts_boosted_{uuid.uuid4().hex[:6]}.wav"
             res = subprocess.run([
@@ -891,6 +924,10 @@ class HardwareController:
                 str(boosted_wav)
             ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
 
+            # Vérifier si l'utilisateur a appuyé sur le micro pendant la conversion
+            if self.is_recording:
+                return
+
             target_to_play = boosted_wav if (res.returncode == 0 and boosted_wav.exists()) else audio_file
             self.current_player_proc = subprocess.Popen(["aplay", "-D", "plughw:2,0", "-q", str(target_to_play)])
             self.current_player_proc.wait()
@@ -898,11 +935,14 @@ class HardwareController:
             print(f"⚠️ Erreur lecture audio physique : {exc}")
         finally:
             self.current_player_proc = None
-            # 4. Signaler la fin de parole
+            self.is_speaking = False
             self._notify_speaking_status(False)
-            # 5. Restauration automatique de la couleur de la classe active
-            self.led.restore_idle()
-            print("✅ [Haut-Parleur] Fin d'élocution. LED restaurée sur la classe active.")
+            # Ne restaurer la couleur de veille QUE si le micro n'a pas été enclenché entre-temps !
+            if not self.is_recording:
+                self.led.restore_idle()
+                print("✅ [Haut-Parleur] Fin d'élocution. LED restaurée sur la classe active.")
+            else:
+                print("🎙️ [Haut-Parleur] Élocution coupée : passage immédiat en écoute micro.")
 
     def _notify_speaking_status(self, is_speaking: bool):
         """Notifie l'écosystème local de l'état de parole."""
