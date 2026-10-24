@@ -700,18 +700,8 @@ class HardwareController:
 
             print(f"💡 [Réponse Tuteur IA] « {ai_answer[:140]}... »")
 
-            # 3. Étape Synthèse Vocale (TTS) avec détails complets
-            tts_success = self._synthesize_speech(ai_answer, AUDIO_OUTPUT_PATH)
-            if self.active_cycle_id != cycle_id or self.is_recording:
-                print("ℹ️ [Cycle IA] Interrompu pendant la synthèse vocale.")
-                return
-
-            if tts_success and AUDIO_OUTPUT_PATH.exists():
-                # 4. Étape Lecture Haut-Parleur avec interaction LED
-                self.play_sound(AUDIO_OUTPUT_PATH)
-            else:
-                if not self.is_recording:
-                    self.led.restore_idle()
+            # 3. Étape Diffusion Vocale en Streaming (Démarrage immédiat en ~2s + Détails intégraux)
+            self._stream_and_play_response(ai_answer, cycle_id)
 
         except Exception as exc:
             print(f"⚠️ Erreur lors du cycle de traitement vocal : {exc}")
@@ -811,11 +801,135 @@ class HardwareController:
             t = " ".join(words[:250]) + "."
         return t.strip()
 
-    def _synthesize_speech(self, text: str, output_path: Path) -> bool:
-        """Génère le fichier audio MP3 de l'explication complète via /api/tts."""
-        clean_text = self._clean_for_speech(text)
-        print(f"🎙️ [TTS Texte Parlé Intégral] « {clean_text[:140]}... » ({len(clean_text.split())} mots)")
+    @staticmethod
+    def _split_into_spoken_chunks(text: str, target_words: int = 22) -> list[str]:
+        """
+        Découpe un texte long en phrases/unités orales naturelles (18-25 mots).
+        Permet de commencer la lecture audio sur le haut-parleur en moins de 2 secondes
+        pendant que la suite de l'explication est téléchargée en tâche de fond.
+        """
+        import re
+        raw_sentences = re.split(r'(?<=[.!?])\s+', text.strip())
+        chunks = []
+        current = []
+        current_len = 0
+        for s in raw_sentences:
+            s_clean = s.strip()
+            if not s_clean:
+                continue
+            words_len = len(s_clean.split())
+            if current_len + words_len > target_words and current:
+                chunks.append(" ".join(current))
+                current = [s_clean]
+                current_len = words_len
+            else:
+                current.append(s_clean)
+                current_len += words_len
+        if current:
+            chunks.append(" ".join(current))
+        return chunks if chunks else [text]
 
+    def _synthesize_single_chunk(self, chunk_text: str, dest_path: Path) -> bool:
+        """Synthétise un morceau unique de texte (15-25 mots) via /api/tts en ~1.5s."""
+        payload = json.dumps({"text": chunk_text, "voice": "vivienne"}).encode("utf-8")
+        urls_to_try = []
+        if REMOTE_API_URL:
+            urls_to_try.append(f"{REMOTE_API_URL.rstrip('/')}/api/tts")
+        if LOCAL_API_URL and LOCAL_API_URL != REMOTE_API_URL:
+            urls_to_try.append(f"{LOCAL_API_URL.rstrip('/')}/api/tts")
+
+        for url in urls_to_try:
+            try:
+                req = urllib.request.Request(url, data=payload, method="POST")
+                req.add_header("Content-Type", "application/json")
+                req.add_header("User-Agent", BROWSER_USER_AGENT)
+                with urllib.request.urlopen(req, timeout=15) as resp:
+                    audio_bytes = resp.read()
+                    if len(audio_bytes) > 300:
+                        dest_path.write_bytes(audio_bytes)
+                        return True
+            except Exception:
+                continue
+        return False
+
+    def _stream_and_play_response(self, text: str, cycle_id: str):
+        """
+        Pipeline audio ultra-rapide en flux tendu (Streaming TTS) :
+        1. Découpe l'explication complète en morceaux oraux naturels (15-25 mots).
+        2. Télécharge le morceau 0 et commence à le jouer sur le haut-parleur en ~2 secondes.
+        3. Télécharge en parallèle les morceaux suivants pendant que le haut-parleur parle.
+        4. Enchaîne la lecture continue de tous les détails sans aucun temps mort ni timeout !
+        """
+        clean_text = self._clean_for_speech(text)
+        chunks = self._split_into_spoken_chunks(clean_text, target_words=22)
+        total_chunks = len(chunks)
+        print(f"\n⚡ [Pipeline TTS Stream] Réponse détaillée ({len(clean_text.split())} mots) découpée en {total_chunks} morceaux oraux.")
+
+        import queue
+        audio_queue = queue.Queue(maxsize=10)
+        stop_stream_event = threading.Event()
+
+        def download_worker():
+            for idx, chunk in enumerate(chunks):
+                if self.active_cycle_id != cycle_id or self.is_recording or stop_stream_event.is_set():
+                    break
+                t_start = time.time()
+                temp_file = Path(tempfile.gettempdir()) / f"stream_{cycle_id}_{idx}.mp3"
+                success = self._synthesize_single_chunk(chunk, temp_file)
+                if success and temp_file.exists():
+                    elapsed = time.time() - t_start
+                    print(f"📦 [TTS Stream] Morceau {idx+1}/{total_chunks} prêt ({len(chunk.split())} mots en {elapsed:.2f}s)")
+                    audio_queue.put((idx, temp_file))
+                else:
+                    print(f"⚠️ [TTS Stream] Échec téléchargement morceau {idx+1}/{total_chunks}")
+            audio_queue.put(None)  # Marqueur de fin de flux
+
+        downloader = threading.Thread(target=download_worker, daemon=True)
+        downloader.start()
+
+        try:
+            chunks_played = 0
+            while True:
+                if self.active_cycle_id != cycle_id or self.is_recording:
+                    print("🎙️ [Pipeline TTS Stream] Interrompu par l'utilisateur.")
+                    stop_stream_event.set()
+                    break
+
+                try:
+                    item = audio_queue.get(timeout=20.0)
+                except queue.Empty:
+                    print("⚠️ [Pipeline TTS Stream] Fin d'attente du flux audio.")
+                    break
+
+                if item is None:
+                    # Tous les morceaux ont été joués
+                    break
+
+                idx, audio_file = item
+                if self.active_cycle_id != cycle_id or self.is_recording:
+                    try:
+                        audio_file.unlink(missing_ok=True)
+                    except Exception:
+                        pass
+                    break
+
+                is_last = (idx == total_chunks - 1)
+                print(f"🔊 [Haut-Parleur] Élocution morceau {idx+1}/{total_chunks} : « {chunks[idx][:80]}... »")
+                self.play_sound(audio_file, restore_idle_on_finish=is_last)
+                chunks_played += 1
+                try:
+                    audio_file.unlink(missing_ok=True)
+                except Exception:
+                    pass
+
+        finally:
+            stop_stream_event.set()
+            if not self.is_recording:
+                self.led.restore_idle()
+
+    def _synthesize_speech(self, text: str, output_path: Path) -> bool:
+        """Génère le fichier audio MP3 ponctuel via /api/tts (pour annonces de classe et démarrage)."""
+        clean_text = self._clean_for_speech(text)
         payload = json.dumps({"text": clean_text, "voice": "vivienne"}).encode("utf-8")
 
         urls_to_try = []
@@ -831,13 +945,12 @@ class HardwareController:
                 req = urllib.request.Request(url, data=payload, method="POST")
                 req.add_header("Content-Type", "application/json")
                 req.add_header("User-Agent", BROWSER_USER_AGENT)
-                # Timeout de 60s pour télécharger l'explication détaillée complète
-                with urllib.request.urlopen(req, timeout=60) as resp:
+                with urllib.request.urlopen(req, timeout=30) as resp:
                     audio_bytes = resp.read()
                     if len(audio_bytes) > 500:
                         output_path.write_bytes(audio_bytes)
                         elapsed = time.time() - t0
-                        print(f"✅ [TTS] Audio complet reçu en {elapsed:.2f}s ({len(audio_bytes)} octets)")
+                        print(f"✅ [TTS] Audio reçu en {elapsed:.2f}s ({len(audio_bytes)} octets)")
                         return True
             except Exception as exc:
                 elapsed = time.time() - t0
@@ -893,23 +1006,22 @@ class HardwareController:
         if target_file and target_file.exists():
             # Ne jouer que si l'utilisateur n'a pas appuyé sur le micro entre temps
             if not self.is_recording:
-                self.play_sound(target_file)
+                self.play_sound(target_file, restore_idle_on_finish=True)
 
-    def play_sound(self, audio_file: Path):
+    def play_sound(self, audio_file: Path, restore_idle_on_finish: bool = True):
         """
         Lit un fichier audio sur le haut-parleur physique (I2S MAX98357A, USB ou Jack).
         Pendant toute l'élocution, la LED tricolore scintille en CYAN (SPEAKING).
-        À la fin de la parole, la LED revient automatiquement à la couleur de la classe active !
+        À la fin de la parole, la LED revient automatiquement à la couleur de la classe active si restore_idle_on_finish=True.
         Interrompu instantanément si l'utilisateur appuie sur le bouton micro.
         """
         if not audio_file.exists() or self.is_recording:
-            if not self.is_recording:
+            if not self.is_recording and restore_idle_on_finish:
                 self.led.restore_idle()
             return
 
         self.stop_sound()
         notify_activity()
-        print("🔊 [Haut-Parleur] Élocution de la réponse vocale en cours...")
 
         self.is_speaking = True
         self._notify_speaking_status(True)
@@ -937,10 +1049,11 @@ class HardwareController:
             self.current_player_proc = None
             self.is_speaking = False
             self._notify_speaking_status(False)
-            # Ne restaurer la couleur de veille QUE si le micro n'a pas été enclenché entre-temps !
+            # Ne restaurer la couleur de veille QUE si restore_idle_on_finish=True et pas en cours d'enregistrement !
             if not self.is_recording:
-                self.led.restore_idle()
-                print("✅ [Haut-Parleur] Fin d'élocution. LED restaurée sur la classe active.")
+                if restore_idle_on_finish:
+                    self.led.restore_idle()
+                    print("✅ [Haut-Parleur] Fin d'élocution. LED restaurée sur la classe active.")
             else:
                 print("🎙️ [Haut-Parleur] Élocution coupée : passage immédiat en écoute micro.")
 

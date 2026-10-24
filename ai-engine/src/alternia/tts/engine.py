@@ -407,7 +407,7 @@ class TTSEngine:
         for attempt in range(1, 4):
             try:
                 import edge_tts
-                communicate = edge_tts.Communicate(clean_text, self.neural_voice, rate="-8%")
+                communicate = edge_tts.Communicate(clean_text, self.neural_voice, rate="+0%")
                 audio_chunks = []
                 async for chunk in communicate.stream():
                     if chunk["type"] == "audio" and "data" in chunk:
