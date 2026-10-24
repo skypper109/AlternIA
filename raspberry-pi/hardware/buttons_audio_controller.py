@@ -97,6 +97,33 @@ BROWSER_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.
 LOCAL_API_URL = os.environ.get("ALTERNIA_LOCAL_API", "http://127.0.0.1")
 REMOTE_API_URL = os.environ.get("ALTERNIA_API_URL", "https://api.alterniamali.com")
 
+# Dossier de cache local pour les annonces audio pré-générées (offline / instantané)
+PROMPTS_CACHE_DIR = Path(__file__).resolve().parent / "audio_cache"
+try:
+    PROMPTS_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+except Exception:
+    PROMPTS_CACHE_DIR = Path(tempfile.gettempdir()) / "alta_audio_cache"
+    PROMPTS_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+
+# Phrases vocales prononcées lors de la sélection des classes
+CLASS_SPOKEN_PHRASES = {
+    "6eme": "Tu as sélectionné la classe de sixième.",
+    "7eme": "Tu as sélectionné la classe de septième.",
+    "8eme": "Tu as sélectionné la classe de huitième.",
+    "9eme": "Tu as sélectionné la classe de neuvième année.",
+    "10eme": "Tu as sélectionné la classe de dixième.",
+    "11eme": "Tu as sélectionné la classe de onzième.",
+    "12eme": "Tu as sélectionné la classe de Terminale.",
+}
+
+# Message de bienvenue et de présentation au démarrage du boîtier
+STARTUP_GREETING_TEXT = (
+    "Bonjour ! Je suis ALTA, ton tuteur pédagogique intelligent. "
+    "Je suis là pour t'aider à réviser tes cours, t'expliquer des exercices et répondre à toutes tes questions selon ton programme scolaire. "
+    "Choisis ta classe avec les boutons de niveau, puis appuie sur le bouton micro pour me parler. "
+    "Que souhaites-tu apprendre aujourd'hui ?"
+)
+
 # ══════════════════════════════════════════════════════════════════════════════
 # STRUCTURE DES NIVEAUX ET PALETTE DE COULEURS RGB (0.0 -> 1.0)
 # ══════════════════════════════════════════════════════════════════════════════
@@ -372,6 +399,9 @@ class HardwareController:
         self.record_process: Optional[subprocess.Popen] = None
         self.recording_start_time = 0.0
 
+        # Processus de lecture audio en cours pour interruption propre
+        self.current_player_proc: Optional[subprocess.Popen] = None
+
         # Contrôleur LED
         self.led = TricolorLedController(
             pin_r=PIN_LED_R,
@@ -380,12 +410,23 @@ class HardwareController:
             active_high=LED_ACTIVE_HIGH
         )
 
-        # Initialiser avec la couleur de la classe par défaut
+        # Initialiser avec la couleur de la classe par défaut (SANS annonce pour laisser le greeting)
         self._apply_class_selection(self.current_cycle_id, self.current_class, announce=False)
 
         # Initialisation des Boutons
         self.buttons_ready = False
         self.setup_buttons()
+
+        # Démarrage de la salutation et de la présentation vocale d'ALTA à l'allumage
+        threading.Thread(target=self._startup_greeting, daemon=True).start()
+
+    def _startup_greeting(self):
+        """Salue, se présente et explique ce qu'on peut faire avec ALTA au démarrage."""
+        time.sleep(2.5)  # Laisser le temps à ALSA, à la carte I2S et au réseau de s'initialiser
+        print("\n" + "═" * 70)
+        print("👋 [Démarrage ALTA] Salutation et présentation vocale en cours...")
+        print("═" * 70)
+        self.speak_text(STARTUP_GREETING_TEXT, cache_key="startup_greeting")
 
     def setup_buttons(self):
         """Configure les 4 boutons poussoirs matériels via gpiozero."""
@@ -436,7 +477,7 @@ class HardwareController:
             chosen = classes[idx]
 
         print(f"\n{cfg['ansi']}📚 [Bouton 1] Niveau 1 sélectionné -> Classe : {chosen.upper()} (Fondamental / DEF)\033[0m")
-        self._apply_class_selection("niveau_1", chosen)
+        self._apply_class_selection("niveau_1", chosen, announce=True)
 
     def on_press_niveau_2(self):
         """Bouton 2 : Bascule entre 10ème et 11ème (Secondaire / Lycée)."""
@@ -454,7 +495,7 @@ class HardwareController:
             chosen = classes[idx]
 
         print(f"\n{cfg['ansi']}📚 [Bouton 2] Niveau 2 sélectionné -> Classe : {chosen.upper()} (Secondaire)\033[0m")
-        self._apply_class_selection("niveau_2", chosen)
+        self._apply_class_selection("niveau_2", chosen, announce=True)
 
     def on_press_niveau_3(self):
         """Bouton 3 : Active la Terminale (Baccalauréat)."""
@@ -465,10 +506,10 @@ class HardwareController:
         self.cycle_indices["niveau_3"] = 0
 
         print(f"\n{cfg['ansi']}📚 [Bouton 3] Niveau 3 sélectionné -> Classe : TERMINALE (12ème / BAC)\033[0m")
-        self._apply_class_selection("niveau_3", chosen)
+        self._apply_class_selection("niveau_3", chosen, announce=True)
 
     def _apply_class_selection(self, cycle_id: str, class_name: str, announce: bool = True):
-        """Applique le choix de classe : couleur LED, fichier d'état et sync backend."""
+        """Applique le choix de classe : couleur LED, fichier d'état, sync backend et annonce vocale."""
         self.current_cycle_id = cycle_id
         self.current_class = class_name
         cfg = CYCLES_CONFIG[cycle_id]
@@ -484,6 +525,12 @@ class HardwareController:
 
         # 3. Synchronisation asynchrone avec le backend (Kiosk & WebSockets)
         threading.Thread(target=self._notify_backend_class, args=(class_name,), daemon=True).start()
+
+        # 4. Annonce vocale immédiate (« Tu as sélectionné la classe de ... »)
+        if announce:
+            phrase = CLASS_SPOKEN_PHRASES.get(class_name, f"Tu as sélectionné la classe de {class_name}.")
+            print(f"📢 [Audio Annonce] « {phrase} »")
+            self.speak_text(phrase, cache_key=f"select_class_{class_name}")
 
     def _notify_backend_class(self, class_name: str):
         """Notifie le backend local et l'interface Kiosk en tâche de fond."""
@@ -516,6 +563,7 @@ class HardwareController:
 
     def start_recording(self):
         """Démarre la capture audio ALSA et active la LED rouge."""
+        self.stop_sound()  # Coupe immédiatement la parole d'ALTA si elle parlait
         self.is_recording = True
         self.recording_start_time = time.time()
 
@@ -734,6 +782,53 @@ class HardwareController:
                 continue
         return False
 
+    def stop_sound(self):
+        """Interrompt immédiatement toute lecture audio en cours (aplay)."""
+        proc = getattr(self, "current_player_proc", None)
+        if proc and proc.poll() is None:
+            try:
+                proc.terminate()
+                proc.wait(timeout=0.3)
+            except Exception:
+                try:
+                    proc.kill()
+                except Exception:
+                    pass
+        self.current_player_proc = None
+        try:
+            subprocess.run(["killall", "-9", "aplay"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+        except Exception:
+            pass
+
+    def speak_text(self, text: str, cache_key: Optional[str] = None):
+        """Prononce un texte de manière asynchrone (non-bloquante) avec mise en cache locale."""
+        threading.Thread(target=self._speak_text_worker, args=(text, cache_key), daemon=True).start()
+
+    def _speak_text_worker(self, text: str, cache_key: Optional[str] = None):
+        """Travailleur de synthèse et diffusion vocale."""
+        self.stop_sound()
+
+        target_file = None
+        if cache_key:
+            cached_file = PROMPTS_CACHE_DIR / f"{cache_key}.mp3"
+            if cached_file.exists() and cached_file.stat().st_size > 500:
+                target_file = cached_file
+
+        if not target_file:
+            temp_path = Path(tempfile.gettempdir()) / f"tts_prompt_{uuid.uuid4().hex[:8]}.mp3"
+            success = self._synthesize_speech(text, temp_path)
+            if success and temp_path.exists():
+                target_file = temp_path
+                if cache_key:
+                    try:
+                        import shutil
+                        shutil.copy(temp_path, PROMPTS_CACHE_DIR / f"{cache_key}.mp3")
+                    except Exception:
+                        pass
+
+        if target_file and target_file.exists():
+            self.play_sound(target_file)
+
     def play_sound(self, audio_file: Path):
         """
         Lit un fichier audio sur le haut-parleur physique (I2S MAX98357A, USB ou Jack).
@@ -744,6 +839,7 @@ class HardwareController:
             self.led.restore_idle()
             return
 
+        self.stop_sound()
         notify_activity()
         print("🔊 [Haut-Parleur] Élocution de la réponse vocale en cours...")
 
@@ -755,7 +851,7 @@ class HardwareController:
 
         # 3. Lecture audio matérielle optimisée pour MAX98357A (Boost +13dB et 48kHz)
         try:
-            boosted_wav = Path(tempfile.gettempdir()) / "tts_playback_boosted.wav"
+            boosted_wav = Path(tempfile.gettempdir()) / f"tts_boosted_{uuid.uuid4().hex[:6]}.wav"
             res = subprocess.run([
                 "ffmpeg", "-y", "-i", str(audio_file),
                 "-af", "volume=13dB",
@@ -764,10 +860,12 @@ class HardwareController:
             ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
 
             target_to_play = boosted_wav if (res.returncode == 0 and boosted_wav.exists()) else audio_file
-            subprocess.run(["aplay", "-D", "plughw:2,0", "-q", str(target_to_play)], check=False)
+            self.current_player_proc = subprocess.Popen(["aplay", "-D", "plughw:2,0", "-q", str(target_to_play)])
+            self.current_player_proc.wait()
         except Exception as exc:
             print(f"⚠️ Erreur lecture audio physique : {exc}")
         finally:
+            self.current_player_proc = None
             # 4. Signaler la fin de parole
             self._notify_speaking_status(False)
             # 5. Restauration automatique de la couleur de la classe active
