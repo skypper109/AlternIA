@@ -159,12 +159,60 @@ COLOR_SPEAKING  = (0.15, 0.85, 1.0)    # Cyan / Bleu ciel (Le haut-parleur parle
 COLOR_OFF       = (0.0, 0.0, 0.0)      # Éteint
 
 
+KIOSK_STATE_FILE = Path("/tmp/alta_kiosk_state.json")
+
+
 def notify_activity():
     """Déclenche l'indicateur d'activité système pour synchroniser les démons."""
     try:
         ACTIVITY_FLAG.touch(exist_ok=True)
     except Exception:
         pass
+
+
+def emit_kiosk_event(event: str, data: Optional[Dict[str, Any]] = None):
+    """
+    Diffuse un événement matériel en temps réel vers l'écran TV HDMI (Chromium Kiosk).
+    Permet à l'interface d'agir comme un écran de contrôle synchronisé avec les boutons physiques.
+    """
+    payload_data = dict(data or {})
+
+    # 1. Mise à jour de l'état local dans /tmp/alta_kiosk_state.json
+    try:
+        current = {}
+        if KIOSK_STATE_FILE.exists():
+            try:
+                current = json.loads(KIOSK_STATE_FILE.read_text(encoding="utf-8"))
+            except Exception:
+                pass
+        current["last_event"] = event
+        current["timestamp"] = time.time()
+        current.update(payload_data)
+        KIOSK_STATE_FILE.write_text(json.dumps(current), encoding="utf-8")
+    except Exception:
+        pass
+
+    # 2. Diffusion HTTP asynchrone non-bloquante vers FastAPI (/api/device/event)
+    def _send():
+        urls = []
+        if LOCAL_API_URL:
+            urls.append(f"{LOCAL_API_URL.rstrip('/')}/api/device/event")
+        if REMOTE_API_URL and REMOTE_API_URL != LOCAL_API_URL:
+            urls.append(f"{REMOTE_API_URL.rstrip('/')}/api/device/event")
+
+        body = json.dumps({"event": event, "data": payload_data}).encode("utf-8")
+        for u in urls:
+            try:
+                req = urllib.request.Request(u, data=body, method="POST")
+                req.add_header("Content-Type", "application/json")
+                req.add_header("User-Agent", BROWSER_USER_AGENT)
+                with urllib.request.urlopen(req, timeout=1.5) as resp:
+                    pass
+                break
+            except Exception:
+                pass
+
+    threading.Thread(target=_send, daemon=True).start()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -527,6 +575,7 @@ class HardwareController:
 
         # 3. Synchronisation asynchrone avec le backend (Kiosk & WebSockets)
         threading.Thread(target=self._notify_backend_class, args=(class_name,), daemon=True).start()
+        emit_kiosk_event("class_selected", {"class": class_name})
 
         # 4. Annonce vocale immédiate (« Tu as sélectionné la classe de ... »)
         if announce:
@@ -584,6 +633,7 @@ class HardwareController:
 
         # LED Tricolore -> Rouge Vif Pulsant
         self.led.set_recording()
+        emit_kiosk_event("recording_started", {"state": "listening"})
 
         print("\n" + "═" * 70)
         print("🎙️ [Micro - Écoute active] ENREGISTREMENT DÉMARRÉ ! Parlez maintenant...")
@@ -640,6 +690,7 @@ class HardwareController:
 
         # Passer immédiatement la LED en mode Réflexion IA (Violet pulsant)
         self.led.set_thinking()
+        emit_kiosk_event("thinking", {"state": "thinking"})
 
         # Attribuer un identifiant unique à ce cycle pour annulation en cas d'interruption
         cycle_id = uuid.uuid4().hex
@@ -685,6 +736,7 @@ class HardwareController:
                 return
 
             print(f"📝 [Transcription Écolier] « {transcription} »")
+            emit_kiosk_event("user_transcript", {"text": transcription})
 
             # 2. Étape Consultation Tuteur IA (/api/ask)
             ai_answer = self._ask_tutor(transcription, self.current_class)
@@ -699,6 +751,10 @@ class HardwareController:
                 return
 
             print(f"💡 [Réponse Tuteur IA] « {ai_answer[:140]}... »")
+            emit_kiosk_event("ai_response", {
+                "text": ai_answer,
+                "sources": [{"document": "Programme Officiel du Mali"}]
+            })
 
             # 3. Étape Diffusion Vocale en Streaming (Démarrage immédiat en ~2s + Détails intégraux)
             self._stream_and_play_response(ai_answer, cycle_id)
@@ -889,6 +945,7 @@ class HardwareController:
 
         try:
             chunks_played = 0
+            emit_kiosk_event("speaking", {"speaking": True})
             while True:
                 if self.active_cycle_id != cycle_id or self.is_recording:
                     print("🎙️ [Pipeline TTS Stream] Interrompu par l'utilisateur.")
@@ -926,6 +983,7 @@ class HardwareController:
             stop_stream_event.set()
             if not self.is_recording:
                 self.led.restore_idle()
+                emit_kiosk_event("idle", {"state": "idle", "speaking": False})
 
     def _synthesize_speech(self, text: str, output_path: Path) -> bool:
         """Génère le fichier audio MP3 ponctuel via /api/tts (pour annonces de classe et démarrage)."""

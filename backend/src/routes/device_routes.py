@@ -337,3 +337,148 @@ def get_curriculum_documents():
             }
         ]
     }
+
+
+# ==============================================================================
+# DISPOSITIF ALTA & KIOSK HDMI TEMPS RÉEL (SYNCHRONISATION ÉCRAN & BOUTONS)
+# ==============================================================================
+
+class DeviceSyncHub:
+    """Gestionnaire temps réel de synchronisation entre boutons physiques Pi 5 et interface TV Kiosk."""
+
+    def __init__(self):
+        self.kiosk_sockets: set[WebSocket] = set()
+        self.state: dict[str, Any] = {
+            "selected_class": "10eme",
+            "state": "idle",  # "idle", "listening", "thinking", "speaking"
+            "mic_recording": False,
+            "last_transcript": "",
+            "last_response": "",
+            "last_sources": [],
+            "speaking": False,
+        }
+
+    async def register(self, websocket: WebSocket):
+        await websocket.accept()
+        self.kiosk_sockets.add(websocket)
+        # Envoyer l'état actuel dès la connexion
+        await websocket.send_text(json.dumps({
+            "event": "initial_state",
+            "data": self.state
+        }))
+
+    def unregister(self, websocket: WebSocket):
+        self.kiosk_sockets.discard(websocket)
+
+    async def broadcast(self, event: str, data: dict[str, Any]):
+        msg = json.dumps({"event": event, "data": data})
+        dead = []
+        for ws in list(self.kiosk_sockets):
+            try:
+                await ws.send_text(msg)
+            except Exception:
+                dead.append(ws)
+        for ws in dead:
+            self.kiosk_sockets.discard(ws)
+
+
+device_sync_hub = DeviceSyncHub()
+
+
+@router.websocket("/ws/device/sync")
+async def websocket_device_sync_endpoint(websocket: WebSocket):
+    """WebSocket de synchronisation instantanée pour l'affichage TV HDMI Kiosk."""
+    await device_sync_hub.register(websocket)
+    try:
+        while True:
+            text = await websocket.receive_text()
+            try:
+                payload = json.loads(text)
+                evt = payload.get("event")
+                data = payload.get("data", {})
+                if evt:
+                    if evt == "select_class" and "class" in data:
+                        device_sync_hub.state["selected_class"] = data["class"]
+                    elif evt == "speaking":
+                        device_sync_hub.state["speaking"] = bool(data.get("speaking", False))
+                    await device_sync_hub.broadcast(evt, data)
+            except Exception:
+                pass
+    except WebSocketDisconnect:
+        device_sync_hub.unregister(websocket)
+    except Exception:
+        device_sync_hub.unregister(websocket)
+
+
+class DeviceEventRequest(BaseModel):
+    event: str
+    class_name: Optional[str] = None
+    state: Optional[str] = None
+    text: Optional[str] = None
+    speaking: Optional[bool] = None
+    sources: Optional[list[dict[str, Any]]] = None
+    data: Optional[dict[str, Any]] = None
+
+
+@router.post("/api/device/event")
+async def receive_device_hardware_event(req: DeviceEventRequest):
+    """
+    Reçoit un événement émis par le contrôleur matériel Raspberry Pi 5 (boutons N1-N4)
+    ou par l'interface TV (souris/clavier) et le propage immédiatement à l'écran Kiosk.
+    """
+    event_type = req.event
+    payload_data = dict(req.data or {})
+
+    if req.class_name:
+        payload_data["class"] = req.class_name
+        device_sync_hub.state["selected_class"] = req.class_name
+    elif "class" in payload_data:
+        device_sync_hub.state["selected_class"] = payload_data["class"]
+
+    if req.state:
+        payload_data["state"] = req.state
+        device_sync_hub.state["state"] = req.state
+    elif event_type in ("listening", "recording_started"):
+        device_sync_hub.state["state"] = "listening"
+        device_sync_hub.state["mic_recording"] = True
+    elif event_type in ("thinking", "recording_stopped"):
+        device_sync_hub.state["state"] = "thinking"
+        device_sync_hub.state["mic_recording"] = False
+    elif event_type == "idle":
+        device_sync_hub.state["state"] = "idle"
+        device_sync_hub.state["speaking"] = False
+        device_sync_hub.state["mic_recording"] = False
+
+    if req.text is not None:
+        payload_data["text"] = req.text
+        if event_type == "user_transcript":
+            device_sync_hub.state["last_transcript"] = req.text
+        elif event_type in ("ai_response", "answer"):
+            device_sync_hub.state["last_response"] = req.text
+
+    if req.speaking is not None:
+        payload_data["speaking"] = req.speaking
+        device_sync_hub.state["speaking"] = req.speaking
+
+    if req.sources:
+        payload_data["sources"] = req.sources
+        device_sync_hub.state["last_sources"] = req.sources
+
+    await device_sync_hub.broadcast(event_type, payload_data)
+    return {
+        "status": "broadcasted",
+        "event": event_type,
+        "subscribers": len(device_sync_hub.kiosk_sockets)
+    }
+
+
+@router.get("/api/device/state")
+def get_device_sync_state():
+    """Retourne l'état courant de synchronisation du dispositif."""
+    return {
+        "status": "success",
+        "state": device_sync_hub.state,
+        "kiosk_connected": len(device_sync_hub.kiosk_sockets) > 0,
+        "kiosk_subscribers": len(device_sync_hub.kiosk_sockets),
+    }
+

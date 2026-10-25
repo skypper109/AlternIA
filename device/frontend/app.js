@@ -10,6 +10,7 @@ import { VortexUI } from './js/ui/vortex.js';
 import { KaTeXRenderer } from './js/ui/katex-renderer.js';
 import { DidService } from './js/services/did.js';
 import { CYCLES, CURRICULUM_DATA } from './js/config/curriculum.js';
+import { DeviceSyncService } from './js/services/device-sync.js';
 
 export class AlternIAApp {
   constructor() {
@@ -252,6 +253,9 @@ export class AlternIAApp {
         console.warn('Erreur reconnaissance vocale :', err);
       }
     });
+
+    // 6. Synchronisation Temps Réel HDMI Kiosk & Matériel (Pi 5 + Boutons + Clavier/Souris)
+    this.sync = new DeviceSyncService(this);
   }
 
   setMicRecordingState(isRec) {
@@ -386,10 +390,13 @@ export class AlternIAApp {
       this.audio.speakText(voiceMsg);
     }
 
-    // Synchronisation ESP32 :
+    // Synchronisation ESP32 & Bus Matériel HDMI Kiosk :
     // 10ème -> BLEU, 11ème -> ROUGE, 12ème -> JAUNE, fondamental -> GREEN
     fetch(`/api/esp32/select-class?classe=${encodeURIComponent(classId)}&mic_connected=true`, { method: 'POST' }).catch(() => {});
     fetch(`http://192.168.4.1/api/select-class?classe=${encodeURIComponent(classId)}`, { mode: 'no-cors' }).catch(() => {});
+    if (this.sync) {
+      this.sync.notifyEvent('class_selected', { class: classId });
+    }
 
     // Transition vers l'espace de travail
     if (shouldTransition) {
@@ -777,6 +784,9 @@ export class AlternIAApp {
     document.body.dataset.state = 'thinking';
     this.vortex.setState('THINKING', 'Consultation du programme officiel...');
     if (this.modalVortex) this.modalVortex.setState('THINKING', 'Consultation du programme...');
+    if (this.sync) {
+      this.sync.notifyEvent('thinking', { state: 'thinking' });
+    }
 
     // Création de l'élément de réponse en streaming
     const messageNode = this.createAssistantMessagePlaceholder();
@@ -830,6 +840,7 @@ export class AlternIAApp {
             this.vortex.setState('IDLE', 'Prêt à répondre');
             if (this.modalVortex) this.modalVortex.setState('IDLE', 'Prêt à répondre');
             document.body.dataset.state = 'idle';
+            if (this.sync) this.sync.notifyEvent('idle', { state: 'idle' });
           }
         }, 500);
       },
@@ -838,6 +849,7 @@ export class AlternIAApp {
         this.vortex.setState('IDLE', 'Prêt à répondre');
         if (this.modalVortex) this.modalVortex.setState('IDLE', 'Prêt à répondre');
         document.body.dataset.state = 'idle';
+        if (this.sync) this.sync.notifyEvent('idle', { state: 'idle' });
       }
     });
 
