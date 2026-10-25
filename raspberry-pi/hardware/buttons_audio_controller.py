@@ -60,7 +60,9 @@ LED_ACTIVE_HIGH = os.environ.get("LED_ACTIVE_HIGH", "1").lower() in ("1", "true"
 
 # Forcer l'affichage immédiat des logs dans journalctl (sans mise en mémoire tampon)
 try:
+    # pyrefly: ignore[missing-attribute]
     sys.stdout.reconfigure(line_buffering=True)
+    # pyrefly: ignore[missing-attribute]
     sys.stderr.reconfigure(line_buffering=True)
 except Exception:
     pass
