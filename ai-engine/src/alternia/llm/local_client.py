@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 import threading
 import time
@@ -24,11 +25,11 @@ class LocalLLMClient(LLMClient):
         n_threads: int | None = None,
         n_batch: int = 512,
         n_gpu_layers: int | None = None,
-        temperature: float = 0.15,
+        temperature: float = 0.20,
         top_p: float = 0.9,
-        repeat_penalty: float = 1.20,
-        frequency_penalty: float = 0.5,
-        presence_penalty: float = 0.3,
+        repeat_penalty: float = 1.05,
+        frequency_penalty: float = 0.0,
+        presence_penalty: float = 0.0,
         max_tokens: int | None = None,  # None ou 0 = illimité, le modèle s'arrête naturellement
     ):
         path = Path(model_path)
@@ -261,7 +262,8 @@ class LocalLLMClient(LLMClient):
         if choices and isinstance(choices, list):
             message = choices[0].get("message", {})
             content = message.get("content", "")
-            return str(content).strip()
+            clean_res = re.sub(r"[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff\u3040-\u30ff]", "", str(content))
+            return clean_res.strip()
 
         return ""
 
@@ -350,12 +352,16 @@ class LocalLLMClient(LLMClient):
             )
 
             if content:
+                # Filtrage CJK temps réel pour bloquer toute hallucination chinoise
+                clean_chunk = re.sub(r"[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff\u3040-\u30ff]", "", content)
+                if not clean_chunk:
+                    continue
                 if first_token_time is None:
                     first_token_time = time.perf_counter()
                     ttft = first_token_time - start_time
                     print(f"\033[35m⏱️  [local_client.py]\033[0m Premier token émis (TTFT - Time To First Token) en \033[1;33m{ttft:.4f}s\033[0m")
                 token_count += 1
-                yield content
+                yield clean_chunk
 
         now = time.perf_counter()
         total_elapsed = now - start_time

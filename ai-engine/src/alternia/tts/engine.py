@@ -11,6 +11,26 @@ import threading
 from pathlib import Path
 from typing import Optional
 import edge_tts
+import edge_tts.communicate
+
+# Patch impératif du SSML : forcer xml:lang="fr-FR" dans le protocole Edge-TTS
+# Évite que Vivienne et les voix neurales ne reçoivent xml:lang="en-US" et ne basculent en anglais/espagnol
+_original_edge_mkssml = edge_tts.communicate.mkssml
+
+def _french_mkssml(tc, escaped_text):
+    if isinstance(escaped_text, bytes):
+        escaped_text = escaped_text.decode("utf-8")
+    return (
+        "<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='fr-FR'>"
+        f"<voice name='{tc.voice}'>"
+        f"<prosody pitch='{tc.pitch}' rate='{tc.rate}' volume='{tc.volume}'>"
+        f"{escaped_text}"
+        "</prosody>"
+        "</voice>"
+        "</speak>"
+    )
+
+edge_tts.communicate.mkssml = _french_mkssml
 
 # Désactiver le warning de parallélisme HuggingFace lors des forks de processus
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -382,6 +402,34 @@ class TTSEngine:
         t = re.sub(r"\s*&\s*", " et ", t)
         # Supprimer les parenthèses de sigles qui créent des prononciations étranges (ex: (TSExp), (11S), (TSE))
         t = re.sub(r"\s*\([A-Za-z0-9\s-]+\)", "", t)
+
+        # Normalisation phonétique des acronymes scolaires maliens et scientifiques
+        t = re.sub(r"\bDEF\b", "D E F", t)
+        t = re.sub(r"\bBAC\b", "Bac", t)
+        t = re.sub(r"\bSVT\b", "S V T", t)
+        t = re.sub(r"\bADN\b", "A D N", t)
+        t = re.sub(r"\bARN\b", "A R N", t)
+        t = re.sub(r"\bEPS\b", "E P S", t)
+        t = re.sub(r"\bPC\b", "Physique Chimie", t)
+        t = re.sub(r"\bpH\b", "P H", t)
+
+        # Mots scientifiques ou ambigus qui font décrocher Vivienne en anglais ou espagnol
+        t = re.sub(r"\bratio\b", "rapport", t, flags=re.IGNORECASE)
+        t = re.sub(r"\bratios\b", "rapports", t, flags=re.IGNORECASE)
+        t = re.sub(r"\bdelta\b", "dèlta", t, flags=re.IGNORECASE)
+        t = re.sub(r"\bmaximum\b", "au maximum", t, flags=re.IGNORECASE)
+        t = re.sub(r"\bminimum\b", "au minimum", t, flags=re.IGNORECASE)
+        t = re.sub(r"\bversus\b", "par rapport à", t, flags=re.IGNORECASE)
+        t = re.sub(r"\bvs\b", "contre", t, flags=re.IGNORECASE)
+        t = re.sub(r"\bin situ\b", "sur place", t, flags=re.IGNORECASE)
+        t = re.sub(r"\bchallenge\b", "défi", t, flags=re.IGNORECASE)
+        t = re.sub(r"\bchallenges\b", "défis", t, flags=re.IGNORECASE)
+        t = re.sub(r"\bprocess\b", "processus", t, flags=re.IGNORECASE)
+        t = re.sub(r"\bfeedback\b", "retour", t, flags=re.IGNORECASE)
+        t = re.sub(r"\btest\b", "tèste", t, flags=re.IGNORECASE)
+        t = re.sub(r"\btests\b", "tèstes", t, flags=re.IGNORECASE)
+        t = re.sub(r"\bcode\b", "kôde", t, flags=re.IGNORECASE)
+        t = re.sub(r"\bcodes\b", "kôdes", t, flags=re.IGNORECASE)
 
         # Nettoyer les espaces multiples
         t = re.sub(r"\s+", " ", t)

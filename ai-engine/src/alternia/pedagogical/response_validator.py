@@ -19,6 +19,11 @@ class PedagogicalResponseValidator:
         t = re.sub(r"<think>[\s\S]*?</think>", "", t, flags=re.IGNORECASE)
         t = re.sub(r"</?think>", "", t, flags=re.IGNORECASE)
 
+        # Nettoyage absolu des caractères chinois / CJK et hallucinations linguistiques
+        t = re.sub(r"[-\s]*O\s*代表[^\n\.]*[\.\n]?", "\n- O représente l'atome d'oxygène (et O2 la molécule de dioxygène).\n", t, flags=re.IGNORECASE)
+        t = re.sub(r"让我们继续翻译[^\n\.]*[\.\n]?", "", t)
+        t = re.sub(r"[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff\u3040-\u30ff\u3000-\u303f\uff00-\uffef]+", "", t)
+
         # Nettoyage et traduction des en-têtes en anglais fréquents dans les balises ***...*** ou **...**
         en_fr_headers = [
             (r"\*{2,3}\s*step\s*1\s*(?::|-)?\s*(?:formula|explication|method|méthode)?\s*(?::|-)?\s*\*{2,3}", "1ère étape : "),

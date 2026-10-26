@@ -110,6 +110,7 @@ export class AudioService {
   }
 
   stop() {
+    const wasPlaying = this.isPlayingQueue || (this.currentPlayer && !this.currentPlayer.paused) || !!this.currentSource;
     this.audioQueue = [];
     if (this.currentPlayer) {
       this.currentPlayer.pause();
@@ -125,7 +126,9 @@ export class AudioService {
       this.speechSynthesis.cancel();
     }
     this.isPlayingQueue = false;
-    if (this.onSpeakingChange) this.onSpeakingChange(false);
+    if (wasPlaying && this.onSpeakingChange) {
+      this.onSpeakingChange(false);
+    }
   }
 
   cleanTextForTTS(text) {

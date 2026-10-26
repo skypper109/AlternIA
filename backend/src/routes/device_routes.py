@@ -370,10 +370,12 @@ class DeviceSyncHub:
     def unregister(self, websocket: WebSocket):
         self.kiosk_sockets.discard(websocket)
 
-    async def broadcast(self, event: str, data: dict[str, Any]):
+    async def broadcast(self, event: str, data: dict[str, Any], exclude: Optional[WebSocket] = None):
         msg = json.dumps({"event": event, "data": data})
         dead = []
         for ws in list(self.kiosk_sockets):
+            if exclude is not None and ws == exclude:
+                continue
             try:
                 await ws.send_text(msg)
             except Exception:
@@ -397,11 +399,12 @@ async def websocket_device_sync_endpoint(websocket: WebSocket):
                 evt = payload.get("event")
                 data = payload.get("data", {})
                 if evt:
-                    if evt == "select_class" and "class" in data:
+                    if evt in ("select_class", "class_selected") and "class" in data:
                         device_sync_hub.state["selected_class"] = data["class"]
                     elif evt == "speaking":
                         device_sync_hub.state["speaking"] = bool(data.get("speaking", False))
-                    await device_sync_hub.broadcast(evt, data)
+                    # Ne pas renvoyer en écho à la socket qui a émis l'événement
+                    await device_sync_hub.broadcast(evt, data, exclude=websocket)
             except Exception:
                 pass
     except WebSocketDisconnect:
