@@ -78,7 +78,7 @@ export class DeviceSyncService {
     switch (event) {
       case 'initial_state':
         if (data.selected_class && data.selected_class !== this.app.currentClass) {
-          this.app.selectClass(data.selected_class, false);
+          this.app.selectClass(data.selected_class, false, true);
         }
         if (data.state === 'listening') {
           this.handleRecordingStart();
@@ -88,8 +88,8 @@ export class DeviceSyncService {
         break;
 
       case 'class_selected':
-        if (data.class) {
-          this.app.selectClass(data.class, true);
+        if (data.class && data.class !== this.app.currentClass) {
+          this.app.selectClass(data.class, true, true);
         }
         break;
 
@@ -227,8 +227,10 @@ export class DeviceSyncService {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       try {
         this.ws.send(JSON.stringify({ event, data }));
+        return; // Diffusé instantanément par WebSocket, ne pas doubler par requête HTTP
       } catch (e) {}
     }
+    // Secours uniquement si WebSocket déconnecté
     fetch('/api/device/event', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

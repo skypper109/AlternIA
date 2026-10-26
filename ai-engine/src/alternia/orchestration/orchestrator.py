@@ -1,3 +1,4 @@
+import re
 import time
 from typing import Any
 
@@ -375,8 +376,11 @@ class AlterniaOrchestrator:
         def stream_with_memory():
             full_text = ""
             for chunk in raw_stream:
-                full_text += chunk
-                yield chunk
+                # Filtrage CJK temps réel pour bloquer toute fuite de caractère chinois dans le flux
+                clean_chunk = re.sub(r"[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff\u3040-\u30ff]", "", chunk)
+                if clean_chunk:
+                    full_text += clean_chunk
+                    yield clean_chunk
 
             if session_id is not None and full_text.strip():
                 self.conversation_manager.add_student_message(

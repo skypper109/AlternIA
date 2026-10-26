@@ -196,8 +196,11 @@ export class AlternIAApp {
     this.katex = new KaTeXRenderer();
 
     // 4. Synthèse vocale & FFT
+    this._lastSpeaking = null;
     this.audio = new AudioService({
       onSpeakingChange: (isSpeaking) => {
+        if (this._lastSpeaking === isSpeaking) return;
+        this._lastSpeaking = isSpeaking;
         document.body.dataset.state = isSpeaking ? 'speaking' : 'idle';
         if (isSpeaking) {
           this.vortex.setState('SPEAKING', 'Enseignant explique...');
@@ -351,7 +354,15 @@ export class AlternIAApp {
     }
   }
 
-  selectClass(classId, shouldTransition = true) {
+  selectClass(classId, shouldTransition = true, isRemoteSync = false) {
+    // Si la classe demandée est déjà celle sélectionnée, pas besoin de relancer la voix ni les requêtes
+    if (this.currentClass === classId && !isRemoteSync) {
+      if (shouldTransition && this.currentScreen !== 'workspace') {
+        this.showScreen('workspace');
+      }
+      return;
+    }
+
     this.currentClass = classId;
 
     // Détermination du cycle
@@ -375,27 +386,29 @@ export class AlternIAApp {
       this.audio.audioCtx.resume();
     }
 
-    // Message vocal de confirmation
-    const vocalLabels = {
-      '6eme': 'sixième année',
-      '7eme': 'septième année',
-      '8eme': 'huitième année',
-      '9eme': 'neuvième année, préparation au D E F',
-      '10eme': 'dixième année tronc commun',
-      '11eme': 'onzième année du lycée',
-      '12eme': 'classe de terminale, objectif baccalauréat'
-    };
-    const voiceMsg = vocalLabels[classId] ? `Tu as choisi la ${vocalLabels[classId]}. Pose-moi ta question !` : 'Classe sélectionnée.';
-    if (this.audio) {
+    // Message vocal de confirmation (uniquement en cas de sélection locale utilisateur, pas en remote sync)
+    if (!isRemoteSync && this.audio) {
+      const vocalLabels = {
+        '6eme': 'sixième année',
+        '7eme': 'septième année',
+        '8eme': 'huitième année',
+        '9eme': 'neuvième année, préparation au D E F',
+        '10eme': 'dixième année tronc commun',
+        '11eme': 'onzième année du lycée',
+        '12eme': 'classe de terminale, objectif baccalauréat'
+      };
+      const voiceMsg = vocalLabels[classId] ? `Tu as choisi la ${vocalLabels[classId]}. Pose-moi ta question !` : 'Classe sélectionnée.';
       this.audio.speakText(voiceMsg);
     }
 
-    // Synchronisation ESP32 & Bus Matériel HDMI Kiosk :
+    // Synchronisation ESP32 & Bus Matériel HDMI Kiosk (uniquement si ce n'est PAS un remote sync):
     // 10ème -> BLEU, 11ème -> ROUGE, 12ème -> JAUNE, fondamental -> GREEN
-    fetch(`/api/esp32/select-class?classe=${encodeURIComponent(classId)}&mic_connected=true`, { method: 'POST' }).catch(() => {});
-    fetch(`http://192.168.4.1/api/select-class?classe=${encodeURIComponent(classId)}`, { mode: 'no-cors' }).catch(() => {});
-    if (this.sync) {
-      this.sync.notifyEvent('class_selected', { class: classId });
+    if (!isRemoteSync) {
+      fetch(`/api/esp32/select-class?classe=${encodeURIComponent(classId)}&mic_connected=true`, { method: 'POST' }).catch(() => {});
+      fetch(`http://192.168.4.1/api/select-class?classe=${encodeURIComponent(classId)}`, { mode: 'no-cors' }).catch(() => {});
+      if (this.sync) {
+        this.sync.notifyEvent('class_selected', { class: classId });
+      }
     }
 
     // Transition vers l'espace de travail

@@ -5,6 +5,7 @@ Routes API pour le chat pédagogique, streaming SSE, curriculum et profil appren
 from typing import Any
 import asyncio
 import json
+import re
 import time
 from pathlib import Path
 from typing import AsyncIterator
@@ -418,8 +419,11 @@ async def chat_stream_endpoint(req: ChatRequest):
         full_text = ""
         try:
             for chunk in generator:
-                full_text += chunk
-                payload = json.dumps({"chunk": chunk, "done": False}, ensure_ascii=False)
+                clean_chunk = re.sub(r"[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff\u3040-\u30ff]", "", chunk)
+                if not clean_chunk:
+                    continue
+                full_text += clean_chunk
+                payload = json.dumps({"chunk": clean_chunk, "done": False}, ensure_ascii=False)
                 yield f"data: {payload}\n\n"
                 await asyncio.sleep(0)
         except Exception as e:
