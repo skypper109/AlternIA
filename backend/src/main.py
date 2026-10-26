@@ -171,18 +171,33 @@ def get_request_host(request: Request) -> str:
 
 
 def is_device_subdomain(host: str) -> bool:
-    """Détecte les requêtes destinées à l'interface élève (device.alterniamali.com)."""
-    return host.startswith("device.") or host == "device.alterniamali.com"
+    """Détecte les requêtes destinées à l'interface élève (device.alterniamali.com, devicealterniamali.com, etc.)."""
+    return (
+        host.startswith("device.")
+        or host == "device.alterniamali.com"
+        or host.startswith("devicealterniamali")
+        or "device" in host
+    )
 
 
 def is_admin_subdomain(host: str) -> bool:
-    """Détecte les requêtes destinées au backoffice admin Alta (admin.alterniamali.com)."""
-    return host.startswith("admin.") or host == "admin.alterniamali.com"
+    """Détecte les requêtes destinées au backoffice admin Alta (admin.alterniamali.com, adminalterniamali.com, etc.)."""
+    return (
+        host.startswith("admin.")
+        or host == "admin.alterniamali.com"
+        or host.startswith("adminalterniamali")
+        or "admin" in host
+    )
 
 
 def is_api_subdomain(host: str) -> bool:
-    """Détecte les requêtes dédiées à l'API / Mobile (api.alterniamali.com)."""
-    return host.startswith("api.") or host == "api.alterniamali.com"
+    """Détecte les requêtes dédiées à l'API / Mobile (api.alterniamali.com, apialterniamali.com, etc.)."""
+    return (
+        host.startswith("api.")
+        or host == "api.alterniamali.com"
+        or host.startswith("apialterniamali")
+        or "api" in host
+    )
 
 
 if DEVICE_FRONTEND_DIR.exists():
@@ -216,7 +231,7 @@ async def root_router(request: Request):
     """
     host = get_request_host(request)
 
-    # 1. Sous-domaine Kiosk Élève : device.alterniamali.com
+    # 1. Sous-domaine Kiosk Élève : device.alterniamali.com ou devicealterniamali.com
     if is_device_subdomain(host):
         device_index = DEVICE_FRONTEND_DIR / "index.html"
         if device_index.exists():
@@ -273,6 +288,11 @@ API_PATH_PREFIXES = (
     "revision/",
 )
 
+STATIC_ASSET_EXTENSIONS = (
+    ".js", ".mjs", ".css", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico",
+    ".woff", ".woff2", ".ttf", ".eot", ".map", ".json", ".webp", ".mp3", ".wav"
+)
+
 
 @app.get("/{file_path:path}")
 async def serve_subdomain_spa_or_assets(request: Request, file_path: str):
@@ -281,13 +301,36 @@ async def serve_subdomain_spa_or_assets(request: Request, file_path: str):
     - device.alterniamali.com sert les assets et l'index du Kiosk Élève
     - admin.alterniamali.com sert les chunks et pages du portail Alta
     - Les routes d'API ne sont pas interceptées
+    - Les fichiers statiques (.js, .css, images) renvoient 404 s'ils sont introuvables (jamais index.html)
     """
     if file_path.startswith(API_PATH_PREFIXES) or file_path in ("health", "favicon.ico"):
         raise HTTPException(status_code=404, detail="Route API non trouvée")
 
     host = get_request_host(request)
+    is_static_asset = (
+        file_path.startswith("assets/")
+        or any(file_path.lower().endswith(ext) for ext in STATIC_ASSET_EXTENSIONS)
+    )
 
-    # ── A. SOUS-DOMAINE DEVICE (device.alterniamali.com) ────────────────────
+    # Si c'est un asset statique, recherche stricte dans les répertoires sans jamais replier sur index.html
+    if is_static_asset:
+        cleaned_path = file_path[len("device/"):].lstrip("/") if file_path.startswith("device/") else file_path
+
+        # 1. Vérification dans le répertoire Kiosk Device
+        if DEVICE_FRONTEND_DIR.exists():
+            target_dev = DEVICE_FRONTEND_DIR / cleaned_path
+            if target_dev.is_file():
+                return FileResponse(str(target_dev))
+
+        # 2. Vérification dans le répertoire Alta
+        if ALTA_BROWSER_DIR.exists():
+            target_alta = ALTA_BROWSER_DIR / file_path
+            if target_alta.is_file():
+                return FileResponse(str(target_alta))
+
+        raise HTTPException(status_code=404, detail=f"Fichier statique introuvable: {file_path}")
+
+    # ── A. SOUS-DOMAINE DEVICE (device.alterniamali.com ou devicealterniamali.com) ───
     if is_device_subdomain(host):
         cleaned_path = file_path[len("device/"):].lstrip("/") if file_path.startswith("device/") else file_path
         target = DEVICE_FRONTEND_DIR / cleaned_path
