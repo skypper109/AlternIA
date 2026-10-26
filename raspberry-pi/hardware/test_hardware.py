@@ -51,11 +51,22 @@ try:
 except Exception as e:
     print(f"⚠️ Erreur test microphone : {e} (Assurez-vous que le micro I2S est branché)")
 
+# Chargement de l'environnement
+for _env in [Path("/home/ubuntu/Alternia/raspberry-pi/.env"), Path("/home/ubuntu/AlternIA/raspberry-pi/.env"), Path(__file__).resolve().parent.parent / ".env", Path(".env")]:
+    if _env.exists():
+        for line in _env.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, v = line.split("=", 1)
+                os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+        break
+
 # 3. Test de la LED Tricolore RGB
 print("\n[3/4] Test de la LED Tricolore RGB (GPIO 17=Rouge, 27=Vert, 22=Bleu)...")
 pin_r = int(os.environ.get("PIN_LED_R", 17))
 pin_g = int(os.environ.get("PIN_LED_G", 27))
 pin_b = int(os.environ.get("PIN_LED_B", 22))
+led_active_high = os.environ.get("LED_ACTIVE_HIGH", "1").lower() in ("1", "true", "yes")
 
 test_colors = [
     ("🔴 Rouge (Enregistrement Micro)", (1.0, 0.0, 0.0)),
@@ -68,8 +79,12 @@ test_colors = [
 
 try:
     from gpiozero import RGBLED  # type: ignore
-    led = RGBLED(red=pin_r, green=pin_g, blue=pin_b, active_high=True, pwm=True)
-    print(f"💡 Initialisation de la LED RGB sur GPIO {pin_r}, {pin_g}, {pin_b}...")
+    try:
+        led = RGBLED(red=pin_r, green=pin_g, blue=pin_b, active_high=led_active_high, pwm=True)
+    except Exception:
+        led = RGBLED(red=pin_r, green=pin_g, blue=pin_b, active_high=led_active_high, pwm=False)
+    pol_name = "Cathode Commune" if led_active_high else "Anode Commune"
+    print(f"💡 Initialisation de la LED RGB sur GPIO {pin_r}, {pin_g}, {pin_b} [{pol_name}]...")
     for label, (r, g, b) in test_colors:
         print(f"   -> Affichage : {label}")
         led.color = (r, g, b)

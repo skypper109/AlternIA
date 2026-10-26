@@ -41,6 +41,26 @@ from pathlib import Path
 from typing import Optional, Tuple, Dict, Any
 
 # ══════════════════════════════════════════════════════════════════════════════
+# CHARGEMENT DU FICHIER D'ENVIRONNEMENT (.env)
+# ══════════════════════════════════════════════════════════════════════════════
+for _env_candidate in [
+    Path("/home/ubuntu/Alternia/raspberry-pi/.env"),
+    Path("/home/ubuntu/AlternIA/raspberry-pi/.env"),
+    Path(__file__).resolve().parent.parent / ".env",
+    Path(".env"),
+]:
+    if _env_candidate.exists():
+        try:
+            for _line in _env_candidate.read_text(encoding="utf-8").splitlines():
+                _line = _line.strip()
+                if _line and not _line.startswith("#") and "=" in _line:
+                    _k, _v = _line.split("=", 1)
+                    os.environ.setdefault(_k.strip(), _v.strip().strip('"').strip("'"))
+            break
+        except Exception:
+            pass
+
+# ══════════════════════════════════════════════════════════════════════════════
 # CONFIGURATION MATÉRIELLE & BROCHES GPIO (BCM)
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -74,23 +94,6 @@ CURRENT_CLASS_FILE = Path("/tmp/alta_current_class")
 AUDIO_RECORDING_PATH = Path("/tmp/alta_voice_input.wav")
 AUDIO_RAW_RECORDING_PATH = Path("/tmp/alta_voice_raw.wav")
 AUDIO_OUTPUT_PATH = Path("/tmp/alta_voice_output.mp3")
-
-# Chargement automatique du fichier d'environnement .env
-for _env_candidate in [
-    Path("/home/ubuntu/Alternia/raspberry-pi/.env"),
-    Path("/home/ubuntu/AlternIA/raspberry-pi/.env"),
-    Path(__file__).resolve().parent.parent / ".env",
-]:
-    if _env_candidate.exists():
-        try:
-            for _line in _env_candidate.read_text(encoding="utf-8").splitlines():
-                _line = _line.strip()
-                if _line and not _line.startswith("#") and "=" in _line:
-                    _k, _v = _line.split("=", 1)
-                    os.environ.setdefault(_k.strip(), _v.strip().strip('"').strip("'"))
-            break
-        except Exception:
-            pass
 
 # User-Agent de type navigateur pour franchir Cloudflare sans blocage WAF (403 Forbidden)
 BROWSER_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
@@ -251,6 +254,7 @@ class TricolorLedController:
         self.hardware_type = "SIMULATION"
         self.rgb_device = None
         self.gpio_fallback_pins = None
+        self.gpiod_lines = None
         self._last_log_state = ""
 
         self._setup_hardware()
@@ -261,6 +265,9 @@ class TricolorLedController:
 
     def _setup_hardware(self):
         """Initialise le composant RGB avec gpiozero ou libgpiod, ou active le mode simulation."""
+        polarity_str = "Cathode Commune (Active High)" if self.active_high else "Anode Commune (Active Low)"
+
+        # 1. gpiozero RGBLED (PWM)
         try:
             from gpiozero import RGBLED  # type: ignore
             self.rgb_device = RGBLED(
@@ -271,12 +278,28 @@ class TricolorLedController:
                 pwm=True
             )
             self.hardware_type = "GPIOZERO_PWM"
-            print(f"💡 [LED RGB] Module PWM actif sur GPIO {self.pin_r}(R), {self.pin_g}(G), {self.pin_b}(B).")
+            print(f"💡 [LED RGB] Module PWM actif sur GPIO {self.pin_r}(R), {self.pin_g}(G), {self.pin_b}(B) [{polarity_str}].")
             return
         except Exception as exc:
-            pass
+            print(f"ℹ️ [LED RGB] gpiozero PWM non disponible ({exc}). Essai sans PWM...")
 
-        # Fallback 1 : gpiozero sans PWM (LED classiques Tout-Ou-Rien)
+        # 2. gpiozero RGBLED (sans PWM / digital)
+        try:
+            from gpiozero import RGBLED  # type: ignore
+            self.rgb_device = RGBLED(
+                red=self.pin_r,
+                green=self.pin_g,
+                blue=self.pin_b,
+                active_high=self.active_high,
+                pwm=False
+            )
+            self.hardware_type = "GPIOZERO_DIGITAL"
+            print(f"💡 [LED RGB] Module Digital actif sur GPIO {self.pin_r}, {self.pin_g}, {self.pin_b} [{polarity_str}].")
+            return
+        except Exception as exc:
+            print(f"ℹ️ [LED RGB] gpiozero digital non disponible ({exc}). Essai LED discrètes...")
+
+        # 3. gpiozero LED individuelles
         try:
             from gpiozero import LED  # type: ignore
             self.gpio_fallback_pins = {
@@ -285,12 +308,32 @@ class TricolorLedController:
                 "b": LED(self.pin_b, active_high=self.active_high),
             }
             self.hardware_type = "GPIOZERO_BINARY"
-            print(f"💡 [LED RGB] Mode digital actif (sans PWM) sur GPIO {self.pin_r}, {self.pin_g}, {self.pin_b}.")
+            print(f"💡 [LED RGB] Mode digital discret actif sur GPIO {self.pin_r}, {self.pin_g}, {self.pin_b} [{polarity_str}].")
             return
-        except Exception:
-            pass
+        except Exception as exc:
+            print(f"ℹ️ [LED RGB] gpiozero discret non disponible ({exc}). Essai libgpiod natif...")
 
-        # Fallback 2 : Mode Simulation (pour dev sur PC / Mac sans GPIO)
+        # 4. Fallback libgpiod natif (Pi 5 Bookworm gpiochip4)
+        try:
+            import gpiod  # type: ignore
+            chip = gpiod.Chip('gpiochip4')
+            lines = {
+                "r": chip.get_line(self.pin_r),
+                "g": chip.get_line(self.pin_g),
+                "b": chip.get_line(self.pin_b),
+            }
+            for name, line in lines.items():
+                line.request(consumer="alta-rgb", type=gpiod.LINE_REQ_DIR_OUT)
+            self.gpiod_lines = lines
+            self.hardware_type = "GPIOD"
+            print(f"💡 [LED RGB] Mode libgpiod natif actif sur GPIO {self.pin_r}, {self.pin_g}, {self.pin_b} [{polarity_str}].")
+            return
+        except Exception as exc:
+            print(f"⚠️ [LED RGB] Matériel physique inaccessible ({exc}).")
+            if "busy" in str(exc).lower():
+                print("⚠️ [LED RGB] ATTENTION : Une broche GPIO est occupée ! Assurez-vous d'avoir désactivé alta-led (sudo systemctl stop alta-led).")
+
+        # 5. Fallback : Mode Simulation
         self.hardware_type = "SIMULATION"
         print(f"💡 [LED RGB] Mode simulation actif (LED visuelle console).")
 
@@ -308,14 +351,26 @@ class TricolorLedController:
                 pass
         elif self.gpio_fallback_pins:
             try:
-                if r > 0.2: self.gpio_fallback_pins["r"].on()
+                if r > 0.15: self.gpio_fallback_pins["r"].on()
                 else: self.gpio_fallback_pins["r"].off()
 
-                if g > 0.2: self.gpio_fallback_pins["g"].on()
+                if g > 0.15: self.gpio_fallback_pins["g"].on()
                 else: self.gpio_fallback_pins["g"].off()
 
-                if b > 0.2: self.gpio_fallback_pins["b"].on()
+                if b > 0.15: self.gpio_fallback_pins["b"].on()
                 else: self.gpio_fallback_pins["b"].off()
+            except Exception:
+                pass
+        elif self.gpiod_lines:
+            try:
+                # Active High (Cathode commune) : ON = 1, OFF = 0
+                # Active Low (Anode commune) : ON = 0, OFF = 1
+                val_r = (1 if r > 0.15 else 0) if self.active_high else (0 if r > 0.15 else 1)
+                val_g = (1 if g > 0.15 else 0) if self.active_high else (0 if g > 0.15 else 1)
+                val_b = (1 if b > 0.15 else 0) if self.active_high else (0 if b > 0.15 else 1)
+                self.gpiod_lines["r"].set_value(val_r)
+                self.gpiod_lines["g"].set_value(val_g)
+                self.gpiod_lines["b"].set_value(val_b)
             except Exception:
                 pass
 

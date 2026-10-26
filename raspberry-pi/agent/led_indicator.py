@@ -30,25 +30,10 @@ PWR_LED_PATH = Path("/sys/class/leds/PWR")
 ACTIVITY_FLAG = Path("/tmp/alta_activity.flag")
 SERVER_STATUS_FLAG = Path("/tmp/alta_server_connected.flag")
 
-# Broche GPIO optionnelle pour LED externe (si branchée)
-EXTERNAL_LED_PIN = 17
+# Broche GPIO externe (Désactivée : le contrôle RGB complet est désormais géré par alta-hardware)
+EXTERNAL_LED_PIN = None
 gpio_available = False
 gpio_led = None
-
-try:
-    import gpiod  # type: ignore
-    # Utilisation de libgpiod (standard officiel Pi 5 sous Bookworm)
-    chip = gpiod.Chip('gpiochip4')
-    gpio_led = chip.get_line(EXTERNAL_LED_PIN)
-    gpio_led.request(consumer="alta-led", type=gpiod.LINE_REQ_DIR_OUT)
-    gpio_available = True
-except Exception:
-    try:
-        from gpiozero import LED  # type: ignore
-        gpio_led = LED(EXTERNAL_LED_PIN)
-        gpio_available = True
-    except Exception:
-        gpio_available = False
 
 
 class LedController:
