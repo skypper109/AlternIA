@@ -1,5 +1,5 @@
 [Unit]
-Description=Alta-Box Fullscreen Chromium Kiosk on Raspberry Pi HDMI Display
+Description=Alta-Box Fullscreen Chromium Kiosk on Raspberry Pi HDMI Display (TV)
 After=graphical.target alta-hotspot.service nginx.service network-online.target
 Wants=graphical.target network-online.target
 
@@ -7,10 +7,12 @@ Wants=graphical.target network-online.target
 Type=simple
 User=ubuntu
 Environment=DISPLAY=:0
+Environment=WAYLAND_DISPLAY=wayland-0
+Environment=XDG_RUNTIME_DIR=/run/user/1000
 Environment=XAUTHORITY=/home/ubuntu/.Xauthority
-ExecStart=/bin/bash /home/ubuntu/AlternIA/raspberry-pi/kiosk/launch_kiosk.sh
-Restart=on-failure
-RestartSec=5
+ExecStart=/bin/bash -c "for f in /home/ubuntu/Alternia/raspberry-pi/kiosk/launch_kiosk.sh /home/ubuntu/AlternIA/raspberry-pi/kiosk/launch_kiosk.sh; do if [ -f \"$f\" ]; then exec /bin/bash \"$f\"; fi; done"
+Restart=always
+RestartSec=3
 
 [Install]
 WantedBy=graphical.target

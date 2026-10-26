@@ -75,6 +75,16 @@ def get_device_info():
     }
 
 
+_tts_instances: dict[str, TTSEngine] = {}
+
+
+def get_cached_tts_engine(voice: str) -> TTSEngine:
+    global _tts_instances
+    if voice not in _tts_instances:
+        _tts_instances[voice] = TTSEngine(voice=voice)
+    return _tts_instances[voice]
+
+
 @router.post("/api/tts")
 async def tts_post_endpoint(req: TTSRequest):
     """Synthèse vocale neurale haute fidélité (POST JSON body)."""
@@ -82,12 +92,16 @@ async def tts_post_endpoint(req: TTSRequest):
         raise HTTPException(status_code=400, detail="Texte manquant pour la synthèse vocale")
 
     voice_name = req.voice or settings.tts_voice or "vivienne"
-    tts_engine = TTSEngine(voice=voice_name)
+    tts_engine = get_cached_tts_engine(voice=voice_name)
     try:
         audio_bytes = await tts_engine.synthesize_to_bytes(req.text)
         if not audio_bytes:
             raise HTTPException(status_code=500, detail="Échec de la synthèse vocale")
-        return Response(content=audio_bytes, media_type="audio/mpeg")
+        return Response(
+            content=audio_bytes,
+            media_type="audio/mpeg",
+            headers={"Content-Length": str(len(audio_bytes))}
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur TTS : {str(e)}")
 
@@ -98,12 +112,16 @@ async def tts_get_endpoint(text: str, voice: Optional[str] = "vivienne"):
     if not text.strip():
         raise HTTPException(status_code=400, detail="Texte manquant pour la synthèse vocale")
 
-    tts_engine = TTSEngine(voice=voice or settings.tts_voice or "vivienne")
+    tts_engine = get_cached_tts_engine(voice=voice or settings.tts_voice or "vivienne")
     try:
         audio_bytes = await tts_engine.synthesize_to_bytes(text)
         if not audio_bytes:
             raise HTTPException(status_code=500, detail="Échec de la synthèse vocale")
-        return Response(content=audio_bytes, media_type="audio/mpeg")
+        return Response(
+            content=audio_bytes,
+            media_type="audio/mpeg",
+            headers={"Content-Length": str(len(audio_bytes))}
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur TTS : {str(e)}")
 
@@ -150,245 +168,32 @@ async def rag_analyze_exercise(
     image: Optional[UploadFile] = File(None),
 ):
     """
-    Analyse approfondie d'un exercice ou problème scolaire scanné :
-    1. Extraction de texte par OCR haute fidélité (Apple Vision / fallback).
-    2. Détection de lisibilité : rejet explicite si l'image est floue ou vide.
-    3. Détection de conformité au programme : rejet immédiat des reçus de transaction, tickets financiers et documents non académiques.
-    4. Détection dynamique de la vraie matière scolaire (Maths, Physique-Chimie, SVT, Français, Philo, Histoire-Géo).
-    5. Analyse détaillée des procédures et décomposition socratique de résolution pas-à-pas alignée sur le programme du Mali.
+    Analyse approfondie et réelle d'un exercice ou problème scolaire scanné :
+    1. Extraction de texte par OCR haute fidélité (Apple Vision / EasyOCR / PyMuPDF / Tesseract).
+    2. Détection de lisibilité & filtrage des reçus financiers / documents hors programme.
+    3. Classification disciplinaire experte (Maths, Physique-Chimie, SVT, Français, Philo, Histoire-Géo).
+    4. Résolution pédagogique socratique pas-à-pas avec consignes concrètes adaptées à chaque type de document.
     """
-    import re
-    from backend.src.services.ocr_service import perform_ocr_on_image
-    from alternia.pedagogical.curriculum_keywords import detect_malian_curriculum_subject
+    from backend.src.services.ocr_service import analyze_and_decompose_exercise
 
-    orch = get_orchestrator()
-    student_class = normalize_student_class(level or "11eme")
-    
-    extracted_text = (text or "").strip()
+    image_bytes: Optional[bytes] = None
+    filename: str = "document.jpg"
 
-    # 1. Traitement OCR si une image est transmise
     if image and image.filename:
+        filename = image.filename
         try:
             image_bytes = await image.read()
-            if image_bytes:
-                ocr_result = perform_ocr_on_image(image_bytes, filename=image.filename)
-                if ocr_result and ocr_result.strip():
-                    extracted_text = ocr_result.strip() if not extracted_text else f"{extracted_text}\n" + ocr_result.strip()
-        except Exception as ocr_err:
-            print(f"[OCR Error] {ocr_err}")
+        except Exception as img_err:
+            print(f"[DeviceRoutes] Erreur lecture image scannée : {img_err}")
 
-    # 2. Vérification de lisibilité
-    clean_text = extracted_text.strip()
-    if not clean_text or len(clean_text) < 4:
-        return {
-            "status": "unreadable",
-            "is_valid": False,
-            "subject": "Illisible",
-            "class": student_class,
-            "topic": "Image non exploitable",
-            "extracted_text": clean_text,
-            "message": "Le document ou la photo scannée est illisible ou ne contient aucun texte d'exercice exploitable. Assurez-vous de bien éclairer la feuille et de photographier l'énoncé de près.",
-            "hints": [],
-        }
-
-    norm_text = clean_text.lower()
-
-    # 3. Détection des documents hors programme scolaire (ex: reçus de paiement, tickets, cartes, factures)
-    financial_receipt_terms = [
-        "transaction", "montant", "frais", "fcfa", "xof", "cfa", "solde",
-        "ref bill", "reçu de", "recu de", "ticket de caisse", "retrait", "dépôt", "depot",
-        "orange money", "wave", "moov money", "sama money", "facture",
-        "carte sim", "numéro de téléphone", "numero de telephone", "carte d'identité",
-        "permis de conduire", "passeport", "bancaire", "virement", "guichet"
-    ]
-    academic_exercise_indicators = [
-        "exercice", "problème", "probleme", "devoir", "question", "calculer",
-        "démontrer", "demontrer", "montrer que", "justifier", "déterminer", "determiner",
-        "résoudre", "resoudre", "équation", "equation", "fonction", "théorème", "theoreme",
-        "formule", "suite", "intégrale", "integrale", "dérivée", "derivee", "vecteur",
-        "vitesse", "accélération", "acceleration", "force", "tension", "courant",
-        "chimie", "atome", "molécule", "molecule", "acide", "base", "ph", "solution",
-        "cellule", "adn", "génétique", "genetique", "chromosome", "svt", "biologie",
-        "dissertation", "commentaire", "texte", "strophe", "auteur", "philosophie",
-        "histoire", "géographie", "geographie", "siècle", "siecle", "empire", "mali"
-    ]
-
-    non_acad_matches = sum(1 for term in financial_receipt_terms if term in norm_text)
-    acad_matches = sum(1 for term in academic_exercise_indicators if term in norm_text)
-    detected_raw_sub = detect_malian_curriculum_subject(clean_text)
-
-    # Détection si c'est une équation ou formule mathématique / scientifique
-    is_math_formula = bool(re.search(r"(=|<|>|\+|\-|\*|/|\^|\bx\b|\by\b|\bz\b|f\(x\)|lim|sqrt|cos|sin|tan)", clean_text, re.IGNORECASE))
-    if is_math_formula and not detected_raw_sub:
-        detected_raw_sub = "mathematiques"
-        acad_matches += 1
-
-    # Si le document contient des marqueurs financiers/reçus sans contexte d'exercice
-    if non_acad_matches >= 2 and acad_matches == 0 and not detected_raw_sub:
-        return {
-            "status": "not_curriculum",
-            "is_valid": False,
-            "subject": "Document non académique",
-            "class": student_class,
-            "topic": "Reçu ou document financier",
-            "extracted_text": clean_text,
-            "message": "Ce document ne correspond pas au programme scolaire malien (reçu de paiement, ticket financier ou document non académique détecté). Veuillez scanner une page de manuel ou un exercice de cours (Mathématiques, Physique-Chimie, SVT, Français, etc.).",
-            "hints": [],
-        }
-
-    # Si le texte extrait ne comporte aucun vocabulaire scolaire ni matière identifiable
-    if acad_matches == 0 and not detected_raw_sub and len(clean_text) > 40:
-        return {
-            "status": "not_curriculum",
-            "is_valid": False,
-            "subject": "Non reconnu",
-            "class": student_class,
-            "topic": "Hors programme scolaire",
-            "extracted_text": clean_text,
-            "message": "Le texte détecté ne semble pas être un énoncé d'exercice ou de cours conforme au programme du lycée. Assurez-vous de cadrer directement l'exercice à résoudre.",
-            "hints": [],
-        }
-
-    # 4. Identification dynamique de la vraie matière scolaire
-    subject_display_names = {
-        "biologie": "SVT / Biologie",
-        "chimie": "Physique-Chimie",
-        "physique": "Physique-Chimie",
-        "mathematiques": "Mathématiques",
-        "philosophie": "Philosophie",
-        "histoire-geographie": "Histoire-Géographie",
-        "francais": "Français",
-        "anglais": "Anglais",
-        "economie": "Économie",
-    }
-    
-    true_subject = None
-    if detected_raw_sub in subject_display_names:
-        true_subject = subject_display_names[detected_raw_sub]
-    elif detected_raw_sub:
-        true_subject = detected_raw_sub.capitalize()
-    elif subject and subject.strip().lower() not in {"général", "general", "non défini"}:
-        true_subject = subject.strip()
-    else:
-        # Détection heuristique
-        if any(w in norm_text for w in ["f(x)", "intégrale", "dérivée", "équation", "suite", "triangle", "cos", "sin", "matrice", "probabilité"]):
-            true_subject = "Mathématiques"
-        elif any(w in norm_text for w in ["newton", "force", "masse", "vitesse", "acide", "base", "ph", "solution", "circuit", "tension", "ampère"]):
-            true_subject = "Physique-Chimie"
-        elif any(w in norm_text for w in ["cellule", "chromosome", "allèle", "adn", "plante", "chlorophylle", "sol", "roche"]):
-            true_subject = "SVT / Biologie"
-        elif any(w in norm_text for w in ["conscience", "inconscient", "liberté", "morale", "justice", "vérité"]):
-            true_subject = "Philosophie"
-        else:
-            true_subject = "Mathématiques"
-
-    # 5. Détection du thème ou chapitre spécifique de l'exercice
-    detected_topic = "Résolution méthodique"
-    if "suite" in norm_text:
-        detected_topic = "Suites numériques & Récurrence"
-    elif "f(x)" in norm_text or "dériv" in norm_text or "limite" in norm_text:
-        detected_topic = "Étude de fonctions & Dérivation"
-    elif "complex" in norm_text or "imaginaire" in norm_text:
-        detected_topic = "Nombres complexes & Géométrie"
-    elif "probab" in norm_text:
-        detected_topic = "Probabilités & Dénombrement"
-    elif "newton" in norm_text or "force" in norm_text or "accélér" in norm_text:
-        detected_topic = "Mécanique & Lois de Newton"
-    elif "acide" in norm_text or "base" in norm_text or "ph" in norm_text:
-        detected_topic = "Réactions acido-basiques & Dosage"
-    elif "circuit" in norm_text or "rlc" in norm_text or "condensateur" in norm_text:
-        detected_topic = "Électrocinétique & Circuits"
-    elif "généti" in norm_text or "mendel" in norm_text or "chromosom" in norm_text:
-        detected_topic = "Génétique mendélienne & Hérédité"
-    elif "cellul" in norm_text or "mitose" in norm_text:
-        detected_topic = "Biologie cellulaire & Division"
-    elif "conscien" in norm_text or "libert" in norm_text:
-        detected_topic = "La Conscience et la Liberté"
-
-    # 6. Extraction des éléments clés (nombres, grandeurs, questions de l'exercice)
-    found_numbers = re.findall(r"\b\d+(?:[.,]\d+)?\b", clean_text)
-    numbers_snippet = ", ".join(found_numbers[:4]) if found_numbers else "Données littérales"
-
-    first_sentence = clean_text.split("\n")[0][:100]
-
-    # Construction des 4 étapes détaillées spécifiques à l'énoncé
-    hints = [
-        {
-            "step": 1,
-            "type": "observation",
-            "title": f"Étape 1 • Observation & Données ({true_subject})",
-            "text": (
-                f"Analysons minutieusement l'énoncé scanné : « {first_sentence}… ».\n"
-                f"• Données et grandeurs identifiées : {numbers_snippet}.\n"
-                f"• Thématique dominante : {detected_topic}."
-            ),
-            "content": (
-                f"Analysons minutieusement l'énoncé scanné : « {first_sentence}… ».\n"
-                f"• Données et grandeurs identifiées : {numbers_snippet}.\n"
-                f"• Thématique dominante : {detected_topic}."
-            ),
-            "question": "Quelles sont les données connues et quelle est la grandeur ou conclusion exacte demandée par la consigne ?",
-        },
-        {
-            "step": 2,
-            "type": "conceptual",
-            "title": f"Étape 2 • Théorèmes & Formules ({true_subject})",
-            "text": (
-                f"Mobilisons les fondamentaux du programme officiel malien de {student_class} en {true_subject}.\n"
-                f"Pour traiter le thème '{detected_topic}', rappelle-toi des définitions clés, relations maîtresses et conditions d'application requises."
-            ),
-            "content": (
-                f"Mobilisons les fondamentaux du programme officiel malien de {student_class} en {true_subject}.\n"
-                f"Pour traiter le thème '{detected_topic}', rappelle-toi des définitions clés, relations maîtresses et conditions d'application requises."
-            ),
-            "question": "Quelle formule maîtresse ou propriété de cours relie directement les données fournies à l'inconnue ?",
-        },
-        {
-            "step": 3,
-            "type": "procedural",
-            "title": f"Étape 3 • Procédure de résolution méthodique",
-            "text": (
-                f"Procédure pas-à-pas pour cet exercice :\n"
-                f"1. Pose l'équation ou la relation littérale sans remplacer prématurément par les valeurs numériques.\n"
-                f"2. Isole méthodiquement la grandeur recherchée.\n"
-                f"3. Vérifie l'homogénéité dimensionnelle et effectue l'application numérique avec les unités du système international."
-            ),
-            "content": (
-                f"Procédure pas-à-pas pour cet exercice :\n"
-                f"1. Pose l'équation ou la relation littérale sans remplacer prématurément par les valeurs numériques.\n"
-                f"2. Isole méthodiquement la grandeur recherchée.\n"
-                f"3. Vérifie l'homogénéité dimensionnelle et effectue l'application numérique avec les unités du système international."
-            ),
-            "question": "Quelle relation littérale intermédiaire obtiens-tu avant l'application numérique ?",
-        },
-        {
-            "step": 4,
-            "type": "solution",
-            "title": f"Étape 4 • Résolution finale & Vérification",
-            "text": (
-                f"Synthèse et validation du résultat :\n"
-                f"• Analyse critique : vérifie si l'ordre de grandeur est cohérent avec le cadre physique ou mathématique.\n"
-                f"• Rédaction : encadre ton résultat final avec son unité exacte et une phrase explicative rigoureuse."
-            ),
-            "content": (
-                f"Synthèse et validation du résultat :\n"
-                f"• Analyse critique : vérifie si l'ordre de grandeur est cohérent avec le cadre physique ou mathématique.\n"
-                f"• Rédaction : encadre ton résultat final avec son unité exacte et une phrase explicative rigoureuse."
-            ),
-            "question": "Ton résultat final répond-il complètement à toutes les questions posées dans l'énoncé ?",
-        },
-    ]
-
-    return {
-        "status": "success",
-        "is_valid": True,
-        "subject": true_subject,
-        "class": student_class,
-        "topic": detected_topic,
-        "extracted_text": clean_text,
-        "message": f"Exercice analysé avec succès en {true_subject} ({detected_topic}).",
-        "hints": hints,
-    }
+    result = await analyze_and_decompose_exercise(
+        image_bytes=image_bytes,
+        text=text,
+        filename=filename,
+        student_class=level or "11eme",
+        subject_hint=subject,
+    )
+    return result
 
 
 @router.websocket("/ws/session")
@@ -532,3 +337,148 @@ def get_curriculum_documents():
             }
         ]
     }
+
+
+# ==============================================================================
+# DISPOSITIF ALTA & KIOSK HDMI TEMPS RÉEL (SYNCHRONISATION ÉCRAN & BOUTONS)
+# ==============================================================================
+
+class DeviceSyncHub:
+    """Gestionnaire temps réel de synchronisation entre boutons physiques Pi 5 et interface TV Kiosk."""
+
+    def __init__(self):
+        self.kiosk_sockets: set[WebSocket] = set()
+        self.state: dict[str, Any] = {
+            "selected_class": "10eme",
+            "state": "idle",  # "idle", "listening", "thinking", "speaking"
+            "mic_recording": False,
+            "last_transcript": "",
+            "last_response": "",
+            "last_sources": [],
+            "speaking": False,
+        }
+
+    async def register(self, websocket: WebSocket):
+        await websocket.accept()
+        self.kiosk_sockets.add(websocket)
+        # Envoyer l'état actuel dès la connexion
+        await websocket.send_text(json.dumps({
+            "event": "initial_state",
+            "data": self.state
+        }))
+
+    def unregister(self, websocket: WebSocket):
+        self.kiosk_sockets.discard(websocket)
+
+    async def broadcast(self, event: str, data: dict[str, Any]):
+        msg = json.dumps({"event": event, "data": data})
+        dead = []
+        for ws in list(self.kiosk_sockets):
+            try:
+                await ws.send_text(msg)
+            except Exception:
+                dead.append(ws)
+        for ws in dead:
+            self.kiosk_sockets.discard(ws)
+
+
+device_sync_hub = DeviceSyncHub()
+
+
+@router.websocket("/ws/device/sync")
+async def websocket_device_sync_endpoint(websocket: WebSocket):
+    """WebSocket de synchronisation instantanée pour l'affichage TV HDMI Kiosk."""
+    await device_sync_hub.register(websocket)
+    try:
+        while True:
+            text = await websocket.receive_text()
+            try:
+                payload = json.loads(text)
+                evt = payload.get("event")
+                data = payload.get("data", {})
+                if evt:
+                    if evt == "select_class" and "class" in data:
+                        device_sync_hub.state["selected_class"] = data["class"]
+                    elif evt == "speaking":
+                        device_sync_hub.state["speaking"] = bool(data.get("speaking", False))
+                    await device_sync_hub.broadcast(evt, data)
+            except Exception:
+                pass
+    except WebSocketDisconnect:
+        device_sync_hub.unregister(websocket)
+    except Exception:
+        device_sync_hub.unregister(websocket)
+
+
+class DeviceEventRequest(BaseModel):
+    event: str
+    class_name: Optional[str] = None
+    state: Optional[str] = None
+    text: Optional[str] = None
+    speaking: Optional[bool] = None
+    sources: Optional[list[dict[str, Any]]] = None
+    data: Optional[dict[str, Any]] = None
+
+
+@router.post("/api/device/event")
+async def receive_device_hardware_event(req: DeviceEventRequest):
+    """
+    Reçoit un événement émis par le contrôleur matériel Raspberry Pi 5 (boutons N1-N4)
+    ou par l'interface TV (souris/clavier) et le propage immédiatement à l'écran Kiosk.
+    """
+    event_type = req.event
+    payload_data = dict(req.data or {})
+
+    if req.class_name:
+        payload_data["class"] = req.class_name
+        device_sync_hub.state["selected_class"] = req.class_name
+    elif "class" in payload_data:
+        device_sync_hub.state["selected_class"] = payload_data["class"]
+
+    if req.state:
+        payload_data["state"] = req.state
+        device_sync_hub.state["state"] = req.state
+    elif event_type in ("listening", "recording_started"):
+        device_sync_hub.state["state"] = "listening"
+        device_sync_hub.state["mic_recording"] = True
+    elif event_type in ("thinking", "recording_stopped"):
+        device_sync_hub.state["state"] = "thinking"
+        device_sync_hub.state["mic_recording"] = False
+    elif event_type == "idle":
+        device_sync_hub.state["state"] = "idle"
+        device_sync_hub.state["speaking"] = False
+        device_sync_hub.state["mic_recording"] = False
+
+    if req.text is not None:
+        payload_data["text"] = req.text
+        if event_type == "user_transcript":
+            device_sync_hub.state["last_transcript"] = req.text
+        elif event_type in ("ai_response", "answer"):
+            device_sync_hub.state["last_response"] = req.text
+
+    if req.speaking is not None:
+        payload_data["speaking"] = req.speaking
+        device_sync_hub.state["speaking"] = req.speaking
+
+    if req.sources:
+        payload_data["sources"] = req.sources
+        device_sync_hub.state["last_sources"] = req.sources
+
+    await device_sync_hub.broadcast(event_type, payload_data)
+    return {
+        "status": "broadcasted",
+        "event": event_type,
+        "subscribers": len(device_sync_hub.kiosk_sockets)
+    }
+
+
+@router.get("/api/device/state")
+def get_device_sync_state():
+    """Retourne l'état courant de synchronisation du dispositif."""
+    return {
+        "status": "success",
+        "state": device_sync_hub.state,
+        "kiosk_connected": len(device_sync_hub.kiosk_sockets) > 0,
+        "kiosk_subscribers": len(device_sync_hub.kiosk_sockets),
+    }
+

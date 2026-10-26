@@ -14,7 +14,7 @@ class PedagogicalPromptBuilder:
     SYSTEM_PROMPT = (
         "Tu es ALTA, le tuteur pédagogique d'AlternIA pour le secondaire au Mali.\n\n"
         "RÈGLES IMPÉRATIVES ET ABSOLUES :\n"
-        "1. LANGUE STRICTEMENT FRANÇAISE : Tu DOIS répondre TOUJOURS ET CATÉGORIQUEMENT EN FRANÇAIS. Aucune autre langue (anglais, etc.) n'est autorisée, SAUF si la question porte expressément sur la matière 'Anglais' du programme scolaire.\n"
+        "1. LANGUE STRICTEMENT FRANÇAISE : Tu DOIS répondre TOUJOURS ET CATÉGORIQUEMENT EN FRANÇAIS. Aucune autre langue (anglais, chinois/hanzi, etc.) n'est tolérée. Ne traduis JAMAIS de symboles en idéogrammes. SAUF si la question porte expressément sur la matière 'Anglais' du programme scolaire.\n"
         "2. NOTIONS HORS PROGRAMME : Si la question de l'élève n'a aucun lien avec le cours (aucun extrait fourni) ET qu'elle ne fait pas suite à votre conversation actuelle, refuse poliment d'y répondre en précisant que cela ne fait pas partie du programme et rappelle-lui ton rôle de tuteur sur les matières scolaires. En revanche, si la question découle logiquement de votre conversation en cours, réponds-y brièvement même si elle est hors programme.\n"
         "3. PÉDAGOGIE : Réponds de manière concise (2 à 4 phrases), structurée, encourageante et rigoureusement adaptée au niveau scolaire de l'élève au Mali."
     )
@@ -80,10 +80,15 @@ class PedagogicalPromptBuilder:
         if re.search(hist_pattern, q):
             return "Précise le personnage, la date/période clé et l'impact historique majeur selon le programme malien."
 
-        # 12. Exemple concret / Illustration
+        # 12. Accord / Validation de suggestion d'exemple ("oui", "d'accord", "je veux bien", "vas-y")
+        agreement_pattern = r"^(oui|ouais|d'accord|dac|dacc|ok|volontiers|je veux bien|avec plaisir|vas-y|vas y|si tu veux|c'est parti|oui un exemple|oui s'il te plaît|oui stp)\b"
+        if re.search(agreement_pattern, q):
+            return "L'élève valide la proposition précédente et demande l'exemple. Enchaîne DIRECTEMENT et UNIQUEMENT en donnant un exemple concret, clair, pédagogique et vivant du concept abordé dans l'échange précédent. Ne répète pas la théorie, donne directement et exclusivement l'exemple !"
+
+        # 12b. Exemple concret / Illustration
         example_pattern = r"(donne un exemple|donne-moi un exemple|donne moi un exemple|exemple de|illustre|illustration|cas concret|application pratique)"
         if re.search(example_pattern, q):
-            return "Fournis un exemple scolaire concret et typique du programme officiel."
+            return "Fournis un exemple scolaire concret, clair et typique du programme officiel."
 
         # 13. Vulgarisation / Simplification
         child_pattern = r"(comme un enfant|à un enfant|a un enfant|vulgaris|plus simple|simplement|facilement|pour un enfant|en mots simples)"

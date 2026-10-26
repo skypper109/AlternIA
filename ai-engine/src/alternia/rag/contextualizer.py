@@ -125,6 +125,9 @@ class QueryContextualizer:
                     cleaned = subbed
                 cleaned = re.sub(r"^[,\.;:!?\-\s«»\"\'—]+", "", cleaned)
 
+        if cleaned.lower() in {"oui", "ouais", "d'accord", "dac", "dacc", "ok", "je veux bien", "vas-y", "oui un exemple", "oui s'il te plaît", "oui stp", "avec plaisir", "volontiers"}:
+            return "Oui, donne-moi un exemple concret."
+
         if len(cleaned) < 3:
             return raw_question.strip()
 
@@ -173,8 +176,12 @@ class QueryContextualizer:
         if detect_malian_curriculum_subject(question) is not None:
             return False
 
-        # 6. Mots ultra-courts de relance
-        if q in {"encore", "plus", "pourquoi ?", "comment ?", "aide-moi", "je ne comprends pas", "je ne comprend pas", "je comprends pas", "et alors ?"}:
+        # 6. Mots ultra-courts de relance et accords affirmatifs
+        if q in {"encore", "plus", "pourquoi ?", "comment ?", "aide-moi", "je ne comprends pas", "je ne comprend pas", "je comprends pas", "et alors ?", "oui", "ouais", "d'accord", "dac", "dacc", "ok", "vas-y", "je veux bien"}:
+            return True
+
+        # 7. Approbation / Accord à une question de suivi ou proposition d'exemple ("oui", "oui stp", "vas-y", etc.)
+        if re.search(r"^(oui|ouais|d'accord|dac|dacc|ok|volontiers|je veux bien|avec plaisir|vas-y|vas y|si tu veux|c'est parti|oui un exemple|oui s'il te plaît|oui stp|donne-moi un exemple|donne un exemple)\b", q):
             return True
 
         return False
@@ -223,8 +230,8 @@ class QueryContextualizer:
         # 3. Rôle, utilité, importance, but, fonction
         elif re.search(r"\b(importance|rôle|role|fonction|but|utilité|utilite|sert)\b", q_lower):
             enriched = f"{prev_topic} rôle importance utilité but fonction"
-        # 4. Exemples, vie réelle, applications pratiques
-        elif re.search(r"\b(exemples?|vie|réel|reel|pratique|analogie|quotidien)\b", q_lower):
+        # 4. Exemples, vie réelle, applications pratiques OU validation d'exemple ("oui", etc.)
+        elif re.search(r"\b(exemples?|vie|réel|reel|pratique|analogie|quotidien|oui|ouais|d'accord|je veux bien|vas-y|volontiers)\b", q_lower):
             enriched = f"{prev_topic} exemple concret application pratique vie courante"
         # 5. Causes, conséquences, conditions
         elif re.search(r"\b(causes?|conséquences?|consequences?|provoque|impact|effet|conditions?)\b", q_lower):
