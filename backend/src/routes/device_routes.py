@@ -178,6 +178,7 @@ async def rag_analyze_exercise(
     return result
 
 
+@router.websocket("/ws")
 @router.websocket("/ws/session")
 async def websocket_session_endpoint(websocket: WebSocket):
     """

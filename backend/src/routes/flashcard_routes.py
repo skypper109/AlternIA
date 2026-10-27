@@ -3,7 +3,7 @@ Routes API pour la génération de Flashcards Leitner par l'IA AlternIA (Systèm
 Connecté à l'orchestrateur LLM et au RAG officiel du DEF et Baccalauréat.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 import logging
 import re
@@ -80,7 +80,7 @@ async def api_generate_flashcards(req: FlashcardGenerateRequest) -> List[Dict[st
         "Format de sortie attendu : [ {\"front\": \"...\", \"back\": \"...\", \"concept\": \"...\"} ]"
     )
 
-    now_iso = datetime.utcnow().isoformat()
+    now_iso = datetime.now(timezone.utc).isoformat()
     generated_cards: List[Dict[str, Any]] = []
 
     # 1. Tentative de génération via l'orchestrateur IA d'AlternIA (LLM + RAG)

@@ -4,7 +4,7 @@ Garantit la traçabilité complète, la cohérence du solde, la protection contr
 et la séparation stricte entre pièces disponibles, réservées et argent convertible.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 import logging
 from typing import Any, Dict, List, Optional, Tuple
@@ -14,6 +14,9 @@ from sqlalchemy import desc
 from backend.src.db.models import Portefeuille, TransactionPiece, generate_uuid
 
 logger = logging.getLogger("AlternIA.WalletService")
+
+def _utc_now() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 # Taux de conversion officiel : 1 pièce = 2 FCFA (configurable)
 TAUX_CONVERSION_PIECE_FCFA = 2
@@ -32,8 +35,8 @@ def get_or_create_wallet(db: Session, student_id: str) -> Portefeuille:
             pieces_reservees=0,
             pieces_retirees_total=0,
             argent_total_gagne_fcfa=480,
-            date_creation=datetime.utcnow(),
-            date_mise_a_jour=datetime.utcnow(),
+            date_creation=_utc_now(),
+            date_mise_a_jour=_utc_now(),
         )
         db.add(wallet)
         db.commit()
@@ -51,7 +54,7 @@ def get_or_create_wallet(db: Session, student_id: str) -> Portefeuille:
             description="Bonus initial de bienvenue AlterniA",
             solde_apres=240,
             metadonnees_json=json.dumps({"reason": "welcome_account_creation"}),
-            date_creation=datetime.utcnow(),
+            date_creation=_utc_now(),
         )
         db.add(init_tx)
         db.commit()
@@ -87,7 +90,7 @@ def credit_coins(
     wallet = get_or_create_wallet(db, student_id)
     wallet.solde_pieces += amount
     wallet.argent_total_gagne_fcfa += (amount * TAUX_CONVERSION_PIECE_FCFA)
-    wallet.date_mise_a_jour = datetime.utcnow()
+    wallet.date_mise_a_jour = _utc_now()
 
     tx = TransactionPiece(
         id=generate_uuid(),
@@ -100,7 +103,7 @@ def credit_coins(
         description=description,
         solde_apres=wallet.solde_pieces,
         metadonnees_json=json.dumps(metadata or {}),
-        date_creation=datetime.utcnow(),
+        date_creation=_utc_now(),
     )
     db.add(tx)
     db.commit()
@@ -131,7 +134,7 @@ def reserve_coins_for_withdrawal(
 
     wallet.solde_pieces -= amount
     wallet.pieces_reservees += amount
-    wallet.date_mise_a_jour = datetime.utcnow()
+    wallet.date_mise_a_jour = _utc_now()
 
     tx = TransactionPiece(
         id=generate_uuid(),
@@ -144,7 +147,7 @@ def reserve_coins_for_withdrawal(
         description=description,
         solde_apres=wallet.solde_pieces,
         metadonnees_json=json.dumps({"reserved": True, "amount_fcfa": amount * TAUX_CONVERSION_PIECE_FCFA}),
-        date_creation=datetime.utcnow(),
+        date_creation=_utc_now(),
     )
     db.add(tx)
     db.commit()
@@ -166,7 +169,7 @@ def confirm_withdrawal_debit(
     wallet = get_or_create_wallet(db, student_id)
     wallet.pieces_reservees = max(0, wallet.pieces_reservees - amount)
     wallet.pieces_retirees_total += amount
-    wallet.date_mise_a_jour = datetime.utcnow()
+    wallet.date_mise_a_jour = _utc_now()
 
     tx = TransactionPiece(
         id=generate_uuid(),
@@ -178,7 +181,7 @@ def confirm_withdrawal_debit(
         description=description,
         solde_apres=wallet.solde_pieces,
         metadonnees_json=json.dumps({"paid": True, "amount_fcfa": amount * TAUX_CONVERSION_PIECE_FCFA}),
-        date_creation=datetime.utcnow(),
+        date_creation=_utc_now(),
     )
     db.add(tx)
     db.commit()
@@ -199,7 +202,7 @@ def refund_reserved_coins(
     wallet = get_or_create_wallet(db, student_id)
     wallet.pieces_reservees = max(0, wallet.pieces_reservees - amount)
     wallet.solde_pieces += amount
-    wallet.date_mise_a_jour = datetime.utcnow()
+    wallet.date_mise_a_jour = _utc_now()
 
     tx = TransactionPiece(
         id=generate_uuid(),
@@ -211,7 +214,7 @@ def refund_reserved_coins(
         description=description,
         solde_apres=wallet.solde_pieces,
         metadonnees_json=json.dumps({"refunded": True}),
-        date_creation=datetime.utcnow(),
+        date_creation=_utc_now(),
     )
     db.add(tx)
     db.commit()

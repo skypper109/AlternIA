@@ -2,7 +2,7 @@
 Service d'authentification et gestion des comptes utilisateurs.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import uuid
 from typing import Any, Dict, List, Optional
 from fastapi import HTTPException
@@ -61,14 +61,14 @@ def authenticate_user(db: Session, req: ConnexionRequest) -> Dict[str, Any]:
         elif not user.mot_de_passe_hash:
             user.mot_de_passe_hash = hash_password(req.mot_de_passe or "alternia2026")
 
-    user.dernier_acces = datetime.utcnow()
+    user.dernier_acces = datetime.now(timezone.utc).replace(tzinfo=None)
     db.commit()
 
     token = f"alta-jwt-{uuid.uuid4()}"
     return {
         "succes": True,
         "token": token,
-        "expiresAt": (datetime.utcnow() + timedelta(days=7)).isoformat(),
+        "expiresAt": (datetime.now(timezone.utc) + timedelta(days=7)).isoformat(),
         "utilisateur": serialize_user(user),
     }
 
@@ -363,7 +363,7 @@ def verify_premium_code(db: Session, code: str) -> Dict[str, Any]:
 
     # 5. Vérification contre les abonnements actifs
     from backend.src.db.models import AbonnementUtilisateur
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     abo = (
         db.query(AbonnementUtilisateur)
         .filter(

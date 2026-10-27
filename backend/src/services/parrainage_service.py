@@ -6,7 +6,7 @@ crédite les récompenses de pièces côté serveur,
 et active automatiquement l'abonnement Premium dès le seuil de 5 filleuls atteint.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import json
 import logging
 import random
@@ -25,6 +25,9 @@ from backend.src.db.models import (
 from backend.src.services.wallet_service import credit_coins
 
 logger = logging.getLogger("AlternIA.ParrainageService")
+
+def _utc_now() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 SEUIL_FILLEULS_POUR_PREMIUM = 5
 RECOMPENSE_PARRAIN_PIECES = 50
@@ -62,7 +65,7 @@ def get_or_create_referral_code(db: Session, student_id: str, student_name: str 
         total_filleuls=0,
         total_filleuls_actifs=0,
         pieces_gagnees_parrainage=0,
-        date_creation=datetime.utcnow(),
+        date_creation=_utc_now(),
     )
     db.add(nouveau)
     db.commit()
@@ -102,8 +105,8 @@ def associer_et_valider_parrainage(
         code_utilise=code_propre,
         statut="VALIDE",
         recompense_attribuee=True,
-        date_inscription=datetime.utcnow(),
-        date_validation=datetime.utcnow(),
+        date_inscription=_utc_now(),
+        date_validation=_utc_now(),
     )
     db.add(relation)
 
@@ -136,7 +139,7 @@ def associer_et_valider_parrainage(
     premium_debloque = False
     if parrain_code.total_filleuls_actifs >= SEUIL_FILLEULS_POUR_PREMIUM:
         # Vérifier si un abonnement actif existe déjà
-        now = datetime.utcnow()
+        now = _utc_now()
         abo_actif = (
             db.query(AbonnementUtilisateur)
             .filter(
@@ -179,7 +182,7 @@ def associer_et_valider_parrainage(
             "premium_debloque": premium_debloque,
         }),
         adresse_ip=ip_client,
-        date_action=datetime.utcnow(),
+        date_action=_utc_now(),
     ))
 
     db.commit()

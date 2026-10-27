@@ -2,7 +2,7 @@
 Service de gestion des boîtiers physiques AlternIA Box.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
@@ -60,13 +60,13 @@ def sync_boitier(db: Session, boitier_id: str, req: Optional[BoitierSyncRequest]
     """Synchronise un boîtier avec la base de données centrale."""
     b = db.query(Boitier).filter(Boitier.id == boitier_id).first()
     if b:
-        b.derniere_synchro = datetime.utcnow()
+        b.derniere_synchro = datetime.now(timezone.utc).replace(tzinfo=None)
         b.statut = "en_ligne"
         db.commit()
     return {
         "succes": True,
         "statut": "synchronise",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "elementsSynchronises": 14,
     }
 
@@ -97,7 +97,7 @@ def create_boitier(db: Session, req: Any) -> Dict[str, Any]:
         ip_locale="192.168.1.105",
         etablissement_id=req.etablissement_id or "etab-lbad-bamako",
         enfant_id=req.enfant_id or "eleve_10eme",
-        derniere_synchro=datetime.utcnow(),
+        derniere_synchro=datetime.now(timezone.utc).replace(tzinfo=None),
     )
     db.add(nouveau)
     db.commit()
@@ -148,12 +148,12 @@ def record_boitier_heartbeat(db: Session, req: Any) -> Dict[str, Any]:
             ip_locale=req.ip_locale or "10.42.0.1",
             etablissement_id=req.etablissement_id or "etab-lbad-bamako",
             enfant_id=req.enfant_id,
-            derniere_synchro=datetime.utcnow(),
+            derniere_synchro=datetime.now(timezone.utc).replace(tzinfo=None),
         )
         db.add(b)
     else:
         b.statut = req.statut or "en_ligne"
-        b.derniere_synchro = datetime.utcnow()
+        b.derniere_synchro = datetime.now(timezone.utc).replace(tzinfo=None)
         if req.ip_locale:
             b.ip_locale = req.ip_locale
         if req.wifi_ssid:

@@ -285,7 +285,7 @@ async def serve_subdomain_spa_or_assets(request: Request, file_path: str):
     - admin.alterniamali.com sert les chunks et pages du portail Alta
     - Les routes d'API ne sont pas interceptées
     """
-    if file_path.startswith(API_PATH_PREFIXES) or file_path in ("health", "favicon.ico"):
+    if file_path.startswith(API_PATH_PREFIXES) or file_path in ("health", "favicon.ico", "ws", "api"):
         raise HTTPException(status_code=404, detail="Route API non trouvée")
 
     host = get_request_host(request)

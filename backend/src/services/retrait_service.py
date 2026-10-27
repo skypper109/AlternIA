@@ -5,7 +5,7 @@ Garantit la réservation atomique des pièces, le suivi de cycle de vie traçabl
 la gestion des rejets/échecs avec remboursement, et le journal d'audit administratif.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 import logging
 import re
@@ -25,6 +25,9 @@ from backend.src.services.wallet_service import (
 )
 
 logger = logging.getLogger("AlternIA.RetraitService")
+
+def _utc_now() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 OPERATEURS_AUTORISES = {
     "ORANGE_MONEY": "Orange Money Mali (Orange)",
@@ -84,7 +87,7 @@ def creer_demande_retrait(
 
     numero_formate = _valider_numero_telephone_mali(numero_telephone)
     montant_fcfa = pieces * TAUX_CONVERSION_PIECE_FCFA
-    code_ref = f"ALT-RET-{datetime.utcnow().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
+    code_ref = f"ALT-RET-{_utc_now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
 
     # 1. Réserver atomiquement les pièces
     reserve_coins_for_withdrawal(
@@ -106,7 +109,7 @@ def creer_demande_retrait(
         numero_telephone=numero_formate,
         nom_titulaire=nom_propre,
         statut="EN_ATTENTE",
-        date_demande=datetime.utcnow(),
+        date_demande=_utc_now(),
         ip_demandeur=ip_client,
     )
     db.add(demande)
@@ -125,7 +128,7 @@ def creer_demande_retrait(
             "operateur": op_clean,
         }),
         adresse_ip=ip_client,
-        date_action=datetime.utcnow(),
+        date_action=_utc_now(),
     )
     db.add(audit)
     db.commit()
@@ -144,7 +147,7 @@ def passer_en_verification(db: Session, demande_id: str, admin_id: str) -> Deman
 
     demande.statut = "EN_VERIFICATION"
     demande.traite_par_admin_id = admin_id
-    demande.date_traitement = datetime.utcnow()
+    demande.date_traitement = _utc_now()
 
     db.add(JournalAuditSecurite(
         id=generate_uuid(),
@@ -152,7 +155,7 @@ def passer_en_verification(db: Session, demande_id: str, admin_id: str) -> Deman
         action_type="VERIFICATION_RETRAIT",
         entite_cible="DemandeRetrait",
         entite_id=demande.id,
-        date_action=datetime.utcnow(),
+        date_action=_utc_now(),
     ))
     db.commit()
     db.refresh(demande)
@@ -184,8 +187,8 @@ def accepter_et_payer_retrait(
     demande.statut = "PAYEE"
     demande.reference_operateur = reference_operateur or f"EXT-{uuid.uuid4().hex[:8].upper()}"
     demande.traite_par_admin_id = admin_id
-    demande.date_traitement = demande.date_traitement or datetime.utcnow()
-    demande.date_paiement = datetime.utcnow()
+    demande.date_traitement = demande.date_traitement or _utc_now()
+    demande.date_paiement = _utc_now()
 
     db.add(JournalAuditSecurite(
         id=generate_uuid(),
@@ -197,7 +200,7 @@ def accepter_et_payer_retrait(
             "montant_fcfa": demande.montant_fcfa,
             "reference_operateur": demande.reference_operateur,
         }),
-        date_action=datetime.utcnow(),
+        date_action=_utc_now(),
     ))
     db.commit()
     db.refresh(demande)
@@ -229,7 +232,7 @@ def rejeter_retrait(
     demande.statut = "REJETEE"
     demande.motif_rejet = motif
     demande.traite_par_admin_id = admin_id
-    demande.date_traitement = datetime.utcnow()
+    demande.date_traitement = _utc_now()
 
     db.add(JournalAuditSecurite(
         id=generate_uuid(),
@@ -238,7 +241,7 @@ def rejeter_retrait(
         entite_cible="DemandeRetrait",
         entite_id=demande.id,
         details_json=json.dumps({"motif": motif, "pieces_remboursees": demande.pieces_debitees}),
-        date_action=datetime.utcnow(),
+        date_action=_utc_now(),
     ))
     db.commit()
     db.refresh(demande)

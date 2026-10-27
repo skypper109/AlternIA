@@ -2,6 +2,7 @@
 Service de gestion des profils apprenants et historique de leurs sessions.
 """
 
+from datetime import datetime, timezone
 from typing import Any, Dict, List
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
@@ -96,7 +97,7 @@ def create_apprenant(db: Session, req: Any) -> Dict[str, Any]:
         questions_posees=0,
         etablissement_id=req.etablissement_id or "etab-lbad-bamako",
         boitier_id=req.boitier_id or "box_001",
-        dernier_acces=datetime.utcnow(),
+        dernier_acces=datetime.now(timezone.utc).replace(tzinfo=None),
     )
     db.add(nouveau)
     db.commit()

@@ -286,6 +286,14 @@ class CulturePersonnage(Base):
     audio_narration: Mapped[str | None] = mapped_column(Text, nullable=True)
     date_creation: Mapped[datetime | None] = mapped_column(DateTime, default=utc_now)
 
+    @property
+    def biographie(self) -> str:
+        return self.resume
+
+    @biographie.setter
+    def biographie(self, value: str) -> None:
+        self.resume = value
+
 
 class CultureLieu(Base):
     __tablename__ = "culture_lieux"

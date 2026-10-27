@@ -2,7 +2,7 @@
 Routes API pour le programme de révision intelligente (connecté à la base de données).
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -48,7 +48,7 @@ def api_list_seances(db: Session = Depends(get_db)) -> List[Dict[str, Any]]:
     seances = db.query(SeanceRevisionModel).order_by(SeanceRevisionModel.jour.asc(), SeanceRevisionModel.heure_debut.asc()).all()
     if not seances:
         # Seed initial
-        now_str = datetime.utcnow().strftime("%Y-%m-%d")
+        now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         s1 = SeanceRevisionModel(
             titre="Révision Équations du 2nd degré",
             matiere="MATHEMATIQUES",

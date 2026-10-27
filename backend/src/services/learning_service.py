@@ -2,11 +2,14 @@
 Service d'enregistrement en temps réel des interactions pédagogiques et détection intelligente d'alertes.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 import logging
 from typing import Any, List, Optional
 import uuid
+
+def _utc_now() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 from backend.src.db.database import SessionLocal
 from backend.src.db.models import (
@@ -150,7 +153,7 @@ def record_student_interaction(
                     niveau_maitrise=75.0,
                     temps_total_sec=300,
                     questions_posees=1,
-                    dernier_acces=datetime.utcnow(),
+                    dernier_acces=_utc_now(),
                 )
                 db.add(apprenant)
                 db.commit()
@@ -159,7 +162,7 @@ def record_student_interaction(
         # Mise à jour des stats de l'élève
         apprenant.questions_posees = (apprenant.questions_posees or 0) + 1
         apprenant.temps_total_sec = (apprenant.temps_total_sec or 0) + 45
-        apprenant.dernier_acces = datetime.utcnow()
+        apprenant.dernier_acces = _utc_now()
 
         # 2. Gestion de la session active
         session_obj = None
@@ -176,8 +179,8 @@ def record_student_interaction(
                 matiere=effective_subject.lower(),
                 chapitre=effective_chapter,
                 notion=effective_topic or effective_subject,
-                date_debut=datetime.utcnow(),
-                date_fin=datetime.utcnow(),
+                date_debut=_utc_now(),
+                date_fin=_utc_now(),
                 duree_sec=60,
                 questions_count=1,
                 reussite_taux=80.0 if success else 40.0,
@@ -185,7 +188,7 @@ def record_student_interaction(
             db.add(session_obj)
         else:
             session_obj.questions_count = (session_obj.questions_count or 0) + 1
-            session_obj.date_fin = datetime.utcnow()
+            session_obj.date_fin = _utc_now()
             session_obj.duree_sec = (session_obj.duree_sec or 0) + 45
 
         # 3. Enregistrement de l'interaction
@@ -200,7 +203,7 @@ def record_student_interaction(
             intention=intent,
             difficulte=difficulty,
             succes=success,
-            timestamp=datetime.utcnow(),
+            timestamp=_utc_now(),
         )
         db.add(interaction)
 
@@ -227,13 +230,13 @@ def record_student_interaction(
                 gravite="moyenne" if not has_confusion else "elevee",
                 matiere=effective_subject.lower(),
                 resolu=False,
-                date_creation=datetime.utcnow(),
+                date_creation=_utc_now(),
             )
             db.add(alerte)
             logger.info(f"🚨 Nouvelle alerte pédagogique créée en direct : {titre_alerte}")
 
         # 5. Mise à jour des statistiques journalières
-        today_str = datetime.utcnow().strftime("%Y-%m-%d")
+        today_str = _utc_now().strftime("%Y-%m-%d")
         stat = db.query(StatistiquePedagogique).filter(
             StatistiquePedagogique.date_jour == today_str,
             StatistiquePedagogique.classe == apprenant.classe,

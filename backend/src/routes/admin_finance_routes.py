@@ -4,7 +4,7 @@ Gère la validation des retraits Mobile Money, la journalisation d'audit
 et la réinitialisation sécurisée des classements SANS TOUCHER AUX PORTEFEUILLES.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
@@ -143,11 +143,11 @@ def api_admin_reset_classement(
         entite_id="global_season_reset",
         details_json=json.dumps({
             "motif": req.motif,
-            "date": datetime.utcnow().isoformat(),
+            "date": datetime.now(timezone.utc).isoformat(),
             "note": "Les portefeuilles, pièces et transactions financières ont été rigoureusement préservés.",
         }),
         adresse_ip=client_ip,
-        date_action=datetime.utcnow(),
+        date_action=datetime.now(timezone.utc).replace(tzinfo=None),
     )
     db.add(audit)
     db.commit()

@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
 from backend.src.db.database import get_db
@@ -39,8 +39,7 @@ class AskGuideRequest(BaseModel):
     use_case: str | None = Field(None, description="Cas d'usage culturel")
     context: str | None = Field(None, description="Contexte patrimonial immédiat")
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 
@@ -60,8 +59,7 @@ class SageChatRequest(BaseModel):
     def effective_additional_context(self) -> Optional[str]:
         return self.additional_context or self.context
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 class DiscoveryRecordRequest(BaseModel):
@@ -495,7 +493,7 @@ def get_cms_catalogue(db: Session = Depends(get_db)):
 def create_cms_item(payload: dict[str, Any], db: Session = Depends(get_db)):
     """Crée un nouvel élément culturel dans le catalogue éditorial en base de données."""
     import uuid
-    from datetime import UTC, datetime
+    from datetime import datetime, timezone
     from backend.src.db.models import CultureConte, CultureLieu, CultureMonument, CulturePersonnage, CultureProverbe
 
     item_type = payload.get("type", "monument")
@@ -505,75 +503,91 @@ def create_cms_item(payload: dict[str, Any], db: Session = Depends(get_db)):
     if item_type == "monument":
         obj = CultureMonument(
             id=item_id,
-            nom=payload.get("nom", "Nouveau Monument"),
-            sous_titre=payload.get("sousTitre", ""),
-            region_id=payload.get("regionId", "bamako"),
-            region_nom=payload.get("regionNom", "Bamako"),
-            ville=payload.get("ville", "Bamako"),
-            epoque=payload.get("ere") or payload.get("epoque", ""),
-            style_architectural=payload.get("architectureEtMateriaux", ""),
-            details_localisation=payload.get("localisationDetails", ""),
-            photo_url=payload.get("photoUrl", ""),
-            tag=payload.get("tag", "Patrimoine National"),
-            recit_historique=payload.get("presentation", ""),
-            pourquoi_ce_lieu_compte=payload.get("pourquoiCestImportant", ""),
-            date_mise_a_jour=datetime.now(UTC),
+            nom=str(payload.get("nom", "Nouveau Monument")),
+            sous_titre=str(payload.get("sousTitre", "")),
+            region_id=str(payload.get("regionId", "bamako")),
+            region_nom=str(payload.get("regionNom", "Bamako")),
+            ville=str(payload.get("ville", "Bamako")),
+            epoque=str(payload.get("ere") or payload.get("epoque", "")),
+            style_architectural=str(payload.get("architectureEtMateriaux", "")),
+            details_localisation=str(payload.get("localisationDetails", "")),
+            photo_url=str(payload.get("photoUrl", "")),
+            tag=str(payload.get("tag", "Monument National")),
+            latitude=float(payload.get("latitude") or 12.6392),
+            longitude=float(payload.get("longitude") or -8.0029),
+            badge_debloque=str(payload.get("badgeDebloque", "Pionnier")),
+            xp_recompense=int(payload.get("xpRecompense") or 50),
+            mots_cles_json="[]",
+            caracteristiques_detection_json="[]",
+            secrets_et_mysteres="",
+            recit_historique=str(payload.get("presentation", "")),
+            narration_audio_texte="",
+            pourquoi_ce_lieu_compte=str(payload.get("pourquoiCestImportant", "")),
+            route_path=str(payload.get("routePath", f"/monument/{item_id}")),
+            date_mise_a_jour=datetime.now(timezone.utc).replace(tzinfo=None),
         )
         db.add(obj)
     elif item_type == "personnage":
         obj = CulturePersonnage(
             id=item_id,
-            nom=payload.get("nom", "Nouvelle Figure"),
-            titre=payload.get("titre", ""),
-            epoque=payload.get("epoque", ""),
-            region_id=payload.get("regionId", "bamako"),
-            region_nom=payload.get("regionNom", "Mali"),
-            role_historique=payload.get("roleHistorique", ""),
-            biographie=payload.get("biographie", ""),
-            photo_url=payload.get("photoUrl", ""),
-            tag=payload.get("tag", "Figure Historique"),
-            date_creation=datetime.now(UTC),
+            nom=str(payload.get("nom", "Nouvelle Figure")),
+            titre_honorifique=str(payload.get("titreHonorifique") or payload.get("titre", "Personnalité Historique")),
+            periode=str(payload.get("epoque") or payload.get("periode", "Époque Médiévale")),
+            region_id=str(payload.get("regionId", "bamako")),
+            region_nom=str(payload.get("regionNom", "Mali")),
+            resume=str(payload.get("biographie") or payload.get("resume", "")),
+            photo_url=str(payload.get("photoUrl", "")),
+            tag=str(payload.get("tag", "Figure Historique")),
+            faits_marquants_json="[]",
+            chapitres_json="[]",
+            elements_lies_json="[]",
+            date_creation=datetime.now(timezone.utc).replace(tzinfo=None),
         )
         db.add(obj)
     elif item_type in ("ville", "lieu"):
         obj = CultureLieu(
             id=item_id,
-            nom=payload.get("nom", "Nouvelle Cité"),
-            sous_titre=payload.get("sousTitre", ""),
-            region_id=payload.get("regionId", "bamako"),
-            region_nom=payload.get("regionNom", "Mali"),
-            fondation=payload.get("fondation", ""),
-            resume=payload.get("resume", ""),
-            photo_url=payload.get("photoUrl", ""),
-            tag=payload.get("tag", "Cité Millénaire"),
-            date_creation=datetime.now(UTC),
+            nom=str(payload.get("nom", "Nouvelle Cité")),
+            sous_titre=str(payload.get("sousTitre", "")),
+            region_id=str(payload.get("regionId", "bamako")),
+            region_nom=str(payload.get("regionNom", "Mali")),
+            fondation=str(payload.get("fondation", "")),
+            resume=str(payload.get("resume", "")),
+            photo_url=str(payload.get("photoUrl", "")),
+            tag=str(payload.get("tag", "Cité Millénaire")),
+            chapitres_json="[]",
+            elements_lies_json="[]",
+            date_creation=datetime.now(timezone.utc).replace(tzinfo=None),
         )
         db.add(obj)
     elif item_type == "conte":
         obj = CultureConte(
             id=item_id,
-            titre=payload.get("titre", "Nouveau Conte"),
-            sous_titre=payload.get("sousTitre", ""),
-            origine=payload.get("origine", "Tradition Orale"),
-            region_id=payload.get("regionId", "bamako"),
-            region_nom=payload.get("regionNom", "Mali"),
-            photo_url=payload.get("photoUrl", ""),
-            tag=payload.get("tag", "Conte"),
-            resume=payload.get("resume", ""),
-            morale=payload.get("morale", ""),
-            date_creation=datetime.now(UTC),
+            titre=str(payload.get("titre", "Nouveau Conte")),
+            sous_titre=str(payload.get("sousTitre", "")),
+            origine=str(payload.get("origine", "Tradition Orale")),
+            region_id=str(payload.get("regionId", "bamako")),
+            region_nom=str(payload.get("regionNom", "Mali")),
+            photo_url=str(payload.get("photoUrl", "")),
+            tag=str(payload.get("tag", "Conte")),
+            resume=str(payload.get("resume", "")),
+            morale=str(payload.get("morale", "")),
+            scenes_json="[]",
+            elements_lies_json="[]",
+            date_creation=datetime.now(timezone.utc).replace(tzinfo=None),
         )
         db.add(obj)
     elif item_type in ("proverbe", "devinette"):
         obj = CultureProverbe(
             id=item_id,
-            texte=payload.get("enigmeTexte") or payload.get("texte", ""),
-            texte_original=payload.get("formuleIntro") or payload.get("texte_original", ""),
-            signification=payload.get("explicationCulturelle") or payload.get("signification", ""),
-            morale=payload.get("bonneReponse") or payload.get("morale", ""),
-            theme="Jeu de Devinettes" if item_type == "devinette" else payload.get("categorie", "Sagesse"),
-            region_id=payload.get("regionId", "bamako"),
-            region_nom=payload.get("regionNom", "Mali"),
+            texte=str(payload.get("enigmeTexte") or payload.get("texte") or ""),
+            texte_original=str(payload.get("formuleIntro") or payload.get("texte_original", "")),
+            signification=str(payload.get("explicationCulturelle") or payload.get("signification", "")),
+            morale=str(payload.get("bonneReponse") or payload.get("morale", "")),
+            origine=str(payload.get("origine", "Tradition")),
+            theme="Jeu de Devinettes" if item_type == "devinette" else str(payload.get("categorie", "Sagesse")),
+            region_id=str(payload.get("regionId", "bamako")),
+            region_nom=str(payload.get("regionNom", "Mali")),
         )
         db.add(obj)
 
@@ -589,37 +603,38 @@ def update_cms_item(item_id: str, payload: dict[str, Any], db: Session = Depends
     payload["id"] = item_id
     m = db.query(CultureMonument).filter(CultureMonument.id == item_id).first()
     if m:
-        if "nom" in payload: m.nom = payload["nom"]
-        if "sousTitre" in payload: m.sous_titre = payload["sousTitre"]
-        if "presentation" in payload: m.recit_historique = payload["presentation"]
+        if "nom" in payload: m.nom = str(payload["nom"])
+        if "sousTitre" in payload: m.sous_titre = str(payload["sousTitre"])
+        if "presentation" in payload: m.recit_historique = str(payload["presentation"])
         db.commit()
         return {"success": True, "message": f"Monument '{item_id}' mis à jour", "item": payload}
 
     p = db.query(CulturePersonnage).filter(CulturePersonnage.id == item_id).first()
     if p:
-        if "nom" in payload: p.nom = payload["nom"]
-        if "biographie" in payload: p.biographie = payload["biographie"]
+        if "nom" in payload: p.nom = str(payload["nom"])
+        if "biographie" in payload or "resume" in payload:
+            p.resume = str(payload.get("biographie") or payload.get("resume") or "")
         db.commit()
         return {"success": True, "message": f"Personnage '{item_id}' mis à jour", "item": payload}
 
     l = db.query(CultureLieu).filter(CultureLieu.id == item_id).first()
     if l:
-        if "nom" in payload: l.nom = payload["nom"]
-        if "resume" in payload: l.resume = payload["resume"]
+        if "nom" in payload: l.nom = str(payload["nom"])
+        if "resume" in payload: l.resume = str(payload["resume"])
         db.commit()
         return {"success": True, "message": f"Lieu '{item_id}' mis à jour", "item": payload}
 
     c = db.query(CultureConte).filter(CultureConte.id == item_id).first()
     if c:
-        if "titre" in payload: c.titre = payload["titre"]
-        if "resume" in payload: c.resume = payload["resume"]
+        if "titre" in payload: c.titre = str(payload["titre"])
+        if "resume" in payload: c.resume = str(payload["resume"])
         db.commit()
         return {"success": True, "message": f"Conte '{item_id}' mis à jour", "item": payload}
 
     pr = db.query(CultureProverbe).filter(CultureProverbe.id == item_id).first()
     if pr:
         if "texte" in payload or "enigmeTexte" in payload:
-            pr.texte = payload.get("enigmeTexte") or payload.get("texte")
+            pr.texte = str(payload.get("enigmeTexte") or payload.get("texte") or "")
         db.commit()
         return {"success": True, "message": f"Proverbe/Devinette '{item_id}' mis à jour", "item": payload}
 

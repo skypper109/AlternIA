@@ -4,7 +4,7 @@ Gère les salons de révision locaux, la découverte des pairs à proximité
 et le catalogue de ressources partagées en P2P.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 import time
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, HTTPException
@@ -24,7 +24,7 @@ _ACTIVE_GRIN_ROOMS: List[Dict[str, Any]] = [
         "maxPlayers": 6,
         "pinCode": "7412",
         "isLocalBoitier": True,
-        "createdAt": datetime.utcnow().isoformat(),
+        "createdAt": datetime.now(timezone.utc).isoformat(),
     },
     {
         "id": "grin_room_02",
@@ -36,7 +36,7 @@ _ACTIVE_GRIN_ROOMS: List[Dict[str, Any]] = [
         "maxPlayers": 4,
         "pinCode": "3350",
         "isLocalBoitier": True,
-        "createdAt": datetime.utcnow().isoformat(),
+        "createdAt": datetime.now(timezone.utc).isoformat(),
     },
 ]
 
@@ -131,7 +131,7 @@ async def api_create_grin_room(req: GrinRoomCreateRequest) -> Dict[str, Any]:
         "maxPlayers": req.max_players,
         "pinCode": pin,
         "isLocalBoitier": True,
-        "createdAt": datetime.utcnow().isoformat(),
+        "createdAt": datetime.now(timezone.utc).isoformat(),
     }
     _ACTIVE_GRIN_ROOMS.insert(0, new_room)
     return new_room
@@ -172,7 +172,7 @@ async def api_share_grin_resource(req: GrinResourceShareRequest) -> Dict[str, An
         "sharedBy": req.shared_by,
         "description": req.description or f"Partage P2P de {req.title}",
         "targetPeerId": req.target_peer_id,
-        "sharedAt": datetime.utcnow().isoformat(),
+        "sharedAt": datetime.now(timezone.utc).isoformat(),
     }
     _SHARED_RESOURCES.insert(0, new_res)
     return {"status": "success", "title": req.title, "resource": new_res}

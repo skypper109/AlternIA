@@ -5,7 +5,7 @@ des lots d'événements enregistrés hors-ligne (duels, flashcards, podcasts, te
 sans aucune perte de données.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, HTTPException
@@ -79,7 +79,7 @@ async def api_sync_batch(request: SyncBatchRequest) -> Dict[str, Any]:
         "total_received": len(request.events),
         "xp_increment": xp_increment,
         "coins_increment": coins_increment,
-        "server_time": datetime.utcnow().isoformat(),
+        "server_time": datetime.now(timezone.utc).isoformat(),
         "message": f"{processed} actions synchronisées avec succès.",
     }
 
@@ -90,5 +90,5 @@ async def api_sync_status() -> Dict[str, Any]:
     return {
         "status": "online",
         "service": "AlternIA Store & Forward Gateway",
-        "server_time": datetime.utcnow().isoformat(),
+        "server_time": datetime.now(timezone.utc).isoformat(),
     }

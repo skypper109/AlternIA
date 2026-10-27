@@ -2,7 +2,7 @@
 Routes API pour la génération et consultation des rapports d'activité (connecté à alta_db).
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -42,7 +42,7 @@ def api_list_rapports(db: Session = Depends(get_db)) -> List[Dict[str, Any]]:
     """Liste de tous les rapports pédagogiques générés."""
     rapports = db.query(RapportModel).order_by(RapportModel.date_generation.desc()).all()
     if not rapports:
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
         r1 = RapportModel(
             titre="Bilan Hebdomadaire d'Apprentissage ALTA",
             periode="Semaine en cours",
@@ -79,7 +79,7 @@ def api_list_rapports(db: Session = Depends(get_db)) -> List[Dict[str, Any]]:
 @router.post("/generer")
 def api_generer_rapport(req: GenererRapportRequest, db: Session = Depends(get_db)) -> Dict[str, Any]:
     """Déclenche la génération d'un nouveau rapport d'activité."""
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     taille = 520000 if req.typeFichier == "pdf" else 1150000
     r = RapportModel(
         titre=req.titre,
