@@ -1,5 +1,5 @@
 from pathlib import Path
-
+import pytest
 from alternia.llm.local_client import LocalLLMClient
 
 
@@ -11,6 +11,7 @@ MODEL_PATH = (
 )
 
 
+@pytest.mark.skipif(not MODEL_PATH.exists(), reason="Modèle GGUF local non téléchargé sur cette machine")
 def test_local_llm_stream():
 
     client = LocalLLMClient(

@@ -10,7 +10,7 @@ import time
 import unicodedata
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
@@ -56,14 +56,14 @@ def _serialize_monument(m: CultureMonument) -> dict[str, Any]:
     mots_cles = []
     try:
         mots_cles = json.loads(m.mots_cles_json) if m.mots_cles_json else []
-    except Exception:
-        pass
+    except (ValueError, TypeError):
+        mots_cles = []
 
     caracteristiques = []
     try:
         caracteristiques = json.loads(m.caracteristiques_detection_json) if m.caracteristiques_detection_json else []
-    except Exception:
-        pass
+    except (ValueError, TypeError):
+        caracteristiques = []
 
     key_facts = []
     for f in caracteristiques:
@@ -242,7 +242,7 @@ def _serialize_culture_nom(n: CultureNom) -> dict[str, Any]:
     variantes = []
     try:
         variantes = json.loads(n.variantes_json) if n.variantes_json else []
-    except Exception:
+    except (ValueError, TypeError):
         variantes = [n.nom]
 
     return {
@@ -272,7 +272,7 @@ def _serialize_contribution(c: CultureContribution) -> dict[str, Any]:
     if c.donnees_supplementaires_json:
         try:
             supp = json.loads(c.donnees_supplementaires_json)
-        except Exception:
+        except (ValueError, TypeError):
             supp = {}
 
     return {
@@ -410,7 +410,7 @@ class CultureService:
                 img_bytes = base64.b64decode(raw_data)
                 user_coords = (latitude, longitude) if (latitude is not None and longitude is not None) else None
                 ai_result = CultureLensRecognizer.get_instance().predict(img_bytes, user_coords=user_coords)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 print(f"\033[1;31m⚠️  [CultureLens AI] Exception lors de l'inférence neuronale : {e}\033[0m")
                 logger.warning(f"Inférence CultureLensRecognizer échouée : {e}")
 
@@ -430,7 +430,7 @@ class CultureService:
                         user_coords = (latitude, longitude) if (latitude is not None and longitude is not None) else None
                         ai_result = CultureLensRecognizer.get_instance().predict(c_path, user_coords=user_coords)
                         break
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 print(f"\033[1;31m⚠️  [CultureLens AI] Exception locale : {e}\033[0m")
                 logger.warning(f"Inférence CultureLensRecognizer locale échouée : {e}")
 
@@ -651,7 +651,7 @@ class CultureService:
             "raconte", "parle", "moi", "qui", "est", "quoi", "c'est", "ce", "cette"
         }
 
-        target_monument: Optional[CultureMonument] = None
+        target_monument: CultureMonument | None = None
         if monument_id and not matched_nom:
             target_monument = db.query(CultureMonument).filter(CultureMonument.id == monument_id).first()
 
@@ -947,7 +947,7 @@ class CultureService:
                         gen_clean = gen_clean + "..."
 
                 reponse = gen_clean
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             logger.warning("CultureService.ask_cultural_guide : Inférence LLM indisponible (%s), repli dynamique", exc)
 
         # ── 8. REPLI DYNAMIQUE (SI LLM INDISPONIBLE) AVEC VARIATIONS ──────
@@ -959,27 +959,28 @@ class CultureService:
                 "I ni ce ! C'est avec une grande joie que le Vieux Sage accueille ta soif d'apprendre. Prête l'oreille à ce récit vivant :"
             ]
             intro = random.choice(intros)
-            
+            corps = ""
+
             if matched_nom:
                 reponse = _build_grandmere_mah_speech_for_nom(matched_nom)
-            elif target_monument:
-                corps = (
-                    f"{target_monument.nom} ({target_monument.sous_titre}) veille fièrement sur {target_monument.ville}, "
-                    f"dans la région de {target_monument.region_nom}. {target_monument.recit_historique}\n\n"
-                    f"Sur le plan architectural, il illustre avec majesté : {target_monument.style_architectural}. "
-                    f"Comme le racontent les anciens sous le clair de lune : {target_monument.secrets_et_mysteres}\n\n"
-                    f"Ce lieu compte profondément pour notre nation : {target_monument.pourquoi_ce_lieu_compte}"
-                )
-            elif matched_item_name:
-                corps = f"Concernant {matched_item_name} :\n\n{facts_text}"
             else:
-                corps = (
-                    "Le Mali est le berceau des grands bâtisseurs et des poètes de la parole. "
-                    "De la Charte de Kouroukan Fouga (1236) aux monuments de Bamako et aux merveilles de Djenné et Tombouctou, "
-                    "notre patrimoine est une source inépuisable de fierté et de concorde."
-                )
+                if target_monument:
+                    corps = (
+                        f"{target_monument.nom} ({target_monument.sous_titre}) veille fièrement sur {target_monument.ville}, "
+                        f"dans la région de {target_monument.region_nom}. {target_monument.recit_historique}\n\n"
+                        f"Sur le plan architectural, il illustre avec majesté : {target_monument.style_architectural}. "
+                        f"Comme le racontent les anciens sous le clair de lune : {target_monument.secrets_et_mysteres}\n\n"
+                        f"Ce lieu compte profondément pour notre nation : {target_monument.pourquoi_ce_lieu_compte}"
+                    )
+                elif matched_item_name:
+                    corps = f"Concernant {matched_item_name} :\n\n{facts_text}"
+                else:
+                    corps = (
+                        "Le Mali est le berceau des grands bâtisseurs et des poètes de la parole. "
+                        "De la Charte de Kouroukan Fouga (1236) aux monuments de Bamako et aux merveilles de Djenné et Tombouctou, "
+                        "notre patrimoine est une source inépuisable de fierté et de concorde."
+                    )
 
-            if not matched_nom:
                 outro_list = [
                     "Quelle autre merveille de notre terre souhaites-tu explorer avec moi ?",
                     "La parole est comme l'eau du fleuve, elle fertilise l'esprit de qui sait écouter. Pose-moi une autre question quand tu le désires !",
@@ -1269,11 +1270,11 @@ class CultureService:
     @staticmethod
     def get_noms(
         db: Session,
-        type: Optional[str] = None,
-        query: Optional[str] = None,
+        type: str | None = None,
+        query: str | None = None,
         skip: int = 0,
         limit: int = 50,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Récupère le catalogue des patronymes et prénoms traditionnels du Mali."""
         q = db.query(CultureNom)
         if type:
@@ -1293,7 +1294,7 @@ class CultureService:
         return [_serialize_culture_nom(n) for n in noms]
 
     @staticmethod
-    def get_nom_by_id_or_exact_name(db: Session, identifier: str) -> Optional[Dict[str, Any]]:
+    def get_nom_by_id_or_exact_name(db: Session, identifier: str) -> dict[str, Any] | None:
         """Récupère la fiche détaillée d'un patronyme ou prénom par son identifiant ou libellé exact."""
         clean = identifier.strip()
         norm = _normalize_text(clean)
@@ -1309,7 +1310,7 @@ class CultureService:
         return _serialize_culture_nom(nom) if nom else None
 
     @staticmethod
-    def find_culture_nom_by_keyword(db: Session, query: str) -> Optional[CultureNom]:
+    def find_culture_nom_by_keyword(db: Session, query: str) -> CultureNom | None:
         """
         Détection et extraction haute précision d'un patronyme ou prénom malien dans un texte libre.
         Gère les minuscules, les accents et les variantes orthographiques courantes.
@@ -1328,10 +1329,8 @@ class CultureService:
 
         # 2. Correspondance sur sous-chaîne avec validation de frontière
         for n in all_noms:
-            if n.nom_normalise in norm_q:
-                # Éviter les faux positifs sur les noms très courts
-                if len(n.nom_normalise) >= 5 or any(w == n.nom_normalise for w in words):
-                    return n
+            if n.nom_normalise in norm_q and (len(n.nom_normalise) >= 5 or any(w == n.nom_normalise for w in words)):
+                return n
 
         # 3. Correspondance sur variantes orthographiques (JSON)
         for n in all_noms:
@@ -1341,8 +1340,8 @@ class CultureService:
                     v_norm = _normalize_text(v)
                     if v_norm in words or (len(v_norm) >= 5 and v_norm in norm_q):
                         return n
-            except Exception:
-                pass
+            except (ValueError, TypeError):
+                continue
 
         return None
 
@@ -1350,9 +1349,9 @@ class CultureService:
     def chat_grandmere_mah(
         db: Session,
         user_message: str,
-        history: Optional[List[Dict[str, str]]] = None,
-        additional_context: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        history: list[dict[str, str]] | None = None,
+        additional_context: str | None = None,
+    ) -> dict[str, Any]:
         """
         Logique métier complète du Chat avec Grand-mère Mah sous le grand baobab au coin du feu.
         Interroge directement la base de données pour les vrais sens des noms, prénoms,
@@ -1542,7 +1541,7 @@ class CultureService:
             if contrib.donnees_supplementaires_json:
                 try:
                     extra = json.loads(contrib.donnees_supplementaires_json)
-                except Exception:
+                except (ValueError, TypeError):
                     extra = {}
 
             # A. Proverbes et Devinettes
@@ -1696,25 +1695,48 @@ class CultureService:
                     )
                     db.add(new_nom)
 
-            # 2. Crédit de récompense dans le Portefeuille si auteur_id présent
-            if contrib.auteur_id:
+            # 2. Crédit de récompense dans le Portefeuille et XP de l'auteur
+            target_author = (contrib.auteur_id or contrib.auteur_nom or "").strip()
+            if target_author:
+                apprenant = None
                 try:
-                    from backend.src.db.models import Portefeuille, TransactionPiece
-                    portefeuille = db.query(Portefeuille).filter(Portefeuille.apprenant_id == contrib.auteur_id).first()
-                    if portefeuille:
-                        portefeuille.solde_pieces += contrib.pieces_attribuees
-                        portefeuille.date_mise_a_jour = datetime.now(UTC)
-                        tx = TransactionPiece(
-                            portefeuille_id=portefeuille.id,
-                            apprenant_id=contrib.auteur_id,
-                            montant=contrib.pieces_attribuees,
-                            type_transaction="gain_culture",
-                            description=f"Contribution validée ({contrib.type_contenu})",
-                            solde_apres=portefeuille.solde_pieces,
+                    from backend.src.db.models import Apprenant
+                    apprenant = (
+                        db.query(Apprenant)
+                        .filter(
+                            (Apprenant.id == target_author)
+                            | (Apprenant.nom.ilike(f"%{target_author}%"))
+                            | (Apprenant.prenom.ilike(f"%{target_author}%"))
                         )
-                        db.add(tx)
-                except Exception as rew_err:
-                    logger.warning(f"Note attribution récompense contribution: {rew_err}")
+                        .first()
+                    )
+                except Exception as ap_err:  # noqa: BLE001
+                    logger.warning(f"Note recherche apprenant pour récompense: {ap_err}")
+
+                reward_amount = contrib.pieces_attribuees or 25
+                target_ids = {target_author}
+                if apprenant:
+                    target_ids.add(apprenant.id)
+                    if apprenant.nom:
+                        target_ids.add(apprenant.nom)
+
+                try:
+                    from backend.src.services.wallet_service import credit_coins
+                    for uid in target_ids:
+                        credit_coins(
+                            db=db,
+                            student_id=uid,
+                            amount=reward_amount,
+                            origine="CONTRIBUTION_CULTURE",
+                            description=f"Contribution culturelle validée ({contrib.type_contenu})",
+                            idempotency_key=f"contrib_reward_{contrib.id}_{uid}",
+                            metadata={"contribution_id": contrib.id, "type_contenu": contrib.type_contenu},
+                        )
+                except Exception as rew_err:  # noqa: BLE001
+                    logger.warning(f"Note attribution récompense pièces contribution: {rew_err}")
+
+                # L'XP de culture (50 XP) est comptabilisé directement via la contribution approuvée
+                pass
         db.commit()
         db.refresh(contrib)
         logger.info(f"Contribution {contrib.id} modérée avec statut : {decision_clean}")
@@ -1739,15 +1761,15 @@ class CultureService:
             lies = []
             try:
                 faits = json.loads(p.faits_marquants_json) if p.faits_marquants_json else []
-            except Exception:
+            except (ValueError, TypeError):
                 faits = []
             try:
                 chapitres = json.loads(p.chapitres_json) if p.chapitres_json else []
-            except Exception:
+            except (ValueError, TypeError):
                 chapitres = []
             try:
                 lies = json.loads(p.elements_lies_json) if p.elements_lies_json else []
-            except Exception:
+            except (ValueError, TypeError):
                 lies = []
 
             items.append({
@@ -1802,11 +1824,11 @@ class CultureService:
             lies = []
             try:
                 chapitres = json.loads(l.chapitres_json) if l.chapitres_json else []
-            except Exception:
+            except (ValueError, TypeError):
                 chapitres = []
             try:
                 lies = json.loads(l.elements_lies_json) if l.elements_lies_json else []
-            except Exception:
+            except (ValueError, TypeError):
                 lies = []
 
             items.append({
@@ -1837,11 +1859,11 @@ class CultureService:
             lies = []
             try:
                 scenes = json.loads(c.scenes_json) if c.scenes_json else []
-            except Exception:
+            except (ValueError, TypeError):
                 scenes = []
             try:
                 lies = json.loads(c.elements_lies_json) if c.elements_lies_json else []
-            except Exception:
+            except (ValueError, TypeError):
                 lies = []
 
             items.append({

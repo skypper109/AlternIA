@@ -6,12 +6,12 @@ attribue les pièces automatiquement dans le portefeuille unique,
 et établit le classement national en temps réel.
 """
 
-from datetime import UTC, datetime, timedelta
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime, timedelta
+from typing import Any
+
 from sqlalchemy.orm import Session
-from sqlalchemy import desc
 
 from backend.src.db.models import (
     DefiNational,
@@ -209,15 +209,14 @@ RIVAUX_MALI_FICTIFS = [
 
 def get_adversaire_fictif_pour_defi(
     defi_id: str,
-    classe: Optional[str] = None,
+    classe: str | None = None,
     total_questions: int = 5,
-    seed_str: Optional[str] = None,
-) -> Dict[str, Any]:
+    seed_str: str | None = None,
+) -> dict[str, Any]:
     """
     Génère un rival lycéen malien certifié (style SoloLearn).
     Permet à l'élève d'affronter instantanément un camarade sans attendre d'autres personnes en ligne.
     """
-    import random
     
     # Filtrer par classe si possible
     candidates = RIVAUX_MALI_FICTIFS
@@ -292,7 +291,7 @@ def init_defis_nationaux_si_besoin(db: Session):
     db.commit()
 
 
-def get_defis_actifs(db: Session, classe: Optional[str] = None, periode: Optional[str] = None) -> List[Dict[str, Any]]:
+def get_defis_actifs(db: Session, classe: str | None = None, periode: str | None = None) -> list[dict[str, Any]]:
     """
     Retourne les défis nationaux ouverts avec questions épurées des réponses correctes.
     Chaque défi est instantanément appairé avec un rival lycéen malien certifié (style SoloLearn)
@@ -372,12 +371,12 @@ def soumettre_reponses_defi(
     apprenant_id: str,
     apprenant_nom: str,
     apprenant_classe: str,
-    reponses: Dict[str, int],  # { "q1": 0, "q2": 1 }
+    reponses: dict[str, int],  # { "q1": 0, "q2": 1 }
     temps_ecoule_sec: int,
-    adversaire_nom: Optional[str] = None,
-    adversaire_score: Optional[int] = None,
-    adversaire_temps_sec: Optional[int] = None,
-) -> Dict[str, Any]:
+    adversaire_nom: str | None = None,
+    adversaire_score: int | None = None,
+    adversaire_temps_sec: int | None = None,
+) -> dict[str, Any]:
     """
     Validation serveur des réponses d'un Défi National :
     1. Calcule le score réel strictement côté serveur.
@@ -414,7 +413,7 @@ def soumettre_reponses_defi(
             "explication": q.get("explanation"),
         })
 
-    pourcentage = int((score / total_questions * 100)) if total_questions > 0 else 0
+    pourcentage = int(score / total_questions * 100) if total_questions > 0 else 0
 
     # Établissement du rival malien (style SoloLearn)
     rival_ref = get_adversaire_fictif_pour_defi(
@@ -550,7 +549,7 @@ def soumettre_reponses_defi(
     }
 
 
-def get_classement_defi(db: Session, defi_id: str, limit: int = 50) -> List[Dict[str, Any]]:
+def get_classement_defi(db: Session, defi_id: str, limit: int = 50) -> list[dict[str, Any]]:
     """Retourne le classement officiel d'une session de Défi National."""
     participations = (
         db.query(ParticipationDefiNational)

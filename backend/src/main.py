@@ -12,7 +12,7 @@ if sys.platform == "win32":
         reconf_err = getattr(sys.stderr, "reconfigure", None)
         if callable(reconf_err):
             reconf_err(encoding="utf-8", errors="replace")
-    except Exception:
+    except (OSError, ValueError, AttributeError):
         pass
 
 # Résolution automatique des chemins racine et ai-engine
@@ -24,47 +24,48 @@ for p in (ROOT_DIR, AI_ENGINE_DIR):
         sys.path.insert(0, str(p))
 
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, RedirectResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
 
 from alternia.config.settings import PROJECT_ROOT, settings
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
+
 from backend.src.db.database import init_db
-from backend.src.services.orchestrator_service import get_orchestrator, normalize_student_class
 from backend.src.routes import (
+    abonnement_router,
+    admin_finance_router,
+    admin_router,
     alertes_router,
     apprenants_router,
     auth_router,
     avatars_router,
     boitiers_router,
     chat_router,
-    device_router,
-    insights_router,
-    parent_router,
-    rapports_router,
-    revision_router,
-    vocal_router,
-    esp32_router,
     culture_router,
+    defi_national_router,
+    device_router,
     duel_router,
-    podcast_router,
-    sync_router,
+    esp32_router,
     flashcard_router,
     grin_router,
-    wallet_router,
-    retrait_router,
+    insights_router,
+    parent_router,
     parrainage_router,
-    abonnement_router,
-    defi_national_router,
-    admin_finance_router,
-    admin_router,
+    podcast_router,
+    rapports_router,
+    retrait_router,
+    revision_router,
+    sync_router,
+    vocal_router,
+    wallet_router,
+)
+from backend.src.services.orchestrator_service import (
+    get_orchestrator,
+    normalize_student_class,
 )
 
-
-
-from backend.src.routes.esp32_routes import manager as esp32_manager
-from backend.src.middlewares.esp32_access_middleware import ESP32AccessControlMiddleware
+__all__ = ["app", "get_orchestrator", "normalize_student_class"]
 
 
 @asynccontextmanager
@@ -72,11 +73,11 @@ async def lifespan(app: FastAPI):
     """Initialise la base de données alta_db et précharge les moteurs au démarrage."""
     try:
         init_db()
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         print(f"[DB Init Warning] {e}")
     try:
         get_orchestrator()
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         print(f"[Startup Warning] Le préchargement immédiat a échoué: {e}")
     yield
 

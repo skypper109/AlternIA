@@ -52,6 +52,8 @@ def test_tts_play_system_speech(monkeypatch):
         called_cmd.append(cmd)
         return DummyProcess()
 
+    monkeypatch.setattr(tts, "system", "Linux")
+    monkeypatch.setattr("shutil.which", lambda _: "/usr/bin/espeak")
     monkeypatch.setattr("subprocess.Popen", dummy_popen)
     tts._play_system_speech("Bonjour le Mali !")
     assert len(called_cmd) == 1

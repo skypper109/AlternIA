@@ -448,6 +448,7 @@ def get_cultural_contribution_detail(
 
 
 @router.post("/contributions/{contribution_id}/decision")
+@router.post("/contributions/{contribution_id}/moderate")
 def moderate_cultural_contribution(
     contribution_id: str,
     payload: ContributionDecisionRequest,

@@ -101,7 +101,7 @@ class ContextBuilder:
                 }
 
                 allowed_subj = subject_compatibility.get(subj_norm, {subj_norm, "sciences", "francais", "autre", ""})
-                if result_subject and result_subject not in allowed_subj and float(getattr(result, "score", 0.0)) < 0.60:
+                if result_subject and result_subject not in allowed_subj:
                     continue
 
             score = float(

@@ -31,33 +31,16 @@ def get_or_create_wallet(db: Session, student_id: str) -> Portefeuille:
         wallet = Portefeuille(
             id=generate_uuid(),
             apprenant_id=student_id,
-            solde_pieces=240,  # Solde d'accueil initial
+            solde_pieces=0,  # Solde initial à 0 pour tout nouveau compte
             pieces_reservees=0,
             pieces_retirees_total=0,
-            argent_total_gagne_fcfa=480,
+            argent_total_gagne_fcfa=0,
             date_creation=_utc_now(),
             date_mise_a_jour=_utc_now(),
         )
         db.add(wallet)
         db.commit()
         db.refresh(wallet)
-
-        # Enregistrer la transaction initiale de bienvenue
-        init_tx = TransactionPiece(
-            id=generate_uuid(),
-            portefeuille_id=wallet.id,
-            apprenant_id=student_id,
-            montant=240,
-            type_operation="CREDIT",
-            origine="BONUS_FIDELITE",
-            idempotency_key=f"welcome_bonus_{student_id}",
-            description="Bonus initial de bienvenue AlterniA",
-            solde_apres=240,
-            metadonnees_json=json.dumps({"reason": "welcome_account_creation"}),
-            date_creation=_utc_now(),
-        )
-        db.add(init_tx)
-        db.commit()
     return wallet
 
 
@@ -230,9 +213,30 @@ def get_wallet_summary(db: Session, student_id: str) -> Dict[str, Any]:
     valeur_fcfa = solde_dispo * TAUX_CONVERSION_PIECE_FCFA
     reserve_fcfa = wallet.pieces_reservees * TAUX_CONVERSION_PIECE_FCFA
 
+    # Séparation stricte des pièces Éducation vs Culture selon l'origine des transactions
+    txs = db.query(TransactionPiece).filter(TransactionPiece.apprenant_id == student_id).all()
+    solde_culture = sum(
+        t.montant
+        for t in txs
+        if t.origine and "CULTURE" in t.origine.upper()
+    )
+    solde_culture = max(0, min(solde_dispo, solde_culture))
+    solde_education = max(0, solde_dispo - solde_culture)
+
+    valeur_education_fcfa = solde_education * TAUX_CONVERSION_PIECE_FCFA
+    valeur_culture_fcfa = solde_culture * TAUX_CONVERSION_PIECE_FCFA
+
     return {
         "solde_pieces": solde_dispo,
         "solde_pieces_label": f"{solde_dispo:,}".replace(",", " "),
+        "solde_education": solde_education,
+        "solde_education_label": f"{solde_education:,}".replace(",", " "),
+        "valeur_education_fcfa": valeur_education_fcfa,
+        "valeur_education_fcfa_label": f"{valeur_education_fcfa:,} FCFA".replace(",", " "),
+        "solde_culture": solde_culture,
+        "solde_culture_label": f"{solde_culture:,}".replace(",", " "),
+        "valeur_culture_fcfa": valeur_culture_fcfa,
+        "valeur_culture_fcfa_label": f"{valeur_culture_fcfa:,} FCFA".replace(",", " "),
         "valeur_fcfa": valeur_fcfa,
         "valeur_fcfa_label": f"{valeur_fcfa:,} FCFA".replace(",", " "),
         "pieces_reservees": wallet.pieces_reservees,

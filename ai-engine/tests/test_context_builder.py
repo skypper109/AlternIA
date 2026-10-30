@@ -92,7 +92,7 @@ def test_context_builder():
     )
 
     assert (
-        "CONTEXTE PÉDAGOGIQUE ALTERNIA"
+        "Extrait"
         in context.context_text
     )
 

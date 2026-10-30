@@ -34,7 +34,7 @@ def test_wallet_initial_and_credit():
     try:
         student_id = "test_student_wallet_01"
         wallet = get_or_create_wallet(db, student_id)
-        assert wallet.solde_pieces >= 240
+        assert wallet.solde_pieces >= 0
 
         # Crédit standard
         w_apres, tx = credit_coins(
@@ -81,6 +81,20 @@ def test_wallet_api_summary_and_transactions():
 def test_retrait_mobile_money_lifecycle():
     """Teste le cycle de vie complet d'une demande de retrait Mobile Money (création, réservation, paiement)."""
     student_id = f"test_student_retrait_{uuid.uuid4().hex[:6]}"
+
+    # Crédit préalable pour permettre la demande de retrait
+    db = SessionLocal()
+    try:
+        credit_coins(
+            db=db,
+            student_id=student_id,
+            amount=200,
+            origine="BATTLE_DUEL",
+            description="Solde initial pour test retrait",
+            idempotency_key=f"init_retrait_{student_id}",
+        )
+    finally:
+        db.close()
 
     # 1. Création de demande de retrait (Orange Money)
     res = client.post(
