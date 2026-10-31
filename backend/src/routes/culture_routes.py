@@ -528,7 +528,7 @@ def create_cms_item(payload: dict[str, Any], db: Session = Depends(get_db)):
             date_mise_a_jour=datetime.now(timezone.utc).replace(tzinfo=None),
         )
         db.add(obj)
-    elif item_type == "personnage":
+    elif item_type in ("personnage", "figure"):
         obj = CulturePersonnage(
             id=item_id,
             nom=str(payload.get("nom", "Nouvelle Figure")),
